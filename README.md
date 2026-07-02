@@ -17,20 +17,24 @@ pip install xarray cfgrib netCDF4 numpy
 | DS3 | GRIB2 | Monthly surface data |
 | DS4 | NetCDF | Sea surface temperature (SST) |
 
+## Data Folder Structure
+
+Your data folder should contain these subfolders:
+
+```
+your_data_folder/
+    1_NAFP_ART_ATM_GLB_MONTH_PROD/
+    2_NAFP_ART_SFC_GLB_DAY_PROD/
+    3_NAFP_ART_SFC_GLB_MONTH_PROD/
+    4_OCEA_FUS_DAY_PRO/
+```
+
 ## Usage
 
 ### Extract all datasets at once
 
-Replace `YOUR_DATA_PATH` with the folder that contains the 1_NAFP, 2_NAFP, 3_NAFP, 4_OCEA subfolders.
-
 ```bash
-python saudi_data_extract.py all YOUR_DATA_PATH
-```
-
-Example:
-```bash
-python saudi_data_extract.py all E:\Data\Datas
-python saudi_data_extract.py all D:\CMA\samples
+python saudi_data_extract.py all /path/to/your/data/folder
 ```
 
 ### Extract a single GRIB2 file
@@ -45,7 +49,7 @@ python saudi_data_extract.py yourfile.grib2
 python saudi_data_extract.py yourfile.nc
 ```
 
-### Run demo (generates synthetic test data)
+### Run demo (generates synthetic test data, no real data needed)
 
 ```bash
 python saudi_data_extract.py demo
@@ -53,7 +57,7 @@ python saudi_data_extract.py demo
 
 ## Output
 
-All extracted files are saved to `output_saudi/` folder:
+All extracted files are saved to `output_saudi/` in the current directory:
 
 ```
 output_saudi/
@@ -63,7 +67,7 @@ output_saudi/
     saudi_sst_20250601_0000.nc
 ```
 
-Original 4GB global data is reduced to ~15MB for the Saudi Arabia region.
+Original global data (~4GB) is reduced to ~15MB for the Saudi Arabia region.
 
 ## Load extracted data in Python
 
