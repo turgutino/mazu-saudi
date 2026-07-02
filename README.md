@@ -21,8 +21,16 @@ pip install xarray cfgrib netCDF4 numpy
 
 ### Extract all datasets at once
 
+Replace `YOUR_DATA_PATH` with the folder that contains the 1_NAFP, 2_NAFP, 3_NAFP, 4_OCEA subfolders.
+
+```bash
+python saudi_data_extract.py all YOUR_DATA_PATH
+```
+
+Example:
 ```bash
 python saudi_data_extract.py all E:\Data\Datas
+python saudi_data_extract.py all D:\CMA\samples
 ```
 
 ### Extract a single GRIB2 file
