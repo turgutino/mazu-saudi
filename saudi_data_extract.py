@@ -1,7 +1,4 @@
 # =============================================================================
-# CMA Dataset Extraction — Saudi Arabia Region
-# Lat: 16-32°N, Lon: 34-56°E
-# Author: Turgut (MAZU Competition 2026)
 # Requirements: pip install xarray cfgrib netCDF4 numpy
 # =============================================================================
 
