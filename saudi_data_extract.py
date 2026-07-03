@@ -295,7 +295,7 @@ def merge_cfgrib_groups(datasets):
     if len(clipped) == 1:
         return clipped[0]
     xr = require_xarray()
-    return xr.merge(clipped, compat="override")
+    return xr.merge(clipped, compat="override", join="outer")
 
 
 def open_all_cfgrib_groups(grib_file_path):

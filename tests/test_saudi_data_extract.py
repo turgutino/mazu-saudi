@@ -21,6 +21,7 @@ from saudi_data_extract import (
     find_hdf5_lat_lon_datasets,
     infer_dataset_id,
     is_metadata_path,
+    merge_cfgrib_groups,
     open_all_cfgrib_groups,
     safe_output_name,
     track_intersects_bbox,
@@ -142,6 +143,15 @@ class FakeEmptyXarray:
         return FakeDataset({})
 
 
+class FakeMergeXarray:
+    def __init__(self):
+        self.merge_kwargs = None
+
+    def merge(self, datasets, **kwargs):
+        self.merge_kwargs = kwargs
+        return list(datasets)
+
+
 class GridClippingTests(unittest.TestCase):
     def test_detect_lat_lon_names_accepts_common_coordinate_names(self):
         ds = FakeDataset({"latitude": [32, 16], "longitude": [34, 56]})
@@ -220,6 +230,32 @@ class GridClippingTests(unittest.TestCase):
 
         self.assertEqual(result, ["group"])
         self.assertEqual(captured, [])
+
+    def test_merge_cfgrib_groups_sets_join_outer_for_mismatched_group_coords(self):
+        fake_xarray = FakeMergeXarray()
+        groups = [
+            FakeDataset(
+                {
+                    "pressureFromGroundLayer": [10.0],
+                    "latitude": [32.0, 16.0],
+                    "longitude": [34.0, 56.0],
+                }
+            ),
+            FakeDataset(
+                {
+                    "pressureFromGroundLayer": [20.0],
+                    "latitude": [32.0, 16.0],
+                    "longitude": [34.0, 56.0],
+                }
+            ),
+        ]
+
+        with patch("saudi_data_extract.require_xarray", return_value=fake_xarray):
+            result = merge_cfgrib_groups(groups)
+
+        self.assertEqual(result, groups)
+        self.assertEqual(fake_xarray.merge_kwargs["compat"], "override")
+        self.assertEqual(fake_xarray.merge_kwargs["join"], "outer")
 
 
 class Hdf5ExtractionTests(unittest.TestCase):
