@@ -12,7 +12,9 @@
 - [x] 阅读现有 `saudi_data_extract.py` 并识别可复用逻辑
 - [x] 设计新版脚本的模块结构、命令行参数和输出布局
 - [x] 规划测试策略与小样本验证方式
-- [ ] 等用户确认后进入实现
+- [x] 等用户确认后进入实现
+- [x] 实现路径工具、数据发现、网格裁剪、DS10 HDF5、DS11 轨迹过滤和批处理 CLI
+- [x] 使用 conda `ml` 环境完成单元测试与真实数据 smoke test
 
 ## 阶段划分
 
@@ -33,6 +35,14 @@
 列出文件修改、测试文件、样例命令、提交边界和验证命令。
 
 实现计划已保存到 `docs/plans/2026-07-03-saudi-data-extraction.md`。
+
+### 阶段 5：脚本实现
+
+已在 `codex-saudi-data-extraction` 分支实现新版 `saudi_data_extract.py`，并新增 `tests/test_saudi_data_extract.py`。
+
+### 阶段 6：真实数据烟测
+
+已对 `/Volumes/E/气象数据` 执行轻量 dry-run，并对 DS10、DS11 运行一文件 smoke test。
 
 ## 约束
 

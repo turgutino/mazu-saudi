@@ -40,6 +40,14 @@
   - DS10 `FYMERG_S_202509302330_E202509302359.h5`: 3,073,163 bytes
   - DS11 `track_99_0.txt`: 281 bytes
 - DS11 文本表头为 `Ini Fcst Lat Lon Vmax Pmin`，可按列名解析并过滤经纬度。
+- 真实 DS10 FYMERG HDF5 样例内部结构：
+  - `Pre_cal shape=(1, 3600, 1800) dtype=float32`
+  - `lat shape=(1, 1800) dtype=float32`
+  - `lon shape=(1, 3600) dtype=float32`
+- DS10 裁剪后 smoke test 输出范围：
+  - `lat`: 16.05 到 31.95，160 个格点
+  - `lon`: 34.05 到 55.95，220 个格点
+  - `Pre_cal`: `(1, 220, 160)`
 - 宽泛递归 `find` 会产生巨大输出，后续必须按具体目录使用 `-print -quit` 或小样例列表。
 
 ## 现有脚本发现

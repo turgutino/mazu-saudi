@@ -169,6 +169,23 @@ class Hdf5ExtractionTests(unittest.TestCase):
         np.testing.assert_array_equal(data["lon"], np.array([35.0, 45.0]))
         np.testing.assert_array_equal(data["precip"], np.array([[5, 6], [9, 10]]))
 
+    def test_extract_hdf5_grid_file_handles_fymerg_lon_lat_layout(self):
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "fymerg.h5"
+            output = Path(tmp) / "saudi_ds10_fymerg.npz"
+            with h5py.File(source, "w") as h5:
+                h5.create_dataset("lat", data=np.array([[10.0, 20.0, 24.0, 40.0]]))
+                h5.create_dataset("lon", data=np.array([[20.0, 35.0, 45.0, 70.0]]))
+                h5.create_dataset("Pre_cal", data=np.arange(16).reshape(1, 4, 4))
+
+            result = extract_hdf5_grid_file(source, output)
+            data = np.load(output)
+
+        self.assertEqual(result, output)
+        np.testing.assert_array_equal(data["lat"], np.array([20.0, 24.0]))
+        np.testing.assert_array_equal(data["lon"], np.array([35.0, 45.0]))
+        np.testing.assert_array_equal(data["Pre_cal"], np.array([[[5, 6], [9, 10]]]))
+
 
 class TrackExtractionTests(unittest.TestCase):
     def test_track_intersects_bbox_detects_saudi_point(self):

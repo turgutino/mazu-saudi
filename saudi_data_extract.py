@@ -279,13 +279,21 @@ def find_hdf5_lat_lon_datasets(h5):
     lon_name = None
     for name, dataset in iter_hdf5_datasets(h5):
         simple = name.split("/")[-1].lower()
-        if simple in lat_aliases and len(dataset.shape) == 1 and lat_name is None:
+        if simple in lat_aliases and is_coordinate_shape(dataset.shape) and lat_name is None:
             lat_name = name
-        if simple in lon_aliases and len(dataset.shape) == 1 and lon_name is None:
+        if simple in lon_aliases and is_coordinate_shape(dataset.shape) and lon_name is None:
             lon_name = name
     if lat_name is None or lon_name is None:
         raise ValueError("Could not find 1D latitude/longitude datasets in HDF5 file")
     return lat_name, lon_name
+
+
+def is_coordinate_shape(shape):
+    return len(shape) == 1 or (len(shape) == 2 and 1 in shape)
+
+
+def read_hdf5_coord(dataset):
+    return np.asarray(dataset[...]).reshape(-1)
 
 
 def bbox_indices(values, min_value, max_value):
@@ -300,13 +308,25 @@ def npz_key(name):
     return name.split("/")[-1].replace(" ", "_")
 
 
+def crop_hdf5_data(data, lat_idx, lon_idx, lat_len, lon_len):
+    if data.shape[-2:] == (lat_len, lon_len):
+        data = np.take(data, lat_idx, axis=-2)
+        data = np.take(data, lon_idx, axis=-1)
+        return data
+    if data.shape[-2:] == (lon_len, lat_len):
+        data = np.take(data, lon_idx, axis=-2)
+        data = np.take(data, lat_idx, axis=-1)
+        return data
+    return None
+
+
 def extract_hdf5_grid_file(h5_file_path, output_path, bbox=SAUDI_BBOX):
     h5py = require_h5py()
     output_path = Path(output_path)
     with h5py.File(h5_file_path, "r") as h5:
         lat_name, lon_name = find_hdf5_lat_lon_datasets(h5)
-        lats = np.asarray(h5[lat_name][...])
-        lons = np.asarray(h5[lon_name][...])
+        lats = read_hdf5_coord(h5[lat_name])
+        lons = read_hdf5_coord(h5[lon_name])
         lat_idx, clipped_lats = bbox_indices(lats, bbox["lat_min"], bbox["lat_max"])
         lon_idx, clipped_lons = bbox_indices(lons, bbox["lon_min"], bbox["lon_max"])
         if lat_idx.size == 0 or lon_idx.size == 0:
@@ -322,11 +342,15 @@ def extract_hdf5_grid_file(h5_file_path, output_path, bbox=SAUDI_BBOX):
                 continue
             if len(dataset.shape) < 2:
                 continue
-            if dataset.shape[-2:] != (len(lats), len(lons)):
+            if dataset.shape[-2:] not in {
+                (len(lats), len(lons)),
+                (len(lons), len(lats)),
+            }:
                 continue
             data = np.asarray(dataset[...])
-            data = np.take(data, lat_idx, axis=-2)
-            data = np.take(data, lon_idx, axis=-1)
+            data = crop_hdf5_data(data, lat_idx, lon_idx, len(lats), len(lons))
+            if data is None:
+                continue
             output[npz_key(name)] = data
 
     ensure_output_dir(output_path.parent)
