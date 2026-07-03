@@ -1,6 +1,7 @@
 import unittest
 import subprocess
 import sys
+import types
 from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -130,6 +131,15 @@ class FakeXarray:
         return FakeDataset({"latitude": [32.0, 16.0], "longitude": [34.0, 56.0]})
 
 
+class FakeEmptyXarray:
+    def __init__(self):
+        self.backend_kwargs = None
+
+    def open_dataset(self, *args, **kwargs):
+        self.backend_kwargs = kwargs.get("backend_kwargs")
+        return FakeDataset({})
+
+
 class GridClippingTests(unittest.TestCase):
     def test_detect_lat_lon_names_accepts_common_coordinate_names(self):
         ds = FakeDataset({"latitude": [32, 16], "longitude": [34, 56]})
@@ -168,6 +178,28 @@ class GridClippingTests(unittest.TestCase):
             fake_xarray.backend_kwargs["filter_by_keys"],
             {"typeOfLevel": "surface"},
         )
+
+    def test_extract_grib2_file_falls_back_to_all_cfgrib_groups_when_filter_is_empty(self):
+        fake_xarray = FakeEmptyXarray()
+        fallback_dataset = FakeDataset(
+            {"heightAboveGround": [2.0], "latitude": [32.0, 16.0], "longitude": [34.0, 56.0]}
+        )
+        fake_cfgrib = types.SimpleNamespace(
+            open_datasets=lambda *args, **kwargs: [fallback_dataset]
+        )
+
+        with TemporaryDirectory() as tmp, patch(
+            "saudi_data_extract.require_xarray", return_value=fake_xarray
+        ), patch.dict(sys.modules, {"cfgrib": fake_cfgrib}):
+            output = Path(tmp) / "out.nc"
+
+            result = extract_grib2_file("source.grib2", output, level_type="surface")
+            output_exists = output.exists()
+
+        self.assertEqual(result, output)
+        self.assertTrue(output_exists)
+        self.assertEqual(fake_xarray.backend_kwargs["filter_by_keys"], {"typeOfLevel": "surface"})
+        self.assertEqual(fallback_dataset.selector["latitude"], slice(32.0, 16.0))
 
 
 class Hdf5ExtractionTests(unittest.TestCase):

@@ -205,6 +205,14 @@ def detect_lat_lon_names(ds):
     return lat_name, lon_name
 
 
+def has_lat_lon_coords(ds):
+    try:
+        detect_lat_lon_names(ds)
+    except ValueError:
+        return False
+    return True
+
+
 def coord_values(coord):
     values = getattr(coord, "values", coord)
     if hasattr(values, "tolist"):
@@ -232,6 +240,72 @@ def clip_xarray_to_bbox(ds, bbox=SAUDI_BBOX):
     return ds.sel({lat_name: lat_slice, lon_name: lon_slice})
 
 
+def sanitize_name_part(value):
+    text = str(value).strip()
+    cleaned = "".join(ch if ch.isalnum() else "_" for ch in text)
+    cleaned = "_".join(part for part in cleaned.split("_") if part)
+    return cleaned or "group"
+
+
+def cfgrib_group_suffix(ds, fallback_index):
+    ignored = {"time", "step", "valid_time", "latitude", "longitude", "lat", "lon"}
+    for name in ds.coords:
+        if name in ignored:
+            continue
+        coord = ds.coords[name]
+        values = np.asarray(getattr(coord, "values", coord)).reshape(-1)
+        if values.size == 0:
+            return sanitize_name_part(name)
+        if values.size == 1:
+            return f"{sanitize_name_part(name)}_{sanitize_name_part(values[0])}"
+        return sanitize_name_part(name)
+    return f"group_{fallback_index}"
+
+
+def rename_conflicting_data_vars(ds, used_names, fallback_index):
+    mapping = {}
+    suffix = cfgrib_group_suffix(ds, fallback_index)
+    for name in getattr(ds, "data_vars", {}):
+        candidate = name
+        if candidate in used_names:
+            candidate = f"{name}_{suffix}"
+            counter = 2
+            while candidate in used_names:
+                candidate = f"{name}_{suffix}_{counter}"
+                counter += 1
+            mapping[name] = candidate
+        used_names.add(candidate)
+    if mapping:
+        return ds.rename(mapping)
+    return ds
+
+
+def merge_cfgrib_groups(datasets):
+    clipped = []
+    used_names = set()
+    for index, ds in enumerate(datasets):
+        if not has_lat_lon_coords(ds):
+            continue
+        group = clip_xarray_to_bbox(ds)
+        group = rename_conflicting_data_vars(group, used_names, index)
+        clipped.append(group)
+    if not clipped:
+        raise ValueError("Could not detect latitude/longitude coordinates in any cfgrib group")
+    if len(clipped) == 1:
+        return clipped[0]
+    xr = require_xarray()
+    return xr.merge(clipped, compat="override")
+
+
+def open_all_cfgrib_groups(grib_file_path):
+    import cfgrib
+
+    return cfgrib.open_datasets(
+        grib_file_path,
+        backend_kwargs={"indexpath": ""},
+    )
+
+
 def extract_grib2_file(grib_file_path, output_path, level_type=None):
     xr = require_xarray()
     backend_kwargs = {"indexpath": ""}
@@ -242,13 +316,21 @@ def extract_grib2_file(grib_file_path, output_path, level_type=None):
         engine="cfgrib",
         backend_kwargs=backend_kwargs,
     )
+    groups = []
     try:
-        saudi = clip_xarray_to_bbox(ds)
+        if has_lat_lon_coords(ds):
+            saudi = clip_xarray_to_bbox(ds)
+        else:
+            ds.close()
+            groups = open_all_cfgrib_groups(grib_file_path)
+            saudi = merge_cfgrib_groups(groups)
         ensure_output_dir(Path(output_path).parent)
         saudi.to_netcdf(output_path)
         return Path(output_path)
     finally:
         ds.close()
+        for group in groups:
+            group.close()
 
 
 def extract_netcdf_file(nc_file_path, output_path):
