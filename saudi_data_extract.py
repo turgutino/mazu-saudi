@@ -154,39 +154,93 @@ def discover_track_files(root, start=None, end=None):
     return records
 
 
+def detect_lat_lon_names(ds):
+    coord_names = list(ds.coords)
+    lat_name = next(
+        (name for name in coord_names if name.lower() in {"lat", "latitude"}),
+        None,
+    )
+    lon_name = next(
+        (name for name in coord_names if name.lower() in {"lon", "longitude"}),
+        None,
+    )
+    if lat_name is None or lon_name is None:
+        raise ValueError(f"Could not detect latitude/longitude coordinates: {coord_names}")
+    return lat_name, lon_name
+
+
+def coord_values(coord):
+    values = getattr(coord, "values", coord)
+    if hasattr(values, "tolist"):
+        values = values.tolist()
+    return list(values)
+
+
+def coord_descending(coord):
+    values = coord_values(coord)
+    return len(values) >= 2 and values[0] > values[-1]
+
+
+def clip_xarray_to_bbox(ds, bbox=SAUDI_BBOX):
+    lat_name, lon_name = detect_lat_lon_names(ds)
+    lat_slice = (
+        slice(bbox["lat_max"], bbox["lat_min"])
+        if coord_descending(ds.coords[lat_name])
+        else slice(bbox["lat_min"], bbox["lat_max"])
+    )
+    lon_slice = (
+        slice(bbox["lon_max"], bbox["lon_min"])
+        if coord_descending(ds.coords[lon_name])
+        else slice(bbox["lon_min"], bbox["lon_max"])
+    )
+    return ds.sel({lat_name: lat_slice, lon_name: lon_slice})
+
+
+def extract_grib2_file(grib_file_path, output_path, level_type=None):
+    xr = require_xarray()
+    backend_kwargs = {}
+    if level_type:
+        backend_kwargs["filter_by_keys"] = {"typeOfLevel": level_type}
+    ds = xr.open_dataset(
+        grib_file_path,
+        engine="cfgrib",
+        backend_kwargs=backend_kwargs or None,
+    )
+    try:
+        saudi = clip_xarray_to_bbox(ds)
+        ensure_output_dir(Path(output_path).parent)
+        saudi.to_netcdf(output_path)
+        return Path(output_path)
+    finally:
+        ds.close()
+
+
+def extract_netcdf_file(nc_file_path, output_path):
+    xr = require_xarray()
+    ds = xr.open_dataset(nc_file_path, engine="netcdf4")
+    try:
+        saudi = clip_xarray_to_bbox(ds)
+        ensure_output_dir(Path(output_path).parent)
+        saudi.to_netcdf(output_path)
+        return Path(output_path)
+    finally:
+        ds.close()
+
+
 def extract_grib2(grib_file_path, output_name, level_type="surface"):
     """
     Extract Saudi Arabia region from GRIB2 file (DS1, DS2, DS3).
     level_type options: 'surface', 'atmosphere', 'isobaricInhPa', etc.
     """
-    xr = require_xarray()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     print(f"Opening: {os.path.basename(grib_file_path)}")
-    ds = xr.open_dataset(
-        grib_file_path,
-        engine="cfgrib",
-        backend_kwargs={"filter_by_keys": {"typeOfLevel": level_type}}
-    )
-
-    print(f"  Variables: {list(ds.data_vars)}")
-    print(f"  Full shape: {dict(ds.sizes)}")
-
-    # Latitude is descending (90 to -90) in CMA GRIB2
-    saudi = ds.sel(
-        latitude=slice(LAT_MAX, LAT_MIN),
-        longitude=slice(LON_MIN, LON_MAX)
-    )
-
-    print(f"  Saudi shape: {dict(saudi.sizes)}")
-
     out_file = os.path.join(OUTPUT_DIR, output_name)
-    saudi.to_netcdf(out_file)
+    extract_grib2_file(grib_file_path, out_file, level_type=level_type)
     size_mb = os.path.getsize(out_file) / 1024 / 1024
     print(f"  Saved: {out_file} ({size_mb:.1f} MB)")
 
-    ds.close()
-    return saudi
+    return out_file
 
 
 def extract_netcdf(nc_file_path, output_name):
@@ -194,33 +248,15 @@ def extract_netcdf(nc_file_path, output_name):
     Extract Saudi Arabia region from NetCDF file (DS4, DS5).
     Used for SST (Sea Surface Temperature) data.
     """
-    xr = require_xarray()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     print(f"Opening: {os.path.basename(nc_file_path)}")
-    ds = xr.open_dataset(nc_file_path, engine="netcdf4")
-
-    print(f"  Variables: {list(ds.data_vars)}")
-    print(f"  Full shape: {dict(ds.sizes)}")
-
-    # Auto-detect lat/lon coordinate names
-    lat_name = next((c for c in ds.coords if c.lower() in ["lat", "latitude"]), "lat")
-    lon_name = next((c for c in ds.coords if c.lower() in ["lon", "longitude"]), "lon")
-
-    # Try ascending order first, then descending
-    saudi = ds.sel({lat_name: slice(LAT_MIN, LAT_MAX), lon_name: slice(LON_MIN, LON_MAX)})
-    if saudi.sizes[lat_name] == 0:
-        saudi = ds.sel({lat_name: slice(LAT_MAX, LAT_MIN), lon_name: slice(LON_MIN, LON_MAX)})
-
-    print(f"  Saudi shape: {dict(saudi.sizes)}")
-
     out_file = os.path.join(OUTPUT_DIR, output_name)
-    saudi.to_netcdf(out_file)
+    extract_netcdf_file(nc_file_path, out_file)
     size_mb = os.path.getsize(out_file) / 1024 / 1024
     print(f"  Saved: {out_file} ({size_mb:.1f} MB)")
 
-    ds.close()
-    return saudi
+    return out_file
 
 
 def extract_all(data_root):

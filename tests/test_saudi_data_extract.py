@@ -4,7 +4,9 @@ from tempfile import TemporaryDirectory
 
 from saudi_data_extract import (
     SAUDI_BBOX,
+    clip_xarray_to_bbox,
     discover_files,
+    detect_lat_lon_names,
     infer_dataset_id,
     is_metadata_path,
     safe_output_name,
@@ -90,6 +92,41 @@ class DiscoveryTests(unittest.TestCase):
     def _touch(self, path):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("sample", encoding="utf-8")
+
+
+class FakeDataset:
+    def __init__(self, coords):
+        self.coords = coords
+        self.selector = None
+
+    def sel(self, selector):
+        self.selector = selector
+        return self
+
+
+class GridClippingTests(unittest.TestCase):
+    def test_detect_lat_lon_names_accepts_common_coordinate_names(self):
+        ds = FakeDataset({"latitude": [32, 16], "longitude": [34, 56]})
+
+        self.assertEqual(detect_lat_lon_names(ds), ("latitude", "longitude"))
+
+    def test_clip_xarray_to_bbox_uses_descending_latitude_slice(self):
+        ds = FakeDataset({"latitude": [90.0, 32.0, 16.0, -90.0], "longitude": [0.0, 34.0, 56.0]})
+
+        result = clip_xarray_to_bbox(ds)
+
+        self.assertIs(result, ds)
+        self.assertEqual(ds.selector["latitude"], slice(32.0, 16.0))
+        self.assertEqual(ds.selector["longitude"], slice(34.0, 56.0))
+
+    def test_clip_xarray_to_bbox_uses_ascending_latitude_slice(self):
+        ds = FakeDataset({"lat": [-90.0, 16.0, 32.0, 90.0], "lon": [0.0, 34.0, 56.0]})
+
+        result = clip_xarray_to_bbox(ds)
+
+        self.assertIs(result, ds)
+        self.assertEqual(ds.selector["lat"], slice(16.0, 32.0))
+        self.assertEqual(ds.selector["lon"], slice(34.0, 56.0))
 
 
 if __name__ == "__main__":
