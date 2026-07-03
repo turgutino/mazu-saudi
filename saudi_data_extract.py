@@ -24,6 +24,8 @@ DATASET_DIRS = {
     "11_TCGD_MON_GLB_PROD": "ds11",
 }
 
+DATASET_ROOTS = {dataset: dirname for dirname, dataset in DATASET_DIRS.items()}
+
 
 def require_xarray():
     try:
@@ -56,6 +58,100 @@ def safe_output_name(dataset_id, source_path, suffix=".nc"):
 def ensure_output_dir(path):
     Path(path).mkdir(parents=True, exist_ok=True)
     return Path(path)
+
+
+def normalize_datasets(datasets):
+    if datasets is None:
+        return {"ds1", "ds2", "ds3", "ds4", "ds10", "ds11"}
+    if isinstance(datasets, str):
+        return {item.strip() for item in datasets.split(",") if item.strip()}
+    return set(datasets)
+
+
+def period_in_range(period, start=None, end=None):
+    if start is not None and period < start:
+        return False
+    if end is not None and period > end:
+        return False
+    return True
+
+
+def iter_clean_children(path):
+    path = Path(path)
+    if not path.exists():
+        return
+    for child in sorted(path.iterdir()):
+        if not is_metadata_path(child):
+            yield child
+
+
+def discover_files(data_root, datasets=None, start=None, end=None):
+    selected = normalize_datasets(datasets)
+    root = Path(data_root)
+    records = []
+
+    if "ds1" in selected:
+        records.extend(discover_monthly_files(root, "ds1", ".grib2", start, end))
+    if "ds2" in selected:
+        records.extend(discover_daily_files(root, "ds2", ".grib2", start, end))
+    if "ds3" in selected:
+        records.extend(discover_monthly_files(root, "ds3", ".grib2", start, end))
+    if "ds4" in selected:
+        records.extend(discover_daily_files(root, "ds4", ".nc", start, end))
+    if "ds10" in selected:
+        records.extend(discover_monthly_files(root, "ds10", ".h5", start, end))
+    if "ds11" in selected:
+        records.extend(discover_track_files(root, start, end))
+
+    return records
+
+
+def discover_monthly_files(root, dataset_id, suffix, start=None, end=None):
+    dataset_root = root / DATASET_ROOTS[dataset_id]
+    records = []
+    for month_dir in iter_clean_children(dataset_root):
+        if not month_dir.is_dir():
+            continue
+        period = month_dir.name
+        if len(period) != 6 or not period.isdigit() or not period_in_range(period, start, end):
+            continue
+        for file_path in iter_clean_children(month_dir):
+            if file_path.is_file() and file_path.suffix.lower() == suffix:
+                records.append({"dataset": dataset_id, "path": file_path, "period": period})
+    return records
+
+
+def discover_daily_files(root, dataset_id, suffix, start=None, end=None):
+    dataset_root = root / DATASET_ROOTS[dataset_id]
+    records = []
+    for day_dir in iter_clean_children(dataset_root):
+        if not day_dir.is_dir():
+            continue
+        period = day_dir.name
+        if len(period) != 8 or not period.isdigit() or not period_in_range(period, start, end):
+            continue
+        for file_path in iter_clean_children(day_dir):
+            if file_path.is_file() and file_path.suffix.lower() == suffix:
+                records.append({"dataset": dataset_id, "path": file_path, "period": period})
+    return records
+
+
+def discover_track_files(root, start=None, end=None):
+    dataset_root = root / DATASET_ROOTS["ds11"]
+    records = []
+    for day_dir in iter_clean_children(dataset_root):
+        if not day_dir.is_dir():
+            continue
+        period = day_dir.name
+        if len(period) != 8 or not period.isdigit() or not period_in_range(period, start, end):
+            continue
+        for run_dir in iter_clean_children(day_dir):
+            if not run_dir.is_dir() or not run_dir.name.startswith("t"):
+                continue
+            for file_path in iter_clean_children(run_dir):
+                if file_path.is_file() and file_path.name.startswith("track_") and file_path.suffix == ".txt":
+                    records.append({"dataset": "ds11", "path": file_path, "period": period})
+    return records
 
 
 def extract_grib2(grib_file_path, output_name, level_type="surface"):
