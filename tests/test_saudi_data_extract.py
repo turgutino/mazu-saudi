@@ -2,6 +2,7 @@ import unittest
 import subprocess
 import sys
 import types
+import warnings
 from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -20,6 +21,7 @@ from saudi_data_extract import (
     find_hdf5_lat_lon_datasets,
     infer_dataset_id,
     is_metadata_path,
+    open_all_cfgrib_groups,
     safe_output_name,
     track_intersects_bbox,
 )
@@ -200,6 +202,24 @@ class GridClippingTests(unittest.TestCase):
         self.assertTrue(output_exists)
         self.assertEqual(fake_xarray.backend_kwargs["filter_by_keys"], {"typeOfLevel": "surface"})
         self.assertEqual(fallback_dataset.selector["latitude"], slice(32.0, 16.0))
+
+    def test_open_all_cfgrib_groups_suppresses_xarray_compat_future_warning(self):
+        def fake_open_datasets(*args, **kwargs):
+            warnings.warn(
+                "In a future version of xarray the default value for compat will change "
+                "from compat='no_conflicts' to compat='override'.",
+                FutureWarning,
+            )
+            return ["group"]
+
+        fake_cfgrib = types.SimpleNamespace(open_datasets=fake_open_datasets)
+
+        with patch.dict(sys.modules, {"cfgrib": fake_cfgrib}), warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            result = open_all_cfgrib_groups("source.grib2")
+
+        self.assertEqual(result, ["group"])
+        self.assertEqual(captured, [])
 
 
 class Hdf5ExtractionTests(unittest.TestCase):

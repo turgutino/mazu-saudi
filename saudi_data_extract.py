@@ -3,6 +3,7 @@ import argparse
 import csv
 import json
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -300,10 +301,16 @@ def merge_cfgrib_groups(datasets):
 def open_all_cfgrib_groups(grib_file_path):
     import cfgrib
 
-    return cfgrib.open_datasets(
-        grib_file_path,
-        backend_kwargs={"indexpath": ""},
-    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="In a future version of xarray the default value for compat will change*",
+            category=FutureWarning,
+        )
+        return cfgrib.open_datasets(
+            grib_file_path,
+            backend_kwargs={"indexpath": ""},
+        )
 
 
 def extract_grib2_file(grib_file_path, output_path, level_type=None):
