@@ -234,13 +234,13 @@ def clip_xarray_to_bbox(ds, bbox=SAUDI_BBOX):
 
 def extract_grib2_file(grib_file_path, output_path, level_type=None):
     xr = require_xarray()
-    backend_kwargs = {}
+    backend_kwargs = {"indexpath": ""}
     if level_type:
         backend_kwargs["filter_by_keys"] = {"typeOfLevel": level_type}
     ds = xr.open_dataset(
         grib_file_path,
         engine="cfgrib",
-        backend_kwargs=backend_kwargs or None,
+        backend_kwargs=backend_kwargs,
     )
     try:
         saudi = clip_xarray_to_bbox(ds)

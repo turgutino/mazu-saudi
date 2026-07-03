@@ -1,6 +1,7 @@
 import unittest
 import subprocess
 import sys
+from unittest.mock import patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -12,6 +13,7 @@ from saudi_data_extract import (
     clip_xarray_to_bbox,
     discover_files,
     detect_lat_lon_names,
+    extract_grib2_file,
     extract_hdf5_grid_file,
     extract_track_file,
     find_hdf5_lat_lon_datasets,
@@ -112,6 +114,21 @@ class FakeDataset:
         self.selector = selector
         return self
 
+    def to_netcdf(self, output_path):
+        Path(output_path).write_text("netcdf", encoding="utf-8")
+
+    def close(self):
+        pass
+
+
+class FakeXarray:
+    def __init__(self):
+        self.backend_kwargs = None
+
+    def open_dataset(self, *args, **kwargs):
+        self.backend_kwargs = kwargs.get("backend_kwargs")
+        return FakeDataset({"latitude": [32.0, 16.0], "longitude": [34.0, 56.0]})
+
 
 class GridClippingTests(unittest.TestCase):
     def test_detect_lat_lon_names_accepts_common_coordinate_names(self):
@@ -136,6 +153,21 @@ class GridClippingTests(unittest.TestCase):
         self.assertIs(result, ds)
         self.assertEqual(ds.selector["lat"], slice(16.0, 32.0))
         self.assertEqual(ds.selector["lon"], slice(34.0, 56.0))
+
+    def test_extract_grib2_file_disables_source_side_cfgrib_index(self):
+        fake_xarray = FakeXarray()
+        with TemporaryDirectory() as tmp, patch(
+            "saudi_data_extract.require_xarray", return_value=fake_xarray
+        ):
+            output = Path(tmp) / "out.nc"
+
+            extract_grib2_file("source.grib2", output, level_type="surface")
+
+        self.assertEqual(fake_xarray.backend_kwargs["indexpath"], "")
+        self.assertEqual(
+            fake_xarray.backend_kwargs["filter_by_keys"],
+            {"typeOfLevel": "surface"},
+        )
 
 
 class Hdf5ExtractionTests(unittest.TestCase):
