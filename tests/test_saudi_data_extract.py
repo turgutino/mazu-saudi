@@ -11,10 +11,12 @@ from saudi_data_extract import (
     discover_files,
     detect_lat_lon_names,
     extract_hdf5_grid_file,
+    extract_track_file,
     find_hdf5_lat_lon_datasets,
     infer_dataset_id,
     is_metadata_path,
     safe_output_name,
+    track_intersects_bbox,
 )
 
 
@@ -164,6 +166,50 @@ class Hdf5ExtractionTests(unittest.TestCase):
         np.testing.assert_array_equal(data["lat"], np.array([20.0, 24.0]))
         np.testing.assert_array_equal(data["lon"], np.array([35.0, 45.0]))
         np.testing.assert_array_equal(data["precip"], np.array([[5, 6], [9, 10]]))
+
+
+class TrackExtractionTests(unittest.TestCase):
+    def test_track_intersects_bbox_detects_saudi_point(self):
+        rows = [
+            {"Lat": "45.1", "Lon": "100.2"},
+            {"Lat": "24.5", "Lon": "45.8"},
+        ]
+
+        self.assertTrue(track_intersects_bbox(rows))
+
+    def test_extract_track_file_writes_only_saudi_rows(self):
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "track_1_0.txt"
+            output = Path(tmp) / "track_1_0_saudi.csv"
+            source.write_text(
+                "Ini\tFcst\tLat\tLon\tVmax\tPmin\n"
+                "2025100100\t60\t45.1\t100.2\t10.5\t1011.9\n"
+                "2025100100\t63\t24.5\t45.8\t11.0\t1013.3\n",
+                encoding="utf-8",
+            )
+
+            result = extract_track_file(source, output)
+            lines = output.read_text(encoding="utf-8").splitlines()
+
+        self.assertEqual(result, output)
+        self.assertEqual(lines[0], "Ini,Fcst,Lat,Lon,Vmax,Pmin,source_file")
+        self.assertEqual(lines[1], f"2025100100,63,24.5,45.8,11.0,1013.3,{source}")
+        self.assertEqual(len(lines), 2)
+
+    def test_extract_track_file_skips_when_no_saudi_rows(self):
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "track_2_0.txt"
+            output = Path(tmp) / "track_2_0_saudi.csv"
+            source.write_text(
+                "Ini\tFcst\tLat\tLon\tVmax\tPmin\n"
+                "2025100100\t60\t45.1\t100.2\t10.5\t1011.9\n",
+                encoding="utf-8",
+            )
+
+            result = extract_track_file(source, output)
+
+        self.assertIsNone(result)
+        self.assertFalse(output.exists())
 
 
 if __name__ == "__main__":

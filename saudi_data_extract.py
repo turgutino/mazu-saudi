@@ -1,4 +1,5 @@
 import os
+import csv
 from pathlib import Path
 
 import numpy as np
@@ -305,6 +306,62 @@ def extract_hdf5_grid_file(h5_file_path, output_path, bbox=SAUDI_BBOX):
 
     ensure_output_dir(output_path.parent)
     np.savez_compressed(output_path, **output)
+    return output_path
+
+
+def read_track_rows(track_file_path):
+    lines = [
+        line.strip()
+        for line in Path(track_file_path).read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    if not lines:
+        return [], []
+    fieldnames = lines[0].split()
+    rows = []
+    for line in lines[1:]:
+        values = line.split()
+        if len(values) != len(fieldnames):
+            continue
+        rows.append(dict(zip(fieldnames, values)))
+    return fieldnames, rows
+
+
+def row_in_bbox(row, bbox=SAUDI_BBOX):
+    try:
+        lat = float(row["Lat"])
+        lon = float(row["Lon"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return (
+        bbox["lat_min"] <= lat <= bbox["lat_max"]
+        and bbox["lon_min"] <= lon <= bbox["lon_max"]
+    )
+
+
+def track_intersects_bbox(rows, bbox=SAUDI_BBOX):
+    return any(row_in_bbox(row, bbox) for row in rows)
+
+
+def extract_track_file(track_file_path, output_path, bbox=SAUDI_BBOX, keep_empty=False):
+    fieldnames, rows = read_track_rows(track_file_path)
+    if "Lat" not in fieldnames or "Lon" not in fieldnames:
+        raise ValueError(f"Track file lacks Lat/Lon columns: {track_file_path}")
+
+    kept_rows = [row for row in rows if row_in_bbox(row, bbox)]
+    if not kept_rows and not keep_empty:
+        return None
+
+    output_path = Path(output_path)
+    ensure_output_dir(output_path.parent)
+    output_fields = fieldnames + ["source_file"]
+    with output_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=output_fields)
+        writer.writeheader()
+        for row in kept_rows:
+            output_row = dict(row)
+            output_row["source_file"] = str(track_file_path)
+            writer.writerow(output_row)
     return output_path
 
 
