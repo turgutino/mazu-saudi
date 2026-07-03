@@ -51,7 +51,7 @@
 10. 卫星反演天气数据
 11. 气象站报告天气情况数据
 
-当前脚本已实现 DS1-DS4 的沙特区域裁剪，其中 DS1-DS3 为 GRIB2 数据，DS4 为 NetCDF 海表温度数据。DS5-DS11 将作为后续多源融合、灾害标签构建和承灾体关联分析的数据扩展方向。
+当前脚本已实现 DS1-DS4 的沙特区域裁剪，并新增 DS10 卫星反演降水 HDF5 与 DS11 气象站/热带气旋轨迹文本的沙特区域提取能力。DS5-DS9 将作为后续多源融合、灾害标签构建和承灾体关联分析的数据扩展方向。
 
 ## Repository Structure
 
@@ -78,16 +78,19 @@
 | DS2 全球表面实况分析产品 - 逐日产品 | GRIB2 | 日尺度地表实况特征 |
 | DS3 全球表面实况分析产品 - 逐月产品 | GRIB2 | 月尺度气候背景与异常分析 |
 | DS4 全球海表温度实况融合分析产品 | NetCDF | 红海、波斯湾 SST 背景信号 |
+| DS10 卫星反演天气数据 | HDF5 | 高频卫星降水反演 |
+| DS11 气象站报告天气情况数据 | TXT | 轨迹点按沙特 bbox 过滤 |
 
 ## Installation
 
-建议使用 Python 3.10+ 环境。
+建议使用 Python 3.10+ 环境。本项目当前按 conda `ml` 环境执行：
 
 ```bash
-pip install xarray cfgrib netCDF4 numpy
+conda activate ml
+pip install xarray cfgrib netCDF4 h5py numpy
 ```
 
-GRIB2 读取依赖 `cfgrib` 和 ECMWF ecCodes。如果本机缺少 ecCodes，需要先按操作系统安装对应运行库。
+GRIB2 读取依赖 `cfgrib` 和 ECMWF ecCodes。如果本机缺少 ecCodes，需要先按操作系统安装对应运行库。DS11 文本轨迹过滤只依赖 Python 标准库；DS10 HDF5 提取需要 `h5py` 和 `numpy`。
 
 ## Usage
 
@@ -105,7 +108,44 @@ python saudi_data_extract.py demo
 output_saudi/saudi_sample_30days.npz
 ```
 
-### Extract all currently supported datasets
+### Discover supported files without extracting
+
+```bash
+python saudi_data_extract.py discover /Volumes/E/气象数据 \
+  --datasets ds1,ds2,ds3,ds4,ds10,ds11 \
+  --limit 3 \
+  --dry-run
+```
+
+### Batch extract supported datasets
+
+```bash
+python saudi_data_extract.py batch /Volumes/E/气象数据 \
+  --datasets ds1,ds2,ds3,ds4 \
+  --start 202501 \
+  --end 202512 \
+  --output output_saudi
+```
+
+```bash
+python saudi_data_extract.py batch /Volumes/E/气象数据 \
+  --datasets ds10 \
+  --start 202501 \
+  --end 202509 \
+  --output output_saudi
+```
+
+```bash
+python saudi_data_extract.py batch /Volumes/E/气象数据 \
+  --datasets ds11 \
+  --start 20251001 \
+  --end 20251031 \
+  --output output_saudi
+```
+
+批处理默认写入 `manifest.jsonl` 和 `errors.jsonl`，并跳过已存在输出文件。需要重跑时可以加 `--overwrite`。
+
+### Extract all legacy sample datasets
 
 ```bash
 python saudi_data_extract.py all /Volumes/E/气象数据
@@ -142,6 +182,10 @@ output_saudi/
 |-- saudi_ds2_surface_avg_20250601.nc
 |-- saudi_ds3_surface_avg_202506.nc
 |-- saudi_sst_20250601_0000.nc
+|-- ds10/
+|-- ds11/
+|-- manifest.jsonl
+|-- errors.jsonl
 `-- saudi_sample_30days.npz
 ```
 
@@ -188,3 +232,4 @@ print(float(precip_mm_day.max()))
 - 生成结果默认位于 `output_saudi/`，建议按实验批次归档。
 - 每次扩展新的数据产品时，应优先明确经纬度坐标、时间维度、变量单位和缺测值编码。
 - 每个新增数据源建议配套一个小样本验证流程，确保裁剪范围、坐标方向和输出变量正确。
+- 本仓库测试使用标准库 `unittest`，可在 conda `ml` 环境中运行：`python -m unittest discover -s tests -v`。

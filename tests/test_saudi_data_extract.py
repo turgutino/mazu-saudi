@@ -1,4 +1,6 @@
 import unittest
+import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -210,6 +212,83 @@ class TrackExtractionTests(unittest.TestCase):
 
         self.assertIsNone(result)
         self.assertFalse(output.exists())
+
+
+class CliTests(unittest.TestCase):
+    def test_discover_cli_dry_run_lists_files_without_outputs(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "data"
+            source = root / "10_SATE_PRECIPITATION_PRODUCT_2025/202501/sample.h5"
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text("sample", encoding="utf-8")
+            output_dir = Path(tmp) / "out"
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(__file__).parents[1] / "saudi_data_extract.py"),
+                    "discover",
+                    str(root),
+                    "--datasets",
+                    "ds10",
+                    "--limit",
+                    "1",
+                    "--dry-run",
+                    "--output",
+                    str(output_dir),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("sample.h5", result.stdout)
+        self.assertFalse(output_dir.exists())
+
+    def test_batch_cli_extracts_ds11_and_writes_manifest(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "data"
+            source = (
+                root
+                / "11_TCGD_MON_GLB_PROD/20251001/t00z.20251001/track_1_0.txt"
+            )
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text(
+                "Ini\tFcst\tLat\tLon\tVmax\tPmin\n"
+                "2025100100\t63\t24.5\t45.8\t11.0\t1013.3\n",
+                encoding="utf-8",
+            )
+            output_dir = Path(tmp) / "out"
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(__file__).parents[1] / "saudi_data_extract.py"),
+                    "batch",
+                    str(root),
+                    "--datasets",
+                    "ds11",
+                    "--start",
+                    "20251001",
+                    "--end",
+                    "20251001",
+                    "--output",
+                    str(output_dir),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            extracted = output_dir / "ds11/20251001/saudi_ds11_track_1_0.csv"
+            manifest = output_dir / "manifest.jsonl"
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(extracted.exists())
+            self.assertIn("24.5,45.8", extracted.read_text(encoding="utf-8"))
+            self.assertTrue(manifest.exists())
+            self.assertIn('"status": "extracted"', manifest.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

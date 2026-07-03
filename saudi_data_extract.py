@@ -1,5 +1,8 @@
 import os
+import argparse
 import csv
+import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -96,30 +99,42 @@ def iter_clean_children(path):
             yield child
 
 
-def discover_files(data_root, datasets=None, start=None, end=None):
+def discover_files(data_root, datasets=None, start=None, end=None, limit=None):
     selected = normalize_datasets(datasets)
     root = Path(data_root)
     records = []
 
     if "ds1" in selected:
-        records.extend(discover_monthly_files(root, "ds1", ".grib2", start, end))
+        records.extend(discover_monthly_files(root, "ds1", ".grib2", start, end, remaining_limit(limit, records)))
     if "ds2" in selected:
-        records.extend(discover_daily_files(root, "ds2", ".grib2", start, end))
+        records.extend(discover_daily_files(root, "ds2", ".grib2", start, end, remaining_limit(limit, records)))
     if "ds3" in selected:
-        records.extend(discover_monthly_files(root, "ds3", ".grib2", start, end))
+        records.extend(discover_monthly_files(root, "ds3", ".grib2", start, end, remaining_limit(limit, records)))
     if "ds4" in selected:
-        records.extend(discover_daily_files(root, "ds4", ".nc", start, end))
+        records.extend(discover_daily_files(root, "ds4", ".nc", start, end, remaining_limit(limit, records)))
     if "ds10" in selected:
-        records.extend(discover_monthly_files(root, "ds10", ".h5", start, end))
+        records.extend(discover_monthly_files(root, "ds10", ".h5", start, end, remaining_limit(limit, records)))
     if "ds11" in selected:
-        records.extend(discover_track_files(root, start, end))
+        records.extend(discover_track_files(root, start, end, remaining_limit(limit, records)))
 
     return records
 
 
-def discover_monthly_files(root, dataset_id, suffix, start=None, end=None):
+def remaining_limit(limit, records):
+    if limit is None:
+        return None
+    return max(limit - len(records), 0)
+
+
+def limit_reached(records, limit):
+    return limit is not None and len(records) >= limit
+
+
+def discover_monthly_files(root, dataset_id, suffix, start=None, end=None, limit=None):
     dataset_root = root / DATASET_ROOTS[dataset_id]
     records = []
+    if limit == 0:
+        return records
     for month_dir in iter_clean_children(dataset_root):
         if not month_dir.is_dir():
             continue
@@ -129,12 +144,16 @@ def discover_monthly_files(root, dataset_id, suffix, start=None, end=None):
         for file_path in iter_clean_children(month_dir):
             if file_path.is_file() and file_path.suffix.lower() == suffix:
                 records.append({"dataset": dataset_id, "path": file_path, "period": period})
+                if limit_reached(records, limit):
+                    return records
     return records
 
 
-def discover_daily_files(root, dataset_id, suffix, start=None, end=None):
+def discover_daily_files(root, dataset_id, suffix, start=None, end=None, limit=None):
     dataset_root = root / DATASET_ROOTS[dataset_id]
     records = []
+    if limit == 0:
+        return records
     for day_dir in iter_clean_children(dataset_root):
         if not day_dir.is_dir():
             continue
@@ -144,12 +163,16 @@ def discover_daily_files(root, dataset_id, suffix, start=None, end=None):
         for file_path in iter_clean_children(day_dir):
             if file_path.is_file() and file_path.suffix.lower() == suffix:
                 records.append({"dataset": dataset_id, "path": file_path, "period": period})
+                if limit_reached(records, limit):
+                    return records
     return records
 
 
-def discover_track_files(root, start=None, end=None):
+def discover_track_files(root, start=None, end=None, limit=None):
     dataset_root = root / DATASET_ROOTS["ds11"]
     records = []
+    if limit == 0:
+        return records
     for day_dir in iter_clean_children(dataset_root):
         if not day_dir.is_dir():
             continue
@@ -162,6 +185,8 @@ def discover_track_files(root, start=None, end=None):
             for file_path in iter_clean_children(run_dir):
                 if file_path.is_file() and file_path.name.startswith("track_") and file_path.suffix == ".txt":
                     records.append({"dataset": "ds11", "path": file_path, "period": period})
+                    if limit_reached(records, limit):
+                        return records
     return records
 
 
@@ -365,6 +390,205 @@ def extract_track_file(track_file_path, output_path, bbox=SAUDI_BBOX, keep_empty
     return output_path
 
 
+def output_suffix_for_dataset(dataset_id):
+    if dataset_id == "ds10":
+        return ".npz"
+    if dataset_id == "ds11":
+        return ".csv"
+    return ".nc"
+
+
+def output_path_for_record(record, output_root):
+    dataset_id = record["dataset"]
+    suffix = output_suffix_for_dataset(dataset_id)
+    name = safe_output_name(dataset_id, record["path"], suffix=suffix)
+    return Path(output_root) / dataset_id / record["period"] / name
+
+
+def append_jsonl(path, payload):
+    path = Path(path)
+    ensure_output_dir(path.parent)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def process_record(record, output_root, level_type=None, overwrite=False, manifest=None, errors=None):
+    output_path = output_path_for_record(record, output_root)
+    source_path = record["path"]
+    if output_path.exists() and not overwrite:
+        payload = {
+            "dataset": record["dataset"],
+            "period": record["period"],
+            "source": str(source_path),
+            "output": str(output_path),
+            "status": "skipped_existing",
+        }
+        if manifest:
+            append_jsonl(manifest, payload)
+        return payload
+
+    try:
+        dataset_id = record["dataset"]
+        if dataset_id in {"ds1", "ds2", "ds3"}:
+            result = extract_grib2_file(source_path, output_path, level_type=level_type)
+        elif dataset_id == "ds4":
+            result = extract_netcdf_file(source_path, output_path)
+        elif dataset_id == "ds10":
+            result = extract_hdf5_grid_file(source_path, output_path)
+        elif dataset_id == "ds11":
+            result = extract_track_file(source_path, output_path)
+        else:
+            raise ValueError(f"Unsupported dataset: {dataset_id}")
+
+        status = "extracted" if result is not None else "skipped_empty"
+        payload = {
+            "dataset": dataset_id,
+            "period": record["period"],
+            "source": str(source_path),
+            "output": str(output_path) if result is not None else None,
+            "status": status,
+        }
+        if manifest:
+            append_jsonl(manifest, payload)
+        return payload
+    except Exception as exc:
+        payload = {
+            "dataset": record["dataset"],
+            "period": record["period"],
+            "source": str(source_path),
+            "output": str(output_path),
+            "status": "error",
+            "error": str(exc),
+        }
+        if errors:
+            append_jsonl(errors, payload)
+        return payload
+
+
+def limit_records(records, limit=None):
+    if limit is None:
+        return records
+    return records[:limit]
+
+
+def add_common_batch_args(parser):
+    parser.add_argument("data_root")
+    parser.add_argument("--datasets", default="ds1,ds2,ds3,ds4,ds10,ds11")
+    parser.add_argument("--start")
+    parser.add_argument("--end")
+    parser.add_argument("--limit", type=int)
+    parser.add_argument("--output", default=OUTPUT_DIR)
+
+
+def build_arg_parser():
+    parser = argparse.ArgumentParser(
+        description="Extract Saudi Arabia region data from CMA/MAZU weather datasets."
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    discover_parser = subparsers.add_parser("discover", help="List supported source files")
+    add_common_batch_args(discover_parser)
+    discover_parser.add_argument("--dry-run", action="store_true")
+
+    batch_parser = subparsers.add_parser("batch", help="Extract discovered source files")
+    add_common_batch_args(batch_parser)
+    batch_parser.add_argument("--dry-run", action="store_true")
+    batch_parser.add_argument("--overwrite", action="store_true")
+    batch_parser.add_argument("--skip-existing", action="store_true")
+    batch_parser.add_argument("--level-type", default="surface")
+    batch_parser.add_argument("--manifest")
+    batch_parser.add_argument("--errors")
+
+    return parser
+
+
+def run_discover(args):
+    records = discover_files(
+        args.data_root,
+        datasets=args.datasets,
+        start=args.start,
+        end=args.end,
+        limit=args.limit,
+    )
+    for record in records:
+        print(f"{record['dataset']}\t{record['period']}\t{record['path']}")
+    print(f"Discovered {len(records)} file(s)")
+    return 0
+
+
+def run_batch(args):
+    output_root = Path(args.output)
+    manifest = Path(args.manifest) if args.manifest else output_root / "manifest.jsonl"
+    errors = Path(args.errors) if args.errors else output_root / "errors.jsonl"
+    records = discover_files(
+        args.data_root,
+        datasets=args.datasets,
+        start=args.start,
+        end=args.end,
+        limit=args.limit,
+    )
+
+    if args.dry_run:
+        for record in records:
+            print(f"DRY-RUN\t{record['dataset']}\t{record['period']}\t{record['path']}")
+        print(f"Would process {len(records)} file(s)")
+        return 0
+
+    counts = {}
+    for record in records:
+        payload = process_record(
+            record,
+            output_root,
+            level_type=args.level_type,
+            overwrite=args.overwrite,
+            manifest=manifest,
+            errors=errors,
+        )
+        counts[payload["status"]] = counts.get(payload["status"], 0) + 1
+        print(f"{payload['status']}\t{record['dataset']}\t{record['path']}")
+    print(f"Processed {len(records)} file(s): {counts}")
+    return 0
+
+
+def print_usage():
+    print("Usage:")
+    print("  python saudi_data_extract.py demo")
+    print("  python saudi_data_extract.py discover /Volumes/E/气象数据 --datasets ds1,ds4,ds10,ds11 --limit 3 --dry-run")
+    print("  python saudi_data_extract.py batch /Volumes/E/气象数据 --datasets ds11 --start 20251001 --end 20251031")
+    print("  python saudi_data_extract.py all E:\\Data\\Datas")
+    print("  python saudi_data_extract.py file.grib2 [level_type]")
+    print("  python saudi_data_extract.py file.nc")
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if len(argv) < 1 or argv[0] == "demo":
+        demo()
+        return 0
+    if argv[0] == "all":
+        data_root = argv[1] if len(argv) > 1 else r"E:\Data\Datas"
+        extract_all(data_root)
+        return 0
+    if argv[0].endswith((".grib2", ".grb2", ".grb")):
+        name = "saudi_" + os.path.basename(argv[0]).replace(".grib2", ".nc")
+        level = argv[1] if len(argv) > 1 else "surface"
+        extract_grib2(argv[0], name, level_type=level)
+        return 0
+    if argv[0].endswith(".nc"):
+        name = "saudi_" + os.path.basename(argv[0])
+        extract_netcdf(argv[0], name)
+        return 0
+    if argv[0] in {"discover", "batch"}:
+        parser = build_arg_parser()
+        args = parser.parse_args(argv)
+        if args.command == "discover":
+            return run_discover(args)
+        if args.command == "batch":
+            return run_batch(args)
+    print_usage()
+    return 2
+
+
 def extract_grib2(grib_file_path, output_name, level_type="surface"):
     """
     Extract Saudi Arabia region from GRIB2 file (DS1, DS2, DS3).
@@ -502,30 +726,4 @@ def demo():
 # =============================================================================
 
 if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) < 2 or sys.argv[1] == "demo":
-        demo()
-
-    elif sys.argv[1] == "all":
-        # Usage: python saudi_data_extract.py all E:\Data\Datas
-        data_root = sys.argv[2] if len(sys.argv) > 2 else r"E:\Data\Datas"
-        extract_all(data_root)
-
-    elif sys.argv[1].endswith((".grib2", ".grb2", ".grb")):
-        # Usage: python saudi_data_extract.py file.grib2
-        name = "saudi_" + os.path.basename(sys.argv[1]).replace(".grib2", ".nc")
-        level = sys.argv[2] if len(sys.argv) > 2 else "surface"
-        extract_grib2(sys.argv[1], name, level_type=level)
-
-    elif sys.argv[1].endswith(".nc"):
-        # Usage: python saudi_data_extract.py file.nc
-        name = "saudi_" + os.path.basename(sys.argv[1])
-        extract_netcdf(sys.argv[1], name)
-
-    else:
-        print("Usage:")
-        print("  python saudi_data_extract.py demo")
-        print("  python saudi_data_extract.py all E:\\Data\\Datas")
-        print("  python saudi_data_extract.py file.grib2 [level_type]")
-        print("  python saudi_data_extract.py file.nc")
+    raise SystemExit(main())
