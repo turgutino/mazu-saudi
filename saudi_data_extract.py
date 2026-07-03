@@ -38,6 +38,16 @@ def require_xarray():
     return xr
 
 
+def require_h5py():
+    try:
+        import h5py
+    except ImportError as exc:
+        raise RuntimeError(
+            "h5py is required for DS10 HDF5 satellite precipitation extraction."
+        ) from exc
+    return h5py
+
+
 def is_metadata_path(path):
     """Return True for macOS AppleDouble metadata paths."""
     return any(part.startswith("._") for part in Path(path).parts)
@@ -225,6 +235,77 @@ def extract_netcdf_file(nc_file_path, output_path):
         return Path(output_path)
     finally:
         ds.close()
+
+
+def iter_hdf5_datasets(h5obj, prefix=""):
+    for name, value in h5obj.items():
+        full_name = f"{prefix}/{name}" if prefix else name
+        if hasattr(value, "shape"):
+            yield full_name, value
+        else:
+            yield from iter_hdf5_datasets(value, full_name)
+
+
+def find_hdf5_lat_lon_datasets(h5):
+    lat_aliases = {"lat", "latitude"}
+    lon_aliases = {"lon", "longitude"}
+    lat_name = None
+    lon_name = None
+    for name, dataset in iter_hdf5_datasets(h5):
+        simple = name.split("/")[-1].lower()
+        if simple in lat_aliases and len(dataset.shape) == 1 and lat_name is None:
+            lat_name = name
+        if simple in lon_aliases and len(dataset.shape) == 1 and lon_name is None:
+            lon_name = name
+    if lat_name is None or lon_name is None:
+        raise ValueError("Could not find 1D latitude/longitude datasets in HDF5 file")
+    return lat_name, lon_name
+
+
+def bbox_indices(values, min_value, max_value):
+    values = np.asarray(values)
+    matches = np.where((values >= min_value) & (values <= max_value))[0]
+    if matches.size == 0:
+        return matches, values[matches]
+    return matches, values[matches]
+
+
+def npz_key(name):
+    return name.split("/")[-1].replace(" ", "_")
+
+
+def extract_hdf5_grid_file(h5_file_path, output_path, bbox=SAUDI_BBOX):
+    h5py = require_h5py()
+    output_path = Path(output_path)
+    with h5py.File(h5_file_path, "r") as h5:
+        lat_name, lon_name = find_hdf5_lat_lon_datasets(h5)
+        lats = np.asarray(h5[lat_name][...])
+        lons = np.asarray(h5[lon_name][...])
+        lat_idx, clipped_lats = bbox_indices(lats, bbox["lat_min"], bbox["lat_max"])
+        lon_idx, clipped_lons = bbox_indices(lons, bbox["lon_min"], bbox["lon_max"])
+        if lat_idx.size == 0 or lon_idx.size == 0:
+            return None
+
+        output = {
+            "lat": clipped_lats,
+            "lon": clipped_lons,
+            "source_path": np.asarray(str(h5_file_path)),
+        }
+        for name, dataset in iter_hdf5_datasets(h5):
+            if name in {lat_name, lon_name}:
+                continue
+            if len(dataset.shape) < 2:
+                continue
+            if dataset.shape[-2:] != (len(lats), len(lons)):
+                continue
+            data = np.asarray(dataset[...])
+            data = np.take(data, lat_idx, axis=-2)
+            data = np.take(data, lon_idx, axis=-1)
+            output[npz_key(name)] = data
+
+    ensure_output_dir(output_path.parent)
+    np.savez_compressed(output_path, **output)
+    return output_path
 
 
 def extract_grib2(grib_file_path, output_name, level_type="surface"):

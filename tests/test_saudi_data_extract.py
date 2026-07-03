@@ -2,11 +2,16 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import h5py
+import numpy as np
+
 from saudi_data_extract import (
     SAUDI_BBOX,
     clip_xarray_to_bbox,
     discover_files,
     detect_lat_lon_names,
+    extract_hdf5_grid_file,
+    find_hdf5_lat_lon_datasets,
     infer_dataset_id,
     is_metadata_path,
     safe_output_name,
@@ -127,6 +132,38 @@ class GridClippingTests(unittest.TestCase):
         self.assertIs(result, ds)
         self.assertEqual(ds.selector["lat"], slice(16.0, 32.0))
         self.assertEqual(ds.selector["lon"], slice(34.0, 56.0))
+
+
+class Hdf5ExtractionTests(unittest.TestCase):
+    def test_find_hdf5_lat_lon_datasets_finds_common_names(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "sample.h5"
+            with h5py.File(path, "w") as h5:
+                h5.create_dataset("Latitude", data=np.array([10.0, 20.0]))
+                h5.create_dataset("Longitude", data=np.array([30.0, 40.0]))
+
+            with h5py.File(path, "r") as h5:
+                lat_name, lon_name = find_hdf5_lat_lon_datasets(h5)
+
+        self.assertEqual(lat_name, "Latitude")
+        self.assertEqual(lon_name, "Longitude")
+
+    def test_extract_hdf5_grid_file_writes_saudi_subset_npz(self):
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "source.h5"
+            output = Path(tmp) / "saudi_ds10_sample.npz"
+            with h5py.File(source, "w") as h5:
+                h5.create_dataset("lat", data=np.array([10.0, 20.0, 24.0, 40.0]))
+                h5.create_dataset("lon", data=np.array([20.0, 35.0, 45.0, 70.0]))
+                h5.create_dataset("precip", data=np.arange(16).reshape(4, 4))
+
+            result = extract_hdf5_grid_file(source, output)
+            data = np.load(output)
+
+        self.assertEqual(result, output)
+        np.testing.assert_array_equal(data["lat"], np.array([20.0, 24.0]))
+        np.testing.assert_array_equal(data["lon"], np.array([35.0, 45.0]))
+        np.testing.assert_array_equal(data["precip"], np.array([[5, 6], [9, 10]]))
 
 
 if __name__ == "__main__":
