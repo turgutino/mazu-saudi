@@ -1,16 +1,61 @@
-# =============================================================================
-# Requirements: pip install xarray cfgrib netCDF4 numpy
-# =============================================================================
-
 import os
+from pathlib import Path
+
 import numpy as np
-import xarray as xr
 
 # Saudi Arabia bounding box
 LAT_MIN, LAT_MAX = 16.0, 32.0
 LON_MIN, LON_MAX = 34.0, 56.0
+SAUDI_BBOX = {
+    "lat_min": LAT_MIN,
+    "lat_max": LAT_MAX,
+    "lon_min": LON_MIN,
+    "lon_max": LON_MAX,
+}
 
 OUTPUT_DIR = "output_saudi"
+
+DATASET_DIRS = {
+    "1_NAFP_ART_ATM_GLB_MONTH_PROD": "ds1",
+    "2_NAFP_ART_SFC_GLB_DAY_PROD": "ds2",
+    "3_NAFP_ART_SFC_GLB_MONTH_PROD": "ds3",
+    "4_OCEA_FUS_DAY_PRO": "ds4",
+    "10_SATE_PRECIPITATION_PRODUCT_2025": "ds10",
+    "11_TCGD_MON_GLB_PROD": "ds11",
+}
+
+
+def require_xarray():
+    try:
+        import xarray as xr
+    except ImportError as exc:
+        raise RuntimeError(
+            "xarray is required for GRIB2/NetCDF extraction. "
+            "Install it in the conda ml environment with cfgrib and netCDF4."
+        ) from exc
+    return xr
+
+
+def is_metadata_path(path):
+    """Return True for macOS AppleDouble metadata paths."""
+    return any(part.startswith("._") for part in Path(path).parts)
+
+
+def infer_dataset_id(path):
+    for part in Path(path).parts:
+        if part in DATASET_DIRS:
+            return DATASET_DIRS[part]
+    return None
+
+
+def safe_output_name(dataset_id, source_path, suffix=".nc"):
+    stem = Path(source_path).stem
+    return f"saudi_{dataset_id}_{stem}{suffix}"
+
+
+def ensure_output_dir(path):
+    Path(path).mkdir(parents=True, exist_ok=True)
+    return Path(path)
 
 
 def extract_grib2(grib_file_path, output_name, level_type="surface"):
@@ -18,6 +63,7 @@ def extract_grib2(grib_file_path, output_name, level_type="surface"):
     Extract Saudi Arabia region from GRIB2 file (DS1, DS2, DS3).
     level_type options: 'surface', 'atmosphere', 'isobaricInhPa', etc.
     """
+    xr = require_xarray()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     print(f"Opening: {os.path.basename(grib_file_path)}")
@@ -52,6 +98,7 @@ def extract_netcdf(nc_file_path, output_name):
     Extract Saudi Arabia region from NetCDF file (DS4, DS5).
     Used for SST (Sea Surface Temperature) data.
     """
+    xr = require_xarray()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     print(f"Opening: {os.path.basename(nc_file_path)}")

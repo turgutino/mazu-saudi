@@ -1,3 +1,5 @@
 .worktrees/
 output_saudi*/
 output_saudi_smoke/
+__pycache__/
+*.pyc
