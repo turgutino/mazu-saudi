@@ -1,7 +1,6 @@
 # =============================================================================
 # Saudi Arabia Extreme Event Indicators
 # Based on: 气象数据变量合并整理_沙特极端事件指标.xlsx (Sheet 4)
-# Author: Turgut (MAZU Competition 2026)
 # Requirements: pip install xarray netCDF4 numpy scipy
 # =============================================================================
 
