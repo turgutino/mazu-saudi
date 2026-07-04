@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 
 import h5py
 import numpy as np
+import xarray as xr
 
 from saudi_data_extract import (
     SAUDI_BBOX,
@@ -25,6 +26,7 @@ from saudi_data_extract import (
     is_metadata_path,
     merge_cfgrib_groups,
     open_all_cfgrib_groups,
+    resolve_grib_level_type,
     safe_output_name,
     track_intersects_bbox,
 )
@@ -214,6 +216,48 @@ class GridClippingTests(unittest.TestCase):
         self.assertTrue(output_exists)
         self.assertEqual(fake_xarray.backend_kwargs["filter_by_keys"], {"typeOfLevel": "surface"})
         self.assertEqual(fallback_dataset.selector["latitude"], slice(32.0, 16.0))
+
+    def test_extract_grib2_file_opens_all_groups_when_level_type_is_all(self):
+        surface_dataset = xr.Dataset(
+            {"sp": (("latitude", "longitude"), np.ones((2, 2)))},
+            coords={"surface": 0.0, "latitude": [32.0, 16.0], "longitude": [34.0, 56.0]},
+        )
+        isobaric_dataset = xr.Dataset(
+            {"u": (("isobaricInhPa", "latitude", "longitude"), np.ones((2, 2, 2)))},
+            coords={"isobaricInhPa": [850.0, 500.0], "latitude": [32.0, 16.0], "longitude": [34.0, 56.0]},
+        )
+        fake_cfgrib = types.SimpleNamespace(
+            open_datasets=lambda *args, **kwargs: [surface_dataset, isobaric_dataset]
+        )
+
+        with TemporaryDirectory() as tmp:
+            output = Path(tmp) / "out.nc"
+
+            with patch.dict(sys.modules, {"cfgrib": fake_cfgrib}):
+                result = extract_grib2_file("source.grib2", output, level_type="all")
+
+            self.assertEqual(result, output)
+            self.assertTrue(output.exists())
+            with xr.open_dataset(output) as saved:
+                self.assertIn("sp", saved)
+                self.assertIn("u", saved)
+                self.assertIn("isobaricInhPa", saved.dims)
+
+    def test_resolve_grib_level_type_auto_extracts_ds2_analysis_all_layers(self):
+        record = {
+            "dataset": "ds2",
+            "path": Path("ART_ATM_GLB_0P10_DAY_ANAL_20250601.grib2"),
+        }
+
+        self.assertEqual(resolve_grib_level_type(record, "auto"), "all")
+
+    def test_resolve_grib_level_type_auto_keeps_surface_files_surface_only(self):
+        record = {
+            "dataset": "ds2",
+            "path": Path("ART_SINGLE_GLB_0P10_DAY_SFC_20250601.grib2"),
+        }
+
+        self.assertEqual(resolve_grib_level_type(record, "auto"), "surface")
 
     def test_open_all_cfgrib_groups_suppresses_xarray_compat_future_warning(self):
         def fake_open_datasets(*args, **kwargs):

@@ -314,11 +314,45 @@ def open_all_cfgrib_groups(grib_file_path):
         )
 
 
+def wants_all_grib_groups(level_type):
+    return level_type is None or str(level_type).lower() in {"all", "auto", "none", "*"}
+
+
+def is_ds2_analysis_record(record):
+    return (
+        record.get("dataset") == "ds2"
+        and "DAY_ANAL" in Path(record.get("path", "")).name.upper()
+    )
+
+
+def resolve_grib_level_type(record, requested_level_type):
+    """Resolve user level selection for one GRIB record.
+
+    The DS2 DAY_ANAL files contain the multi-level q/u/v/T/omega/geopotential
+    fields needed by IVT, shear, jet, and vorticity indicators, so the default
+    auto mode keeps all cfgrib groups for those files. Other GRIB products stay
+    surface-only by default to avoid unnecessarily large outputs.
+    """
+    if requested_level_type is None or str(requested_level_type).lower() == "auto":
+        return "all" if is_ds2_analysis_record(record) else "surface"
+    return requested_level_type
+
+
 def extract_grib2_file(grib_file_path, output_path, level_type=None):
     xr = require_xarray()
+    if wants_all_grib_groups(level_type):
+        groups = open_all_cfgrib_groups(grib_file_path)
+        try:
+            saudi = merge_cfgrib_groups(groups)
+            ensure_output_dir(Path(output_path).parent)
+            saudi.to_netcdf(output_path)
+            return Path(output_path)
+        finally:
+            for group in groups:
+                group.close()
+
     backend_kwargs = {"indexpath": ""}
-    if level_type:
-        backend_kwargs["filter_by_keys"] = {"typeOfLevel": level_type}
+    backend_kwargs["filter_by_keys"] = {"typeOfLevel": level_type}
     ds = xr.open_dataset(
         grib_file_path,
         engine="cfgrib",
@@ -710,7 +744,8 @@ def process_record(record, output_root, level_type=None, overwrite=False, manife
     try:
         dataset_id = record["dataset"]
         if dataset_id in {"ds1", "ds2", "ds3"}:
-            result = extract_grib2_file(source_path, output_path, level_type=level_type)
+            effective_level_type = resolve_grib_level_type(record, level_type)
+            result = extract_grib2_file(source_path, output_path, level_type=effective_level_type)
         elif dataset_id == "ds4":
             result = extract_netcdf_file(source_path, output_path)
         elif dataset_id == "ds10":
@@ -775,7 +810,11 @@ def build_arg_parser():
     batch_parser.add_argument("--dry-run", action="store_true")
     batch_parser.add_argument("--overwrite", action="store_true")
     batch_parser.add_argument("--skip-existing", action="store_true")
-    batch_parser.add_argument("--level-type", default="surface")
+    batch_parser.add_argument(
+        "--level-type",
+        default="auto",
+        help="GRIB typeOfLevel to extract; auto keeps all DS2 DAY_ANAL layers and surface for other GRIB files",
+    )
     batch_parser.add_argument("--manifest")
     batch_parser.add_argument("--errors")
 
