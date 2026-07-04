@@ -19,6 +19,8 @@ from saudi_data_extract import (
     extract_hdf5_grid_file,
     extract_track_file,
     find_hdf5_lat_lon_datasets,
+    aggregate_ds10_daily,
+    discover_ds10_npz_files,
     infer_dataset_id,
     is_metadata_path,
     merge_cfgrib_groups,
@@ -305,6 +307,73 @@ class Hdf5ExtractionTests(unittest.TestCase):
         np.testing.assert_array_equal(data["lat"], np.array([20.0, 24.0]))
         np.testing.assert_array_equal(data["lon"], np.array([35.0, 45.0]))
         np.testing.assert_array_equal(data["Pre_cal"], np.array([[[5, 6], [9, 10]]]))
+
+
+class Ds10DailyAggregationTests(unittest.TestCase):
+    def test_discover_ds10_npz_files_groups_by_day_and_skips_metadata(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ds10"
+            self._write_npz(
+                root / "202501/saudi_ds10_FYMERG_S_202501010000_E202501010029.npz",
+                1.0,
+            )
+            self._write_npz(
+                root / "202501/._saudi_ds10_FYMERG_S_202501010030_E202501010059.npz",
+                2.0,
+            )
+            self._write_npz(
+                root / "202501/saudi_ds10_FYMERG_S_202501020000_E202501020029.npz",
+                3.0,
+            )
+
+            records = discover_ds10_npz_files(root, start="20250102", end="20250102")
+
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["day"], "20250102")
+        self.assertEqual(records[0]["path"].name, "saudi_ds10_FYMERG_S_202501020000_E202501020029.npz")
+
+    def test_aggregate_ds10_daily_writes_daily_precipitation_features(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ds10"
+            output = Path(tmp) / "daily"
+            self._write_npz(
+                root / "202501/saudi_ds10_FYMERG_S_202501010000_E202501010029.npz",
+                np.array([[[1.0, 0.0], [2.0, 0.0]]]),
+            )
+            self._write_npz(
+                root / "202501/saudi_ds10_FYMERG_S_202501010030_E202501010059.npz",
+                np.array([[[3.0, 0.0], [4.0, 1.0]]]),
+            )
+            self._write_npz(
+                root / "202501/saudi_ds10_FYMERG_S_202501020000_E202501020029.npz",
+                np.array([[[10.0, 0.0], [0.0, 0.0]]]),
+            )
+
+            results = aggregate_ds10_daily(root, output, start="20250101", end="20250101")
+            daily = np.load(output / "202501/saudi_ds10_daily_20250101.npz")
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["status"], "aggregated")
+        np.testing.assert_array_equal(daily["lat"], np.array([20.0, 21.0]))
+        np.testing.assert_array_equal(daily["lon"], np.array([40.0, 41.0]))
+        np.testing.assert_array_equal(daily["daily_total"], np.array([[4.0, 0.0], [6.0, 1.0]]))
+        np.testing.assert_array_equal(daily["max_30min"], np.array([[3.0, 0.0], [4.0, 1.0]]))
+        np.testing.assert_array_equal(daily["max_1h"], np.array([[4.0, 0.0], [6.0, 1.0]]))
+        np.testing.assert_array_equal(daily["max_3h"], np.array([[4.0, 0.0], [6.0, 1.0]]))
+        np.testing.assert_array_equal(daily["max_6h"], np.array([[4.0, 0.0], [6.0, 1.0]]))
+        np.testing.assert_array_equal(daily["rainy_steps"], np.array([[2, 0], [2, 1]]))
+        self.assertEqual(int(daily["time_count"]), 2)
+
+    def _write_npz(self, path, precipitation):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not isinstance(precipitation, np.ndarray):
+            precipitation = np.full((1, 2, 2), precipitation)
+        np.savez_compressed(
+            path,
+            lat=np.array([20.0, 21.0]),
+            lon=np.array([40.0, 41.0]),
+            Pre_cal=precipitation,
+        )
 
 
 class TrackExtractionTests(unittest.TestCase):

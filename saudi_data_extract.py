@@ -2,6 +2,7 @@ import os
 import argparse
 import csv
 import json
+import re
 import sys
 import warnings
 from pathlib import Path
@@ -447,6 +448,172 @@ def extract_hdf5_grid_file(h5_file_path, output_path, bbox=SAUDI_BBOX):
     return output_path
 
 
+DS10_TIME_RE = re.compile(r"_S_(\d{12})_E")
+
+
+def parse_ds10_npz_timestamp(path):
+    match = DS10_TIME_RE.search(Path(path).name)
+    if not match:
+        raise ValueError(f"Could not parse DS10 timestamp from filename: {path}")
+    return match.group(1)
+
+
+def resolve_ds10_npz_root(input_root):
+    root = Path(input_root)
+    if root.name == "ds10":
+        return root
+    child = root / "ds10"
+    if child.exists():
+        return child
+    return root
+
+
+def discover_ds10_npz_files(input_root, start=None, end=None, limit=None):
+    root = resolve_ds10_npz_root(input_root)
+    records = []
+    if limit == 0:
+        return records
+    for month_dir in iter_clean_children(root):
+        if not month_dir.is_dir():
+            continue
+        for file_path in iter_clean_children(month_dir):
+            if not file_path.is_file() or file_path.suffix.lower() != ".npz":
+                continue
+            if not file_path.name.startswith("saudi_ds10_"):
+                continue
+            timestamp = parse_ds10_npz_timestamp(file_path)
+            day = timestamp[:8]
+            if not period_in_range(day, start, end):
+                continue
+            records.append(
+                {
+                    "day": day,
+                    "month": day[:6],
+                    "timestamp": timestamp,
+                    "path": file_path,
+                }
+            )
+            if limit_reached(records, limit):
+                return records
+    return sorted(records, key=lambda record: (record["day"], record["timestamp"], str(record["path"])))
+
+
+def group_ds10_records_by_day(records):
+    grouped = {}
+    for record in records:
+        grouped.setdefault(record["day"], []).append(record)
+    return {day: sorted(day_records, key=lambda record: record["timestamp"]) for day, day_records in sorted(grouped.items())}
+
+
+def read_ds10_precip_npz(path, precip_key="Pre_cal"):
+    with np.load(path) as data:
+        if precip_key not in data.files:
+            raise ValueError(f"{path} does not contain precipitation key: {precip_key}")
+        precip = np.asarray(data[precip_key], dtype=np.float32)
+        while precip.ndim > 2 and precip.shape[0] == 1:
+            precip = precip[0]
+        if precip.ndim != 2:
+            raise ValueError(f"{path} precipitation array must be 2D after squeezing singleton time axes")
+        lat = np.asarray(data["lat"])
+        lon = np.asarray(data["lon"])
+    return lat, lon, precip
+
+
+def rolling_sum_max(stack, window):
+    if stack.shape[0] == 0:
+        raise ValueError("Cannot aggregate an empty DS10 time stack")
+    if stack.shape[0] <= window:
+        return np.nansum(stack, axis=0)
+    best = None
+    for start in range(0, stack.shape[0] - window + 1):
+        window_sum = np.nansum(stack[start : start + window], axis=0)
+        best = window_sum if best is None else np.maximum(best, window_sum)
+    return best
+
+
+def ds10_daily_output_path(output_root, day):
+    return Path(output_root) / day[:6] / f"saudi_ds10_daily_{day}.npz"
+
+
+def aggregate_ds10_day(day, records, output_root, precip_key="Pre_cal", rain_threshold=0.0, overwrite=False):
+    output_path = ds10_daily_output_path(output_root, day)
+    if output_path.exists() and not overwrite:
+        return {
+            "day": day,
+            "status": "skipped_existing",
+            "output": str(output_path),
+            "source_count": len(records),
+        }
+
+    lats = None
+    lons = None
+    frames = []
+    source_files = []
+    for record in records:
+        lat, lon, precip = read_ds10_precip_npz(record["path"], precip_key=precip_key)
+        if lats is None:
+            lats = lat
+            lons = lon
+        elif not np.array_equal(lats, lat) or not np.array_equal(lons, lon):
+            raise ValueError(f"DS10 grid mismatch while aggregating {day}: {record['path']}")
+        frames.append(precip)
+        source_files.append(str(record["path"]))
+
+    stack = np.stack(frames, axis=0)
+    output = {
+        "date": np.asarray(day),
+        "lat": lats,
+        "lon": lons,
+        "daily_total": np.nansum(stack, axis=0),
+        "max_30min": np.nanmax(stack, axis=0),
+        "max_1h": rolling_sum_max(stack, 2),
+        "max_3h": rolling_sum_max(stack, 6),
+        "max_6h": rolling_sum_max(stack, 12),
+        "rainy_steps": np.sum(np.nan_to_num(stack, nan=0.0) > rain_threshold, axis=0).astype(np.int16),
+        "time_count": np.asarray(stack.shape[0], dtype=np.int16),
+        "source_files": np.asarray(source_files),
+    }
+    ensure_output_dir(output_path.parent)
+    np.savez_compressed(output_path, **output)
+    return {
+        "day": day,
+        "status": "aggregated",
+        "output": str(output_path),
+        "source_count": len(records),
+    }
+
+
+def aggregate_ds10_daily(
+    input_root,
+    output_root,
+    start=None,
+    end=None,
+    limit_days=None,
+    precip_key="Pre_cal",
+    rain_threshold=0.0,
+    overwrite=False,
+    manifest=None,
+):
+    records = discover_ds10_npz_files(input_root, start=start, end=end)
+    grouped = group_ds10_records_by_day(records)
+    results = []
+    for day, day_records in grouped.items():
+        if limit_days is not None and len(results) >= limit_days:
+            break
+        payload = aggregate_ds10_day(
+            day,
+            day_records,
+            output_root,
+            precip_key=precip_key,
+            rain_threshold=rain_threshold,
+            overwrite=overwrite,
+        )
+        if manifest:
+            append_jsonl(manifest, payload)
+        results.append(payload)
+    return results
+
+
 def read_track_rows(track_file_path):
     lines = [
         line.strip()
@@ -612,6 +779,21 @@ def build_arg_parser():
     batch_parser.add_argument("--manifest")
     batch_parser.add_argument("--errors")
 
+    ds10_daily_parser = subparsers.add_parser(
+        "aggregate-ds10-daily",
+        help="Aggregate cropped DS10 half-hour precipitation NPZ files into daily feature NPZ files",
+    )
+    ds10_daily_parser.add_argument("input_root")
+    ds10_daily_parser.add_argument("--output", default="ds10_daily")
+    ds10_daily_parser.add_argument("--start")
+    ds10_daily_parser.add_argument("--end")
+    ds10_daily_parser.add_argument("--limit-days", type=int)
+    ds10_daily_parser.add_argument("--precip-key", default="Pre_cal")
+    ds10_daily_parser.add_argument("--rain-threshold", type=float, default=0.0)
+    ds10_daily_parser.add_argument("--overwrite", action="store_true")
+    ds10_daily_parser.add_argument("--manifest")
+    ds10_daily_parser.add_argument("--dry-run", action="store_true")
+
     return parser
 
 
@@ -663,11 +845,45 @@ def run_batch(args):
     return 0
 
 
+def run_aggregate_ds10_daily(args):
+    records = discover_ds10_npz_files(args.input_root, start=args.start, end=args.end)
+    grouped = group_ds10_records_by_day(records)
+    days = list(grouped)
+    if args.limit_days is not None:
+        days = days[: args.limit_days]
+    if args.dry_run:
+        for day in days:
+            print(f"DRY-RUN\tds10_daily\t{day}\t{len(grouped[day])} source file(s)")
+        print(f"Would aggregate {len(days)} day(s)")
+        return 0
+
+    output_root = Path(args.output)
+    manifest = Path(args.manifest) if args.manifest else output_root / "manifest.jsonl"
+    results = aggregate_ds10_daily(
+        args.input_root,
+        output_root,
+        start=args.start,
+        end=args.end,
+        limit_days=args.limit_days,
+        precip_key=args.precip_key,
+        rain_threshold=args.rain_threshold,
+        overwrite=args.overwrite,
+        manifest=manifest,
+    )
+    counts = {}
+    for payload in results:
+        counts[payload["status"]] = counts.get(payload["status"], 0) + 1
+        print(f"{payload['status']}\tds10_daily\t{payload['day']}\t{payload['source_count']} source file(s)")
+    print(f"Aggregated {len(results)} day(s): {counts}")
+    return 0
+
+
 def print_usage():
     print("Usage:")
     print("  python saudi_data_extract.py demo")
     print("  python saudi_data_extract.py discover /Volumes/E/气象数据 --datasets ds1,ds4,ds10,ds11 --limit 3 --dry-run")
     print("  python saudi_data_extract.py batch /Volumes/E/气象数据 --datasets ds11 --start 20251001 --end 20251031")
+    print("  python saudi_data_extract.py aggregate-ds10-daily /Volumes/E/气象数据/saudi_region_output/ds10 --output /Volumes/E/气象数据/saudi_region_output/ds10_daily")
     print("  python saudi_data_extract.py all E:\\Data\\Datas")
     print("  python saudi_data_extract.py file.grib2 [level_type]")
     print("  python saudi_data_extract.py file.nc")
@@ -698,6 +914,10 @@ def main(argv=None):
             return run_discover(args)
         if args.command == "batch":
             return run_batch(args)
+    if argv[0] == "aggregate-ds10-daily":
+        parser = build_arg_parser()
+        args = parser.parse_args(argv)
+        return run_aggregate_ds10_daily(args)
     print_usage()
     return 2
 
