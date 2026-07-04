@@ -1,383 +1,519 @@
 # =============================================================================
 # Saudi Arabia Extreme Event Indicators
-# Based on: 气象数据变量合并整理_沙特极端事件指标.xlsx (Sheet 4)
-# Requirements: pip install xarray netCDF4 numpy scipy
+# Based on: docs/气象数据变量合并整理_沙特极端事件指标.xlsx
+# Requirements: xarray, netCDF4, numpy
 # =============================================================================
 
-import os
+import argparse
+import glob
+import json
+from pathlib import Path
+
 import numpy as np
 import xarray as xr
 
-# Saudi Arabia bounding box
-LAT_MIN, LAT_MAX = 16.0, 32.0
-LON_MIN, LON_MAX = 34.0, 56.0
 
 OUTPUT_DIR = "output_indicators"
 
-# =============================================================================
-# SECTION 1: Load extracted Saudi datasets
-# =============================================================================
-
-def load_datasets(data_dir="output_saudi"):
-    """Load all available extracted Saudi NetCDF files."""
-    ds = {}
-
-    ds1_path = os.path.join(data_dir, "saudi_ds1_surface_avg_202506.nc")
-    if os.path.exists(ds1_path):
-        ds["ds1"] = xr.open_dataset(ds1_path)
-        print(f"[OK] DS1 loaded: {list(ds['ds1'].data_vars)[:5]}...")
-
-    ds2_path = os.path.join(data_dir, "saudi_ds2_surface_avg_20250601.nc")
-    if os.path.exists(ds2_path):
-        ds["ds2"] = xr.open_dataset(ds2_path)
-        print(f"[OK] DS2 loaded")
-
-    ds4_path = os.path.join(data_dir, "saudi_sst_20250601_0000.nc")
-    if os.path.exists(ds4_path):
-        ds["ds4"] = xr.open_dataset(ds4_path)
-        print(f"[OK] DS4 (SST) loaded")
-
-    return ds
+MISSING_ADVANCED_INDICATORS = [
+    "IVT and moisture flux convergence require multi-level q/u/v fields",
+    "850/925 hPa low-level jet moisture flux requires pressure-level q/u/v fields",
+    "700/500 hPa vertical motion requires pressure-level omega fields",
+    "LCL/LFC/EL require vertical thermodynamic profiles",
+    "500 hPa height anomaly and ridge strength require pressure-level geopotential height plus baseline",
+    "850 hPa vorticity/divergence require pressure-level u/v fields",
+    "200/300 hPa jet and divergence require upper-level u/v fields",
+    "0-6 km or 850-200 hPa shear requires multi-level u/v fields",
+    "SPI and precipitation anomaly require a multi-year climatological baseline",
+    "PET/ET0 requires a validated pressure/radiation/wind/temperature workflow",
+]
 
 
-# =============================================================================
-# SECTION 2: Precipitation & Flash Flood Indicators
-# =============================================================================
+def discover_periods(data_dir, start=None, end=None):
+    """Discover daily periods from partitioned extracted Saudi outputs."""
+    root = Path(data_dir)
+    periods = set()
+    for dataset_dir in (root / "ds2", root / "ds4"):
+        if dataset_dir.exists():
+            periods.update(
+                child.name
+                for child in dataset_dir.iterdir()
+                if child.is_dir() and child.name.isdigit() and len(child.name) == 8
+            )
+    ds10_daily = root / "ds10_daily"
+    if ds10_daily.exists():
+        for path in ds10_daily.glob("*/saudi_ds10_daily_*.npz"):
+            day = path.stem.removeprefix("saudi_ds10_daily_")
+            if day.isdigit() and len(day) == 8:
+                periods.add(day)
 
-def indicator_arst_ratio(ds1):
+    selected = sorted(periods)
+    if start:
+        selected = [period for period in selected if period >= start]
+    if end:
+        selected = [period for period in selected if period <= end]
+    return selected
+
+
+def _first_existing(pattern):
+    paths = sorted(Path(path) for path in glob.glob(pattern) if not Path(path).name.startswith("._"))
+    return paths[0] if paths else None
+
+
+def _open_first(root, patterns):
+    for pattern in patterns:
+        path = _first_existing(str(root / pattern))
+        if path is not None:
+            return xr.open_dataset(path)
+    return None
+
+
+def load_datasets(data_dir="output_saudi", period=None):
+    """Load partitioned Saudi region outputs for one day or month.
+
+    The extractor writes files under directories such as:
+    ds1/202506/saudi_ds1_ART_SINGLE_GLB_0P10_MONTH_AVG_202506.nc
+    ds2/20250601/saudi_ds2_ART_SINGLE_GLB_0P10_DAY_SFC_20250601.nc
+    ds4/20250601/saudi_ds4_*.nc
+    ds10_daily/202506/saudi_ds10_daily_20250601.npz
     """
-    ARST Activation Ratio = cpr / prate
-    Active Red Sea Trough index: ratio > 0.7 means convective flash flood risk.
-    Formula: ratio = Convective precipitation rate / Total precipitation rate
-    """
-    prate = ds1["prate"]  # kg/m2/s total precip rate
-    cpr   = ds1["cpr"]    # kg/m2/s convective precip rate
+    root = Path(data_dir)
+    if period is None:
+        periods = discover_periods(root)
+        if not periods:
+            return {}
+        period = periods[-1]
 
-    # Avoid division by zero
-    ratio = xr.where(prate > 1e-10, cpr / prate, 0.0)
-    ratio.attrs = {
-        "long_name": "ARST Activation Ratio (convective fraction)",
-        "units": "dimensionless",
-        "threshold": "0.7 = flash flood risk",
-        "formula": "cpr / prate"
-    }
-    return ratio
+    period = str(period)
+    month = period[:6]
+    datasets = {"period": period, "month": month}
 
-
-def indicator_precip_mmday(ds1):
-    """
-    Convert precipitation rate to mm/day.
-    Formula: P [mm/day] = prate [kg/m2/s] * 86400
-    """
-    prate = ds1["prate"]
-    p_mm = prate * 86400.0
-    p_mm.attrs = {
-        "long_name": "Precipitation rate",
-        "units": "mm/day",
-        "formula": "prate * 86400"
-    }
-    return p_mm
-
-
-def indicator_flash_flood_risk(ds1):
-    """
-    Flash flood composite risk index (0-3 scale):
-      +1 if precipitation > 10 mm/day
-      +1 if ARST ratio > 0.7 (convective)
-      +1 if surface wind stress magnitude > 0.1 N/m2
-    Higher score = higher flash flood risk.
-    """
-    p_mm   = indicator_precip_mmday(ds1)
-    ratio  = indicator_arst_ratio(ds1)
-    wind_m = np.sqrt(ds1["avg_utaua"]**2 + ds1["avg_vtaua"]**2)
-
-    risk = (
-        xr.where(p_mm > 10.0, 1, 0) +
-        xr.where(ratio > 0.7,  1, 0) +
-        xr.where(wind_m > 0.1, 1, 0)
+    ds1_root = root / "ds1" / month
+    datasets["ds1_avg"] = _open_first(
+        ds1_root,
+        [
+            f"saudi_ds1_ART_SINGLE_GLB_0P10_MONTH_AVG_{month}.nc",
+            f"*AVG*{month}.nc",
+        ],
     )
-    risk.attrs = {
-        "long_name": "Flash Flood Composite Risk Index",
-        "units": "0-3 (3=highest risk)",
-        "formula": "sum of 3 threshold conditions"
-    }
-    return risk
-
-
-# =============================================================================
-# SECTION 3: Extreme Heat Indicators
-# =============================================================================
-
-def indicator_bowen_ratio(ds1):
-    """
-    Bowen Ratio = Sensible Heat Flux / Latent Heat Flux (H / LE)
-    High Bowen ratio = hot, dry surface (desert conditions).
-    Formula: B = avg_ishf / avg_slhtf
-    """
-    H  = ds1["avg_ishf"]   # W/m2 sensible heat flux
-    LE = ds1["avg_slhtf"]  # W/m2 latent heat flux
-
-    bowen = xr.where(np.abs(LE) > 1.0, H / LE, np.nan)
-    bowen.attrs = {
-        "long_name": "Bowen Ratio (H/LE)",
-        "units": "dimensionless",
-        "formula": "avg_ishf / avg_slhtf",
-        "note": "High value (>5) = dry desert; Low value (<1) = moist surface"
-    }
-    return bowen
-
-
-def indicator_net_radiation(ds1):
-    """
-    Net Radiation Rn = SWnet + LWnet
-    SWnet = sdswrf - suswrf  (incoming - reflected shortwave)
-    LWnet = sdlwrf - sulwrf  (downward - upward longwave)
-    Units: W/m2
-    """
-    SWnet = ds1["sdswrf"] - ds1["suswrf"]
-    LWnet = ds1["sdlwrf"] - ds1["sulwrf"]
-    Rn    = SWnet + LWnet
-
-    SWnet.attrs = {"long_name": "Net shortwave radiation", "units": "W/m2", "formula": "sdswrf - suswrf"}
-    LWnet.attrs = {"long_name": "Net longwave radiation",  "units": "W/m2", "formula": "sdlwrf - sulwrf"}
-    Rn.attrs    = {"long_name": "Net radiation",           "units": "W/m2", "formula": "SWnet + LWnet"}
-    return SWnet, LWnet, Rn
-
-
-def indicator_heat_stress(ds1):
-    """
-    Surface Heat Stress Index:
-    ADHSI (Asymmetric Diurnal Heat Stress Index) proxy using:
-      - avg_ishf: sensible heat flux (direct heat to atmosphere)
-      - sdswrf:   solar radiation input
-      - avg_al:   albedo (reflectivity)
-
-    Heat stress = avg_ishf + (1 - avg_al) * sdswrf
-    High values indicate dangerous heat stress conditions.
-    Threshold: > 350 W/m2 = extreme heat risk
-    """
-    ishf = ds1["avg_ishf"]
-    srad = ds1["sdswrf"]
-    alb  = ds1["avg_al"]
-
-    # Absorbed solar + sensible heat transferred to air
-    heat_stress = ishf + (1.0 - alb / 100.0) * srad
-    heat_stress.attrs = {
-        "long_name": "Surface Heat Stress Index (ADHSI proxy)",
-        "units": "W/m2",
-        "formula": "avg_ishf + (1 - avg_al/100) * sdswrf",
-        "threshold": "350 W/m2 = extreme heat risk"
-    }
-    return heat_stress
-
-
-def indicator_albedo_class(ds1):
-    """
-    Albedo classification for Saudi Arabia land types:
-      avg_al > 35%  -> Desert sand (high reflectivity)
-      20-35%        -> Rock/gravel
-      < 20%         -> Urban/vegetation
-    """
-    alb = ds1["avg_al"]
-    cls = xr.where(alb > 35, 2, xr.where(alb > 20, 1, 0))
-    cls.attrs = {
-        "long_name": "Albedo Surface Class",
-        "units": "0=urban/veg, 1=rock, 2=desert sand",
-        "formula": "threshold classification of avg_al"
-    }
-    return cls
-
-
-# =============================================================================
-# SECTION 4: SST-Based Indicators (Red Sea / Arabian Sea)
-# =============================================================================
-
-def indicator_sst_regional(ds4):
-    """
-    Regional SST statistics for:
-      - Red Sea:    32-44°E, 12-30°N
-      - Persian Gulf: 48-57°E, 23-30°N
-    SST anomaly requires a climatological baseline (not available yet).
-    """
-    sst = ds4["analysed_sst"]
-
-    # Clip to 273.15 K (remove land fill values below freezing)
-    sst_ocean = xr.where(sst > 273.15, sst - 273.15, np.nan)  # Convert K -> C
-
-    lat_name = "lat" if "lat" in ds4.coords else "latitude"
-    lon_name = "lon" if "lon" in ds4.coords else "longitude"
-
-    # Red Sea region
-    red_sea = sst_ocean.sel(
-        {lat_name: slice(12, 30), lon_name: slice(32, 44)}
-    )
-    # Persian Gulf
-    persian = sst_ocean.sel(
-        {lat_name: slice(23, 30), lon_name: slice(48, 57)}
+    datasets["ds1_sfc"] = _open_first(
+        ds1_root,
+        [
+            f"saudi_ds1_ART_SINGLE_GLB_0P10_MONTH_SFC_{month}.nc",
+            f"*SFC*{month}.nc",
+        ],
     )
 
-    stats = {
-        "red_sea_mean":   float(red_sea.mean()),
-        "red_sea_max":    float(red_sea.max()),
-        "persian_mean":   float(persian.mean()),
-        "persian_max":    float(persian.max()),
+    if len(period) == 8:
+        ds2_root = root / "ds2" / period
+        datasets["ds2_avg"] = _open_first(ds2_root, [f"*DAY_AVG_{period}.nc"])
+        datasets["ds2_sfc"] = _open_first(ds2_root, [f"*DAY_SFC_{period}.nc"])
+        datasets["ds2_acc"] = _open_first(ds2_root, [f"*DAY_ACC_{period}.nc"])
+        datasets["ds2_max"] = _open_first(ds2_root, [f"*DAY_MAX_{period}.nc"])
+        datasets["ds2_min"] = _open_first(ds2_root, [f"*DAY_MIN_{period}.nc"])
+        datasets["ds2_anal"] = _open_first(ds2_root, [f"*DAY_ANAL_{period}.nc"])
+        datasets["ds4"] = load_sst_dataset(root / "ds4" / period)
+        datasets["ds10_daily"] = load_ds10_daily_npz(
+            root / "ds10_daily" / month / f"saudi_ds10_daily_{period}.npz"
+        )
+
+    return {key: value for key, value in datasets.items() if value is not None}
+
+
+def load_sst_dataset(day_dir):
+    day_dir = Path(day_dir)
+    if not day_dir.exists():
+        return None
+    paths = sorted(path for path in day_dir.glob("*.nc") if not path.name.startswith("._"))
+    if not paths:
+        return None
+
+    arrays = []
+    for index, path in enumerate(paths):
+        with xr.open_dataset(path) as ds:
+            sst = ds["analysed_sst"].load().expand_dims(time=[index])
+        arrays.append(sst)
+    return xr.Dataset({"analysed_sst": xr.concat(arrays, dim="time")})
+
+
+def load_ds10_daily_npz(path):
+    path = Path(path)
+    if not path.exists():
+        return None
+    with np.load(path) as data:
+        lat = np.asarray(data["lat"])
+        lon = np.asarray(data["lon"])
+        coords = {"latitude": lat, "longitude": lon}
+        variables = {}
+        for name in ["daily_total", "max_30min", "max_1h", "max_3h", "max_6h", "rainy_steps"]:
+            if name in data.files:
+                variables[name] = _grid_data_array(np.asarray(data[name]), coords, name)
+        if "time_count" in data.files:
+            variables["time_count"] = xr.DataArray(np.asarray(data["time_count"]))
+    return xr.Dataset(variables, attrs={"source_file": str(path)})
+
+
+def _grid_data_array(values, coords, name):
+    lat_count = len(coords["latitude"])
+    lon_count = len(coords["longitude"])
+    arr = np.asarray(values)
+    if arr.shape == (lat_count, lon_count):
+        data = arr
+    elif arr.shape == (lon_count, lat_count):
+        data = arr.T
+    else:
+        raise ValueError(f"{name} shape {arr.shape} does not match lat/lon grid")
+    return xr.DataArray(data, dims=("latitude", "longitude"), coords=coords)
+
+
+def _k_to_c(value):
+    return value - 273.15
+
+
+def _ratio(numerator, denominator):
+    return xr.where(np.abs(denominator) > 1e-12, numerator / denominator, np.nan)
+
+
+def _with_attrs(array, long_name, units, formula=None):
+    array.attrs["long_name"] = long_name
+    array.attrs["units"] = units
+    if formula:
+        array.attrs["formula"] = formula
+    return array
+
+
+def add_monthly_surface_indicators(results, ds):
+    if "prate" in ds:
+        results["monthly_precip_mmday"] = _with_attrs(
+            ds["prate"] * 86400.0,
+            "Monthly mean precipitation rate converted to mm/day",
+            "mm/day",
+            "prate * 86400",
+        )
+    if {"cpr", "prate"}.issubset(ds):
+        results["monthly_convective_precip_ratio"] = _with_attrs(
+            _ratio(ds["cpr"], ds["prate"]),
+            "Monthly convective precipitation fraction",
+            "1",
+            "cpr / prate",
+        )
+    if {"avg_slhtf", "avg_ishf"}.issubset(ds):
+        results["monthly_bowen_ratio"] = _with_attrs(
+            _ratio(ds["avg_ishf"], ds["avg_slhtf"]),
+            "Monthly Bowen ratio",
+            "1",
+            "avg_ishf / avg_slhtf",
+        )
+    if {"sdswrf", "suswrf", "sdlwrf", "sulwrf"}.issubset(ds):
+        sw_net = ds["sdswrf"] - ds["suswrf"]
+        lw_net = ds["sdlwrf"] - ds["sulwrf"]
+        results["monthly_sw_net"] = _with_attrs(sw_net, "Monthly net shortwave radiation", "W m-2", "sdswrf - suswrf")
+        results["monthly_lw_net"] = _with_attrs(lw_net, "Monthly net longwave radiation", "W m-2", "sdlwrf - sulwrf")
+        results["monthly_net_radiation"] = _with_attrs(sw_net + lw_net, "Monthly net radiation", "W m-2", "SWnet + LWnet")
+    if {"avg_ishf", "sdswrf", "avg_al"}.issubset(ds):
+        results["monthly_heat_stress_index"] = _with_attrs(
+            ds["avg_ishf"] + (1.0 - ds["avg_al"] / 100.0) * ds["sdswrf"],
+            "Monthly surface heat stress proxy",
+            "W m-2",
+            "avg_ishf + (1 - avg_al/100) * sdswrf",
+        )
+    if {"avg_utaua", "avg_vtaua"}.issubset(ds):
+        results["monthly_wind_stress_mag"] = _with_attrs(
+            np.sqrt(ds["avg_utaua"] ** 2 + ds["avg_vtaua"] ** 2),
+            "Monthly surface wind stress magnitude",
+            "N m-2",
+            "sqrt(avg_utaua^2 + avg_vtaua^2)",
+        )
+    if {"iegwss", "ingwss"}.issubset(ds):
+        results["monthly_orographic_stress"] = _with_attrs(
+            np.sqrt(ds["iegwss"] ** 2 + ds["ingwss"] ** 2),
+            "Monthly gravity-wave surface stress magnitude",
+            "N m-2",
+            "sqrt(iegwss^2 + ingwss^2)",
+        )
+    if {"duvb", "cduvb"}.issubset(ds):
+        results["monthly_uvb_flux"] = _with_attrs(ds["duvb"], "Monthly UV-B downward solar flux", "W m-2")
+        results["monthly_uvb_clear_ratio"] = _with_attrs(
+            _ratio(ds["cduvb"], ds["duvb"]),
+            "Monthly clear-sky to all-sky UV-B ratio",
+            "1",
+            "cduvb / duvb",
+        )
+
+
+def add_daily_precip_energy_indicators(results, avg_ds, acc_ds):
+    if avg_ds is not None and "prate" in avg_ds:
+        results["precip_mmday"] = _with_attrs(
+            avg_ds["prate"] * 86400.0,
+            "Daily mean precipitation rate converted to mm/day",
+            "mm/day",
+            "prate * 86400",
+        )
+    if avg_ds is not None and {"cpr", "prate"}.issubset(avg_ds):
+        results["convective_precip_ratio"] = _with_attrs(
+            _ratio(avg_ds["cpr"], avg_ds["prate"]),
+            "Daily convective precipitation fraction",
+            "1",
+            "cpr / prate",
+        )
+    if acc_ds is not None:
+        if "tp" in acc_ds:
+            results["daily_precip_total"] = _with_attrs(acc_ds["tp"], "Daily total precipitation", "mm", "tp")
+        if "acpcp" in acc_ds:
+            results["daily_convective_precip"] = _with_attrs(acc_ds["acpcp"], "Daily convective precipitation", "mm", "acpcp")
+        if "ncpcp" in acc_ds:
+            results["daily_large_scale_precip"] = _with_attrs(acc_ds["ncpcp"], "Daily non-convective precipitation", "mm", "ncpcp")
+    if avg_ds is not None and {"avg_slhtf", "avg_ishf"}.issubset(avg_ds):
+        results["bowen_ratio"] = _with_attrs(_ratio(avg_ds["avg_ishf"], avg_ds["avg_slhtf"]), "Daily Bowen ratio", "1", "avg_ishf / avg_slhtf")
+    if avg_ds is not None and {"sdswrf", "suswrf", "sdlwrf", "sulwrf"}.issubset(avg_ds):
+        sw_net = avg_ds["sdswrf"] - avg_ds["suswrf"]
+        lw_net = avg_ds["sdlwrf"] - avg_ds["sulwrf"]
+        results["sw_net"] = _with_attrs(sw_net, "Daily net shortwave radiation", "W m-2", "sdswrf - suswrf")
+        results["lw_net"] = _with_attrs(lw_net, "Daily net longwave radiation", "W m-2", "sdlwrf - sulwrf")
+        results["net_radiation"] = _with_attrs(sw_net + lw_net, "Daily net radiation", "W m-2", "SWnet + LWnet")
+    if avg_ds is not None and {"avg_ishf", "sdswrf", "avg_al"}.issubset(avg_ds):
+        results["heat_stress_index"] = _with_attrs(
+            avg_ds["avg_ishf"] + (1.0 - avg_ds["avg_al"] / 100.0) * avg_ds["sdswrf"],
+            "Daily surface heat stress proxy",
+            "W m-2",
+            "avg_ishf + (1 - avg_al/100) * sdswrf",
+        )
+
+
+def add_daily_surface_indicators(results, sfc_ds, max_ds, min_ds):
+    if sfc_ds is not None:
+        if "t2m" in sfc_ds:
+            t2m_c = _k_to_c(sfc_ds["t2m"])
+            results["t2m_c"] = _with_attrs(t2m_c, "2 m air temperature", "degC", "t2m - 273.15")
+        else:
+            t2m_c = None
+        if "d2m" in sfc_ds:
+            d2m_c = _k_to_c(sfc_ds["d2m"])
+            results["d2m_c"] = _with_attrs(d2m_c, "2 m dewpoint temperature", "degC", "d2m - 273.15")
+        else:
+            d2m_c = None
+        if t2m_c is not None and d2m_c is not None:
+            results["dewpoint_depression_c"] = _with_attrs(t2m_c - d2m_c, "2 m dewpoint depression", "degC", "T2m - Td2m")
+        if "r2" in sfc_ds:
+            rh = sfc_ds["r2"]
+            results["rh2m"] = _with_attrs(rh, "2 m relative humidity", "%")
+            if t2m_c is not None:
+                results["vpd_kpa"] = _with_attrs(vapor_pressure_deficit(t2m_c, rh), "Vapor pressure deficit", "kPa", "es(T) * (1 - RH/100)")
+                results["heat_index_c"] = _with_attrs(heat_index_celsius(t2m_c, rh), "Heat index", "degC", "Rothfusz regression")
+        if "sh2" in sfc_ds:
+            results["sh2m"] = _with_attrs(sfc_ds["sh2"], "2 m specific humidity", "kg kg-1")
+        if "aptmp" in sfc_ds:
+            results["apparent_temp_c"] = _with_attrs(_k_to_c(sfc_ds["aptmp"]), "Apparent temperature", "degC", "aptmp - 273.15")
+        if {"u10", "v10"}.issubset(sfc_ds):
+            results["wind10_speed"] = _with_attrs(np.sqrt(sfc_ds["u10"] ** 2 + sfc_ds["v10"] ** 2), "10 m wind speed", "m s-1", "sqrt(u10^2 + v10^2)")
+        add_cloud_indicators(results, sfc_ds)
+
+    if max_ds is not None and "tmax" in max_ds:
+        results["tmax_c"] = _with_attrs(_k_to_c(max_ds["tmax"]), "Daily maximum 2 m temperature", "degC", "tmax - 273.15")
+    if min_ds is not None and "tmin" in min_ds:
+        results["tmin_c"] = _with_attrs(_k_to_c(min_ds["tmin"]), "Daily minimum 2 m temperature", "degC", "tmin - 273.15")
+    if "tmax_c" in results and "tmin_c" in results:
+        results["diurnal_temp_range_c"] = _with_attrs(results["tmax_c"] - results["tmin_c"], "Daily temperature range", "degC", "tmax - tmin")
+    if max_ds is not None and "qmax" in max_ds:
+        results["qmax_2m"] = _with_attrs(max_ds["qmax"], "Daily maximum 2 m specific humidity", "kg kg-1")
+    if min_ds is not None and "qmin" in min_ds:
+        results["qmin_2m"] = _with_attrs(min_ds["qmin"], "Daily minimum 2 m specific humidity", "kg kg-1")
+
+
+def add_cloud_indicators(results, ds):
+    mapping = {
+        "tcc": "total_cloud_cover",
+        "tcc_lowCloudLayer_0_0": "low_cloud_cover",
+        "tcc_middleCloudLayer_0_0": "middle_cloud_cover",
+        "tcc_highCloudLayer_0_0": "high_cloud_cover",
     }
-    return sst_ocean, stats
+    for source, target in mapping.items():
+        if source in ds:
+            results[target] = _with_attrs(ds[source], target.replace("_", " ").title(), "%")
 
 
-# =============================================================================
-# SECTION 5: Wind & Circulation Indicators
-# =============================================================================
-
-def indicator_surface_wind_stress(ds1):
-    """
-    Surface wind stress magnitude and direction.
-    tau = sqrt(tau_u^2 + tau_v^2)  [N/m2]
-    Wind stress > 0.1 N/m2 indicates significant wind forcing.
-    """
-    tau_u = ds1["avg_utaua"]  # N/m2 east-west
-    tau_v = ds1["avg_vtaua"]  # N/m2 north-south
-
-    tau_mag = np.sqrt(tau_u**2 + tau_v**2)
-    tau_dir = np.degrees(np.arctan2(tau_v, tau_u))  # degrees from East
-
-    tau_mag.attrs = {
-        "long_name": "Surface wind stress magnitude",
-        "units": "N/m2",
-        "formula": "sqrt(avg_utaua^2 + avg_vtaua^2)"
-    }
-    tau_dir.attrs = {
-        "long_name": "Surface wind stress direction",
-        "units": "degrees (0=East, 90=North)"
-    }
-    return tau_mag, tau_dir
+def vapor_pressure_deficit(temp_c, rh_percent):
+    saturation = 0.6108 * np.exp((17.27 * temp_c) / (temp_c + 237.3))
+    return saturation * (1.0 - rh_percent / 100.0)
 
 
-def indicator_orographic_stress(ds1):
-    """
-    Gravity wave surface stress magnitude from Hejaz mountains.
-    tau_oro = sqrt(iegwss^2 + ingwss^2)
-    Relevant for orographic precipitation enhancement near Jeddah.
-    """
-    eg = ds1["iegwss"]  # eastward gravity wave stress
-    ng = ds1["ingwss"]  # northward gravity wave stress
-
-    tau_oro = np.sqrt(eg**2 + ng**2)
-    tau_oro.attrs = {
-        "long_name": "Orographic gravity wave stress magnitude",
-        "units": "N/m2",
-        "formula": "sqrt(iegwss^2 + ingwss^2)",
-        "note": "Hejaz mountains enhance precipitation on windward side"
-    }
-    return tau_oro
+def heat_index_celsius(temp_c, rh_percent):
+    temp_f = temp_c * 9.0 / 5.0 + 32.0
+    hi_f = (
+        -42.379
+        + 2.04901523 * temp_f
+        + 10.14333127 * rh_percent
+        - 0.22475541 * temp_f * rh_percent
+        - 0.00683783 * temp_f**2
+        - 0.05481717 * rh_percent**2
+        + 0.00122874 * temp_f**2 * rh_percent
+        + 0.00085282 * temp_f * rh_percent**2
+        - 0.00000199 * temp_f**2 * rh_percent**2
+    )
+    hi_c = (hi_f - 32.0) * 5.0 / 9.0
+    return xr.where((temp_c >= 26.7) & (rh_percent >= 40.0), hi_c, temp_c)
 
 
-# =============================================================================
-# SECTION 6: Radiation Budget
-# =============================================================================
-
-def indicator_uv_radiation(ds1):
-    """
-    UV-B radiation at surface.
-    High UV-B + low cloud = intensified surface heating.
-    Clear-sky UV-B ratio = cduvb / duvb (cloud transmittance)
-    """
-    uvb      = ds1["duvb"]   # UV-B downward solar flux  W/m2
-    uvb_clr  = ds1["cduvb"]  # Clear-sky UV-B            W/m2
-
-    # Cloud transmittance for UV-B
-    clr_ratio = xr.where(uvb > 0.1, uvb_clr / uvb, 1.0)
-    clr_ratio.attrs = {
-        "long_name": "UV-B cloud transmittance ratio",
-        "units": "dimensionless (1.0 = clear sky)",
-        "formula": "cduvb / duvb"
-    }
-    return uvb, clr_ratio
-
-
-# =============================================================================
-# SECTION 7: Run all indicators and save
-# =============================================================================
-
-def compute_all(data_dir="output_saudi"):
-    print("=" * 60)
-    print("Saudi Arabia Extreme Event Indicators")
-    print("Based on Xu Xiaoke's indicator list (Sheet 4)")
-    print("=" * 60)
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    ds = load_datasets(data_dir)
-
-    if "ds1" not in ds:
-        print("[ERROR] DS1 not found. Run saudi_data_extract.py first.")
+def add_instability_indicators(results, ds):
+    if ds is None:
         return
+    mapping = {
+        "cape": ("cape", "Convective available potential energy", "J kg-1"),
+        "cin": ("cin", "Convective inhibition", "J kg-1"),
+        "lftx": ("surface_lifted_index", "Surface lifted index", "K"),
+        "lftx4": ("best_lifted_index", "Best four-layer lifted index", "K"),
+        "sp": ("surface_pressure", "Surface pressure", "Pa"),
+        "orog": ("orography", "Orography", "m"),
+    }
+    for source, (target, long_name, units) in mapping.items():
+        if source in ds:
+            results[target] = _with_attrs(ds[source], long_name, units)
 
-    ds1 = ds["ds1"]
-    results = xr.Dataset()
 
-    print("\n--- Flash Flood Indicators ---")
-    results["precip_mmday"]      = indicator_precip_mmday(ds1)
-    results["arst_ratio"]        = indicator_arst_ratio(ds1)
-    results["flash_flood_risk"]  = indicator_flash_flood_risk(ds1)
-    tau_m, tau_d = indicator_surface_wind_stress(ds1)
-    results["wind_stress_mag"]   = tau_m
-    results["wind_stress_dir"]   = tau_d
-    results["orographic_stress"] = indicator_orographic_stress(ds1)
+def add_sst_indicators(results, ds):
+    if ds is None or "analysed_sst" not in ds:
+        return
+    sst = ds["analysed_sst"]
+    sst_c = xr.where(sst > 200.0, sst - 273.15, sst)
+    results["sst_celsius"] = _with_attrs(sst_c, "Analysed sea surface temperature", "degC", "K to degC when source values exceed 200")
+    lat_name = "lat" if "lat" in sst_c.coords else "latitude"
+    lon_name = "lon" if "lon" in sst_c.coords else "longitude"
+    regional_stats = {}
+    for name, lat_slice, lon_slice in [
+        ("red_sea", slice(12, 30), slice(32, 44)),
+        ("persian_gulf", slice(23, 30), slice(48, 57)),
+    ]:
+        region = sst_c.sel({lat_name: lat_slice, lon_name: lon_slice})
+        if region.size:
+            regional_stats[f"{name}_mean_sst_c"] = float(region.mean(skipna=True))
+            regional_stats[f"{name}_max_sst_c"] = float(region.max(skipna=True))
+    results.attrs["sst_regional_stats"] = json.dumps(regional_stats, sort_keys=True)
 
-    print("\n--- Extreme Heat Indicators ---")
-    results["bowen_ratio"]       = indicator_bowen_ratio(ds1)
-    SWnet, LWnet, Rn = indicator_net_radiation(ds1)
-    results["sw_net"]            = SWnet
-    results["lw_net"]            = LWnet
-    results["net_radiation"]     = Rn
-    results["heat_stress_index"] = indicator_heat_stress(ds1)
-    results["albedo_class"]      = indicator_albedo_class(ds1)
-    uvb, uvb_ratio = indicator_uv_radiation(ds1)
-    results["uvb_flux"]          = uvb
-    results["uvb_clear_ratio"]   = uvb_ratio
 
-    print("\n--- SST Indicators ---")
-    if "ds4" in ds:
-        sst_c, sst_stats = indicator_sst_regional(ds["ds4"])
-        results["sst_celsius"] = sst_c
-        print(f"  Red Sea mean SST:     {sst_stats['red_sea_mean']:.2f} C")
-        print(f"  Red Sea max SST:      {sst_stats['red_sea_max']:.2f} C")
-        print(f"  Persian Gulf mean:    {sst_stats['persian_mean']:.2f} C")
-        print(f"  Persian Gulf max:     {sst_stats['persian_max']:.2f} C")
+def add_ds10_daily_indicators(results, ds):
+    if ds is None:
+        return
+    mapping = {
+        "daily_total": "ds10_daily_total",
+        "max_30min": "ds10_max_30min",
+        "max_1h": "ds10_max_1h",
+        "max_3h": "ds10_max_3h",
+        "max_6h": "ds10_max_6h",
+        "rainy_steps": "ds10_rainy_steps",
+    }
+    for source, target in mapping.items():
+        if source in ds:
+            units = "steps" if source == "rainy_steps" else "mm"
+            results[target] = _with_attrs(ds[source], target.replace("_", " ").title(), units)
 
-    # Save
-    out_file = os.path.join(OUTPUT_DIR, "saudi_indicators_202506.nc")
-    results.to_netcdf(out_file)
-    size_mb = os.path.getsize(out_file) / 1024 / 1024
-    print(f"\n[SAVED] {out_file}  ({size_mb:.1f} MB)")
-    print(f"Indicators: {list(results.data_vars)}")
 
-    # Print summary statistics
-    print("\n--- Summary (Saudi Arabia, June 2025) ---")
-    for name in ["precip_mmday", "arst_ratio", "flash_flood_risk",
-                  "heat_stress_index", "bowen_ratio", "net_radiation"]:
-        if name in results:
-            arr = results[name].values
-            arr_valid = arr[~np.isnan(arr)]
-            if len(arr_valid) > 0:
-                print(f"  {name:25s}  mean={arr_valid.mean():.3f}  "
-                      f"max={arr_valid.max():.3f}  "
-                      f"min={arr_valid.min():.3f}")
+def add_flash_flood_risk(results):
+    terms = []
+    if "daily_precip_total" in results:
+        terms.append(xr.where(results["daily_precip_total"] >= 10.0, 1, 0))
+    elif "precip_mmday" in results:
+        terms.append(xr.where(results["precip_mmday"] >= 10.0, 1, 0))
+    if "convective_precip_ratio" in results:
+        terms.append(xr.where(results["convective_precip_ratio"] >= 0.5, 1, 0))
+    if "cape" in results:
+        terms.append(xr.where(results["cape"] >= 1000.0, 1, 0))
+    if "wind10_speed" in results:
+        terms.append(xr.where(results["wind10_speed"] >= 10.0, 1, 0))
+    if "ds10_max_1h" in results:
+        terms.append(xr.where(results["ds10_max_1h"] >= 10.0, 1, 0))
+    if terms:
+        risk = terms[0]
+        for term in terms[1:]:
+            risk = risk + term
+        results["flash_flood_risk"] = _with_attrs(
+            risk,
+            "Flash flood screening score from available daily indicators",
+            "score",
+            "sum(threshold exceedance flags)",
+        )
 
-    print("\nDone.")
+
+def compute_period(data_dir, period, output_dir=OUTPUT_DIR):
+    datasets = load_datasets(data_dir, period)
+    if not any(key.startswith("ds1_") or key.startswith("ds2_") or key == "ds10_daily" for key in datasets):
+        return {"period": str(period), "status": "missing_inputs"}
+
+    results = xr.Dataset(
+        attrs={
+            "period": str(period),
+            "month": str(period)[:6],
+            "source_root": str(Path(data_dir)),
+            "missing_advanced_indicators": "; ".join(MISSING_ADVANCED_INDICATORS),
+        }
+    )
+
+    if "ds1_avg" in datasets:
+        add_monthly_surface_indicators(results, datasets["ds1_avg"])
+    add_cloud_indicators(results, datasets["ds1_sfc"]) if "ds1_sfc" in datasets else None
+    add_daily_precip_energy_indicators(results, datasets.get("ds2_avg"), datasets.get("ds2_acc"))
+    add_daily_surface_indicators(results, datasets.get("ds2_sfc"), datasets.get("ds2_max"), datasets.get("ds2_min"))
+    add_instability_indicators(results, datasets.get("ds2_anal"))
+    add_sst_indicators(results, datasets.get("ds4"))
+    add_ds10_daily_indicators(results, datasets.get("ds10_daily"))
+    add_flash_flood_risk(results)
+
+    output_path = Path(output_dir) / f"saudi_indicators_{period}.nc"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    results.to_netcdf(output_path)
+    return {
+        "period": str(period),
+        "status": "computed",
+        "output": str(output_path),
+        "indicator_count": len(results.data_vars),
+    }
+
+
+def compute_all(data_dir="output_saudi", output_dir=OUTPUT_DIR, period=None, start=None, end=None, all_periods=False, limit=None):
+    if period:
+        periods = [str(period)]
+    else:
+        periods = discover_periods(data_dir, start=start, end=end)
+        if not all_periods and periods:
+            periods = [periods[-1]]
+    if limit is not None:
+        periods = periods[:limit]
+
+    if not periods:
+        print("[ERROR] No extracted Saudi periods found.")
+        return []
+
+    results = []
+    for selected_period in periods:
+        payload = compute_period(data_dir, selected_period, output_dir=output_dir)
+        results.append(payload)
+        print(f"{payload['status']}\t{selected_period}\t{payload.get('output', '')}")
     return results
 
 
-# =============================================================================
-# MAIN
-# =============================================================================
+def build_arg_parser():
+    parser = argparse.ArgumentParser(description="Compute Saudi extreme event indicators from extracted region data.")
+    parser.add_argument("data_dir", nargs="?", default="output_saudi")
+    parser.add_argument("--output", default=OUTPUT_DIR)
+    parser.add_argument("--period", help="Daily period such as 20250601. Defaults to latest discovered day.")
+    parser.add_argument("--start")
+    parser.add_argument("--end")
+    parser.add_argument("--all", action="store_true", help="Compute all discovered periods instead of only the latest.")
+    parser.add_argument("--limit", type=int)
+    return parser
+
+
+def main(argv=None):
+    args = build_arg_parser().parse_args(argv)
+    compute_all(
+        args.data_dir,
+        output_dir=args.output,
+        period=args.period,
+        start=args.start,
+        end=args.end,
+        all_periods=args.all,
+        limit=args.limit,
+    )
+
 
 if __name__ == "__main__":
-    import sys
-
-    data_dir = sys.argv[1] if len(sys.argv) > 1 else "output_saudi"
-
-    if not os.path.isabs(data_dir):
-        data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), data_dir)
-
-    compute_all(data_dir)
+    main()
