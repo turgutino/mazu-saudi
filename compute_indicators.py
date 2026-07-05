@@ -16,17 +16,14 @@ import xarray as xr
 OUTPUT_DIR = "output_indicators"
 
 MISSING_ADVANCED_INDICATORS = [
-    "IVT and moisture flux convergence require multi-level q/u/v fields",
-    "850/925 hPa low-level jet moisture flux requires pressure-level q/u/v fields",
-    "700/500 hPa vertical motion requires pressure-level omega fields",
     "LCL/LFC/EL require vertical thermodynamic profiles",
     "500 hPa height anomaly and ridge strength require pressure-level geopotential height plus baseline",
-    "850 hPa vorticity/divergence require pressure-level u/v fields",
-    "200/300 hPa jet and divergence require upper-level u/v fields",
-    "0-6 km or 850-200 hPa shear requires multi-level u/v fields",
     "SPI and precipitation anomaly require a multi-year climatological baseline",
     "PET/ET0 requires a validated pressure/radiation/wind/temperature workflow",
 ]
+
+GRAVITY = 9.80665
+EARTH_RADIUS_M = 6_371_000.0
 
 
 def discover_periods(data_dir, start=None, end=None):
@@ -370,6 +367,143 @@ def add_instability_indicators(results, ds):
             results[target] = _with_attrs(ds[source], long_name, units)
 
 
+def pressure_level_name(ds):
+    return "isobaricInhPa" if "isobaricInhPa" in ds.coords or "isobaricInhPa" in ds.dims else None
+
+
+def pressure_var(ds, preferred_name, fallback_name=None):
+    if preferred_name in ds and "isobaricInhPa" in ds[preferred_name].dims:
+        return ds[preferred_name]
+    if fallback_name and fallback_name in ds and "isobaricInhPa" in ds[fallback_name].dims:
+        return ds[fallback_name]
+    return None
+
+
+def select_level(data, level_hpa, tolerance_hpa=30.0):
+    if data is None or "isobaricInhPa" not in data.dims:
+        return None
+    levels = np.asarray(data["isobaricInhPa"].values, dtype=float)
+    if levels.size == 0:
+        return None
+    nearest = float(levels[np.abs(levels - level_hpa).argmin()])
+    if abs(nearest - level_hpa) > tolerance_hpa:
+        return None
+    return data.sel(isobaricInhPa=nearest)
+
+
+def pressure_integral(data):
+    sorted_data = data.sortby("isobaricInhPa")
+    return sorted_data.integrate("isobaricInhPa") * 100.0
+
+
+def horizontal_gradients(data):
+    if "latitude" not in data.dims or "longitude" not in data.dims:
+        return None, None
+    lat = np.asarray(data["latitude"].values, dtype=float)
+    lon = np.asarray(data["longitude"].values, dtype=float)
+    values = np.asarray(data.values, dtype=float)
+    if lat.size < 2 or lon.size < 2:
+        return None, None
+
+    d_dlat_deg = np.gradient(values, lat, axis=data.get_axis_num("latitude"))
+    d_dlon_deg = np.gradient(values, lon, axis=data.get_axis_num("longitude"))
+    dy_per_degree = np.pi * EARTH_RADIUS_M / 180.0
+    dx_per_degree = dy_per_degree * np.cos(np.deg2rad(lat))
+    dx_per_degree = np.where(np.abs(dx_per_degree) > 1e-6, dx_per_degree, np.nan)
+
+    reshape = [1] * values.ndim
+    reshape[data.get_axis_num("latitude")] = lat.size
+    d_dx = d_dlon_deg / dx_per_degree.reshape(reshape)
+    d_dy = d_dlat_deg / dy_per_degree
+    return (
+        xr.DataArray(d_dx, dims=data.dims, coords=data.coords),
+        xr.DataArray(d_dy, dims=data.dims, coords=data.coords),
+    )
+
+
+def add_multilevel_indicators(results, ds):
+    if ds is None or pressure_level_name(ds) is None:
+        return
+
+    q = pressure_var(ds, "q_isobaricInhPa", "q")
+    u = pressure_var(ds, "u_isobaricInhPa", "u")
+    v = pressure_var(ds, "v_isobaricInhPa", "v")
+    gh = pressure_var(ds, "gh_isobaricInhPa", "gh")
+    omega = pressure_var(ds, "w")
+    absv = pressure_var(ds, "absv")
+
+    if "pwat" in ds:
+        results["pwat"] = _with_attrs(ds["pwat"], "Precipitable water", "kg m-2")
+
+    if q is not None and u is not None and v is not None:
+        ivt_u = pressure_integral(q * u) / GRAVITY
+        ivt_v = pressure_integral(q * v) / GRAVITY
+        results["ivt_u"] = _with_attrs(ivt_u, "Integrated vapor transport zonal component", "kg m-1 s-1", "1/g integral(q*u dp)")
+        results["ivt_v"] = _with_attrs(ivt_v, "Integrated vapor transport meridional component", "kg m-1 s-1", "1/g integral(q*v dp)")
+        results["ivt"] = _with_attrs(np.sqrt(ivt_u**2 + ivt_v**2), "Integrated vapor transport magnitude", "kg m-1 s-1", "sqrt(IVT_u^2 + IVT_v^2)")
+        div_x, _ = horizontal_gradients(ivt_u)
+        _, div_y = horizontal_gradients(ivt_v)
+        if div_x is not None and div_y is not None:
+            divergence = div_x + div_y
+            results["ivt_divergence"] = _with_attrs(divergence, "Integrated vapor transport divergence", "kg m-2 s-1", "d(IVT_u)/dx + d(IVT_v)/dy")
+            results["ivt_convergence"] = _with_attrs(-divergence, "Integrated vapor transport convergence", "kg m-2 s-1", "-IVT divergence")
+
+        for level in (925, 850):
+            q_level = select_level(q, level)
+            u_level = select_level(u, level)
+            v_level = select_level(v, level)
+            if q_level is None or u_level is None or v_level is None:
+                continue
+            speed = np.sqrt(u_level**2 + v_level**2)
+            results[f"wind{level}_speed"] = _with_attrs(speed, f"{level} hPa wind speed", "m s-1", f"sqrt(u{level}^2 + v{level}^2)")
+            results[f"moisture_transport{level}"] = _with_attrs(q_level * speed, f"{level} hPa moisture transport magnitude", "m s-1", f"q{level} * wind_speed{level}")
+
+    if u is not None and v is not None:
+        for level in (300, 200):
+            u_level = select_level(u, level)
+            v_level = select_level(v, level)
+            if u_level is not None and v_level is not None:
+                results[f"jet{level}_speed"] = _with_attrs(np.sqrt(u_level**2 + v_level**2), f"{level} hPa wind speed", "m s-1", f"sqrt(u{level}^2 + v{level}^2)")
+
+        for top_level in (300, 200):
+            u850 = select_level(u, 850)
+            v850 = select_level(v, 850)
+            u_top = select_level(u, top_level)
+            v_top = select_level(v, top_level)
+            if u850 is not None and v850 is not None and u_top is not None and v_top is not None:
+                results[f"wind_shear_850_{top_level}"] = _with_attrs(
+                    np.sqrt((u_top - u850) ** 2 + (v_top - v850) ** 2),
+                    f"850-{top_level} hPa vector wind shear",
+                    "m s-1",
+                    f"sqrt((u{top_level}-u850)^2 + (v{top_level}-v850)^2)",
+                )
+
+        u850 = select_level(u, 850)
+        v850 = select_level(v, 850)
+        if u850 is not None and v850 is not None:
+            du_dx, du_dy = horizontal_gradients(u850)
+            dv_dx, dv_dy = horizontal_gradients(v850)
+            if du_dx is not None and du_dy is not None and dv_dx is not None and dv_dy is not None:
+                results["relative_vorticity850"] = _with_attrs(dv_dx - du_dy, "850 hPa relative vorticity", "s-1", "dv/dx - du/dy")
+                results["divergence850"] = _with_attrs(du_dx + dv_dy, "850 hPa horizontal divergence", "s-1", "du/dx + dv/dy")
+
+    if absv is not None:
+        absv850 = select_level(absv, 850)
+        if absv850 is not None:
+            results["absolute_vorticity850"] = _with_attrs(absv850, "850 hPa absolute vorticity", "s-1")
+
+    if omega is not None:
+        for level in (700, 500):
+            omega_level = select_level(omega, level)
+            if omega_level is not None:
+                results[f"omega{level}"] = _with_attrs(omega_level, f"{level} hPa vertical velocity", "Pa s-1", f"omega at {level} hPa; negative is upward motion")
+
+    if gh is not None:
+        gh500 = select_level(gh, 500)
+        if gh500 is not None:
+            results["geopotential_height500"] = _with_attrs(gh500, "500 hPa geopotential height", "gpm")
+
+
 def add_sst_indicators(results, ds):
     if ds is None or "analysed_sst" not in ds:
         return
@@ -453,6 +587,7 @@ def compute_period(data_dir, period, output_dir=OUTPUT_DIR):
     add_daily_precip_energy_indicators(results, datasets.get("ds2_avg"), datasets.get("ds2_acc"))
     add_daily_surface_indicators(results, datasets.get("ds2_sfc"), datasets.get("ds2_max"), datasets.get("ds2_min"))
     add_instability_indicators(results, datasets.get("ds2_anal"))
+    add_multilevel_indicators(results, datasets.get("ds2_anal"))
     add_sst_indicators(results, datasets.get("ds4"))
     add_ds10_daily_indicators(results, datasets.get("ds10_daily"))
     add_flash_flood_risk(results)
