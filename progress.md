@@ -36,3 +36,14 @@
 - 新增 `analysis/analyze_saudi_region_output.py`，可读取已裁剪 `ds1/ds2/ds4/ds10_daily` 输出，生成 `summary.json`、4 张 PNG 图和 `saudi_data_insights_report.md`。
 - 首次真实运行发现 DS1 多数月份 `prate` 全为缺测或填充值，补充测试和清洗逻辑，避免全 NaN、除零和超大填充值污染统计。
 - 使用真实数据刷新报告：月尺度 12 个、DS2 日尺度 364 天、SST 365 天、DS10 日聚合 273 天；报告记录最高温日、最湿日和 DS1 月降水有效月份提示。
+
+## 2026-07-07
+
+- 收到用户请求：围绕 `compute_indicators.py` 撰写指标报告，说明每个指标含义、计算方法和计算后分布洞察。
+- 读取规划文件、`compute_indicators.py`、`VARIABLES.md` 和仓库状态；确认已有真实指标输出位于 `/Volumes/E/气象数据/saudi_region_output/indicators`。
+- 新增阶段 8：极端事件指标方法与分布洞察报告。
+- 扫描 365 个 `saudi_indicators_YYYYMMDD.nc` 文件，确认单文件最多 73 个指标变量。
+- 汇总核心指标年度分布：日累计降水、温度、湿度、CAPE、PWAT、IVT、风切变、SST 和 `flash_flood_risk`。
+- 发现 DS10 卫星降水指标在指标 NetCDF 中全 NaN，但上游 `ds10_daily` NPZ 存在有效值；报告中标为后续修复项。
+- 发现 `vpd_kpa` 与 `apparent_temp_c` 在 20250102、20250130 被派生异常值污染；报告中标为缺测值质控问题。
+- 新增 `docs/saudi_extreme_event_indicator_report.md`，逐项说明指标含义、公式、单位、使用解释和 2025 年分布洞察。

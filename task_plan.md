@@ -16,6 +16,7 @@
 - [x] 实现路径工具、数据发现、网格裁剪、DS10 HDF5、DS11 轨迹过滤和批处理 CLI
 - [x] 使用 conda `ml` 环境完成单元测试与真实数据 smoke test
 - [x] 建立 `analysis/` 数据洞察子目录，生成初步可视化和图文分析报告
+- [x] 撰写极端事件指标方法与分布洞察报告
 
 ## 阶段划分
 
@@ -62,6 +63,19 @@
 - `analysis/summary.json`
 - `analysis/saudi_data_insights_report.md`
 - `analysis/figures/*.png`
+
+### 阶段 8：极端事件指标方法与分布洞察报告
+
+目标是基于 `compute_indicators.py` 和
+`/Volumes/E/气象数据/saudi_region_output/indicators` 的真实指标输出，撰写
+Markdown 报告，说明：
+
+- 每个指标的物理含义和服务的灾害场景。
+- 输入变量、计算方法、单位与解释方式。
+- 计算后在 2025 年沙特区域数据中的覆盖情况和分布洞察。
+- 已知缺测、填充值、基线不足或垂直廓线不足导致的限制。
+
+已完成，输出位于 `docs/saudi_extreme_event_indicator_report.md`。
 
 ## 约束
 

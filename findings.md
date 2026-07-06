@@ -78,3 +78,13 @@
 - `ds2` 存在 2025 年日目录，样例日地表文件包含 `t2m`、`d2m`、`u10`、`v10`、`r2` 等变量，日累计文件包含 `tp`、`acpcp`、`ncpcp`。
 - `ds4` 样例 SST 文件网格为 `lat=160`、`lon=221`，变量为 `analysed_sst`。
 - `ds10_daily` 样例文件包含 `daily_total`、`max_30min`、`max_1h`、`max_3h`、`max_6h`、`rainy_steps` 等数值变量，也包含 `date`、`source_files` 等字符串字段；分析脚本必须跳过非数值数组。
+
+## 指标报告发现
+
+- 已计算指标输出位于 `/Volumes/E/气象数据/saudi_region_output/indicators`，覆盖 20250101-20251231 共 365 个日文件。
+- 单个指标文件最多包含 73 个指标变量，覆盖月尺度地表背景、云量、日降水、热湿、稳定度、多层动力、水汽输送、SST、DS10 卫星降水和山洪筛查分数。
+- `daily_precip_total` 有效 363 天，区域日均值全年平均约 0.23 mm，局地最大值 254.9 mm，发生在 20250823。
+- `t2m_c` 有效 362 天，区域日均值全年平均约 27.09 degC，最高日区域均值 35.98 degC，局地最大值 45.90 degC，发生在 20250717。
+- `sst_celsius` 全年 365 天有效，区域均值约 27.78 degC，局地最大值 36.90 degC，发生在 20250822。
+- `ds10_daily_total`、`ds10_max_1h` 等 DS10 指标在指标 NetCDF 中 0 天有效，但上游 `ds10_daily/*.npz` 存在有效数据，疑似指标合并或 NetCDF 写出阶段问题。
+- `vpd_kpa` 和 `apparent_temp_c` 在 20250102、20250130 出现明显派生异常，说明后续需要在派生指标前统一清理 GRIB 缺测值。
