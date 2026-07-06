@@ -69,3 +69,12 @@
 - 需要兼容不同数据源的经纬度命名、经纬度方向、时间维度和文件格式。
 - 需要过滤 `._*` 元数据文件，否则 HDF5/GRIB/NetCDF 打开时可能报错。
 - DS11 的“沙特区域提取”不应按网格裁剪理解，而应按文本轨迹中的经纬度点过滤，保留与沙特 bbox 相交的 track 文件或 track 点。
+
+## 数据洞察分析发现
+
+- 本次分析输入目录为 `/Volumes/E/气象数据/saudi_region_output`，目录总量约 58G。
+- 已裁剪输出包含 `ds1`、`ds2`、`ds4`、`ds10`、`ds10_daily` 等目录。
+- `ds1` 存在 202501-202512 月目录，样例月平均文件网格为 `latitude=160`、`longitude=220`。
+- `ds2` 存在 2025 年日目录，样例日地表文件包含 `t2m`、`d2m`、`u10`、`v10`、`r2` 等变量，日累计文件包含 `tp`、`acpcp`、`ncpcp`。
+- `ds4` 样例 SST 文件网格为 `lat=160`、`lon=221`，变量为 `analysed_sst`。
+- `ds10_daily` 样例文件包含 `daily_total`、`max_30min`、`max_1h`、`max_3h`、`max_6h`、`rainy_steps` 等数值变量，也包含 `date`、`source_files` 等字符串字段；分析脚本必须跳过非数值数组。

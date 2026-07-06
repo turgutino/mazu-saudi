@@ -15,6 +15,7 @@
 - [x] 等用户确认后进入实现
 - [x] 实现路径工具、数据发现、网格裁剪、DS10 HDF5、DS11 轨迹过滤和批处理 CLI
 - [x] 使用 conda `ml` 环境完成单元测试与真实数据 smoke test
+- [x] 建立 `analysis/` 数据洞察子目录，生成初步可视化和图文分析报告
 
 ## 阶段划分
 
@@ -44,6 +45,24 @@
 
 已对 `/Volumes/E/气象数据` 执行轻量 dry-run，并对 DS10、DS11 运行一文件 smoke test。
 
+### 阶段 7：数据洞察分析与图文报告
+
+目标是在仓库中新增可复跑的 `analysis/` 子目录，面向
+`/Volumes/E/气象数据/saudi_region_output` 已裁剪数据生成：
+
+- 数据可用性与覆盖范围摘要。
+- 月尺度/日尺度关键气象指标统计表。
+- 初步可视化图件。
+- Markdown 图文分析报告。
+- 聚焦测试，覆盖文件发现、数值统计、DS10 非数值字段跳过和报告生成。
+
+已完成，输出位于 `analysis/`：
+
+- `analysis/analyze_saudi_region_output.py`
+- `analysis/summary.json`
+- `analysis/saudi_data_insights_report.md`
+- `analysis/figures/*.png`
+
 ## 约束
 
 - 原始数据目录超过 2T，只做轻量探查。
@@ -51,3 +70,4 @@
 - 每个代码变更需要配套测试。
 - 每个完成的代码或文档变更需要单独提交。
 - 避免把用户已有未跟踪文件混入提交。
+- 分析脚本只读取已裁剪的沙特区域输出，不扫描或复制全量原始数据。
