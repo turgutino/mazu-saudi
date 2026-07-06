@@ -176,7 +176,7 @@
 | CAPE 和多层动力指标 | 约 291-293 天 |
 | SST | 365 天 |
 | DS10 卫星降水指标 NetCDF | 0 天有效 |
-| DS1 月降水指标 | 旧版指标输出仅 `MONTH_AVG prate/cpr` 在 202511 有效；脚本已改为使用 `MONTH_ACC tp/acpcp/ncpcp`，需重跑指标文件刷新全年分布 |
+| DS1 月降水指标 | 已按 `MONTH_ACC tp/acpcp/ncpcp` 重跑，365 个日指标文件均有月降水背景；`monthly_precip_mmday` 每日文件有效网格数为 35200 |
 
 ### 4.2 核心指标年度分布表
 
@@ -210,6 +210,8 @@
 
 2025 年沙特区域平均降水整体偏低，日累计降水区域均值仅约 0.23 mm，95 分位约 1.01 mm。这符合沙特多数区域干旱少雨的气候背景。但局地极端仍然明显，`daily_precip_total` 全网格最大值达到 254.9 mm，发生在 2025-08-23。对流降水最大网格值达到 236.5 mm，发生在 2025-08-14，说明局地强对流可以远远高于区域均值。
 
+DS1 月降水背景已用 `MONTH_ACC` 重新计算，`monthly_precip_mmday` 全年 365 个日指标文件均有效，按日文件统计的区域均值约 0.0076 mm/day，最高月背景为 202512，区域均值约 0.0255 mm/day。旧字段 `precip_mmday` 仍来自 `MONTH_AVG prate * 86400`，有效覆盖很少，不应作为月降水主指标。
+
 `flash_flood_risk` 的区域均值很低，全年平均约 0.028，最大日区域均值约 0.154，但网格最大分数达到 3，发生在 2025-08-19。这说明该风险分数更适合做空间网格筛查，而不是只看区域平均。后续可将其与流域、城市、山谷和道路承灾体叠加，提取局地风险热点。
 
 ### 4.4 高温和干热信号
@@ -234,9 +236,9 @@
 
 ### 5.1 DS1 月降水来源修正
 
-旧版指标输出中，`monthly_precip_mmday` 只有 30 天有效，对应 202511 的月背景。排查后确认原因不是 DS1 裁剪坏了，而是 `MONTH_AVG` 中 `prate/cpr` 在多数月份原始 GRIB 就是缺测；与此同时，裁剪后的 DS1 `MONTH_ACC` 文件中 `tp/acpcp/ncpcp` 在 12 个月都有有效值。
+此前月降水覆盖异常的原因不是 DS1 裁剪坏了，而是旧脚本使用了 `MONTH_AVG` 中多数月份缺测的 `prate/cpr`；与此同时，裁剪后的 DS1 `MONTH_ACC` 文件中 `tp/acpcp/ncpcp` 在 12 个月都有有效值。
 
-`compute_indicators.py` 已修正为加载 `ds1_acc`，并用 `tp/acpcp/ncpcp` 计算 `monthly_precip_total`、`monthly_precip_mmday`、`monthly_convective_precip`、`monthly_large_scale_precip` 和 `monthly_convective_precip_ratio`。已用 20250101 真实数据在 `/private/tmp` 做 smoke test，月降水相关指标均恢复为 35200 个有效网格。现有 `/Volumes/E/气象数据/saudi_region_output/indicators` 中的旧指标文件需要重跑后才会更新。
+`compute_indicators.py` 已修正为加载 `ds1_acc`，并用 `tp/acpcp/ncpcp` 计算 `monthly_precip_total`、`monthly_precip_mmday`、`monthly_convective_precip`、`monthly_large_scale_precip` 和 `monthly_convective_precip_ratio`。当前 `/Volumes/E/气象数据/saudi_region_output/indicators` 已完成重跑，365 个日指标文件中的 `monthly_precip_total` 和 `monthly_precip_mmday` 均有效，月降水相关指标每个文件恢复为 35200 个有效网格。
 
 ### 5.2 DS10 卫星降水指标写入后全 NaN
 

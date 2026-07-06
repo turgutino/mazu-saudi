@@ -53,3 +53,4 @@
 - 用户指出图文分析报告仍显示“202511 为最高且只有 11 月有值”；排查发现 `analysis/analyze_saudi_region_output.py` 仍直接使用 `MONTH_AVG prate * 86400`。
 - 按 TDD 修改分析脚本，优先使用 DS1 `MONTH_ACC tp / 当月天数`，并刷新 `analysis/summary.json`、`analysis/saudi_data_insights_report.md` 和月降水图。
 - 刷新后月降水 12 个月均有效，最高月份为 202512，区域平均约 0.03 mm/day。
+- 用户指出指标说明报告仍像旧版；同步更新 `docs/saudi_extreme_event_indicator_report.md`，将 DS1 月降水描述改为已按 `MONTH_ACC` 重跑且 365 个日指标文件均有效。
