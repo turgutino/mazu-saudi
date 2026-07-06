@@ -90,3 +90,4 @@
 - `vpd_kpa` 和 `apparent_temp_c` 在 20250102、20250130 出现明显派生异常，说明后续需要在派生指标前统一清理 GRIB 缺测值。
 - DS1 月降水只有 202511 有效的问题来自旧版指标脚本使用 `MONTH_AVG prate/cpr`；原始 `MONTH_AVG` 多数月份本身缺测，但裁剪后的 `MONTH_ACC tp/acpcp/ncpcp` 12 个月都有有效值。
 - `compute_indicators.py` 已改为加载 `ds1_acc` 并使用 `MONTH_ACC` 计算月累计降水、月平均降水强度和月对流降水比例；20250101 真实数据 smoke test 输出月降水相关指标均有 35200 个有效网格。
+- `analysis/analyze_saudi_region_output.py` 也曾使用 `MONTH_AVG prate` 生成图文报告中的月平均降水率，已改为优先使用 `MONTH_ACC tp / 当月天数`；刷新后 12 个月均有效，最高月份为 202512，区域平均约 0.03 mm/day。

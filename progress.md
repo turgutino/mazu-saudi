@@ -50,3 +50,6 @@
 - 用户要求修复 DS1 月降水指标来源；按 TDD 新增测试，要求加载 `ds1_acc` 并用 `MONTH_ACC tp/acpcp/ncpcp` 计算月降水指标。
 - 修改 `compute_indicators.py`：新增 `ds1_acc` 加载、`days_in_month()` 和 `add_monthly_accumulation_indicators()`，保留 `MONTH_AVG` 用于辐射/热通量等月背景。
 - 使用真实 20250101 数据输出到 `/private/tmp/saudi_indicator_smoke` 验证，`monthly_precip_total/monthly_precip_mmday/monthly_convective_precip/monthly_large_scale_precip/monthly_convective_precip_ratio` 均恢复有效。
+- 用户指出图文分析报告仍显示“202511 为最高且只有 11 月有值”；排查发现 `analysis/analyze_saudi_region_output.py` 仍直接使用 `MONTH_AVG prate * 86400`。
+- 按 TDD 修改分析脚本，优先使用 DS1 `MONTH_ACC tp / 当月天数`，并刷新 `analysis/summary.json`、`analysis/saudi_data_insights_report.md` 和月降水图。
+- 刷新后月降水 12 个月均有效，最高月份为 202512，区域平均约 0.03 mm/day。

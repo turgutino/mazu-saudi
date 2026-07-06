@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import calendar
 import json
 from datetime import datetime
 from pathlib import Path
@@ -67,6 +68,10 @@ def normalize_grid(values, lat, lon):
 def mean_number(values):
     summary = numeric_summary(values)
     return None if summary is None else summary["mean"]
+
+
+def days_in_month(month):
+    return calendar.monthrange(int(str(month)[:4]), int(str(month)[4:6]))[1]
 
 
 def add_summary_fields(record, prefix, values, fields=("mean", "max")):
@@ -138,16 +143,38 @@ def collect_analysis(data_root=DEFAULT_DATA_ROOT, start=None, end=None, limit_da
     months = filter_periods((path.name for path in ds1_month_dirs), start[:6] if start else None, end[:6] if end else None)
     monthly_records = []
     for month in months:
-        path = first_file(root / "ds1" / month, f"*MONTH_AVG*{month}.nc")
-        if path is None:
+        monthly_dir = root / "ds1" / month
+        avg_path = first_file(monthly_dir, f"*MONTH_AVG*{month}.nc")
+        acc_path = first_file(monthly_dir, f"*MONTH_ACC*{month}.nc")
+        if avg_path is None and acc_path is None:
             continue
-        record = {"period": month, "source": str(path)}
-        with xr.open_dataset(path) as ds:
+        record = {"period": month}
+        if acc_path is not None:
+            record["acc_source"] = str(acc_path)
+            with xr.open_dataset(acc_path) as ds:
+                if "tp" in ds:
+                    add_summary_fields(record, "precip_total_mm", ds["tp"].values)
+                    add_summary_fields(record, "precip_mmday", ds["tp"].values / days_in_month(month))
+                if "acpcp" in ds:
+                    add_summary_fields(record, "convective_precip_mm", ds["acpcp"].values, fields=("mean", "max"))
+                if "ncpcp" in ds:
+                    add_summary_fields(record, "large_scale_precip_mm", ds["ncpcp"].values, fields=("mean", "max"))
+                if {"acpcp", "tp"}.issubset(ds):
+                    ratio = safe_ratio(ds["acpcp"].values, ds["tp"].values)
+                    add_summary_fields(record, "convective_precip_ratio", ratio, fields=("mean",))
+        if avg_path is None:
+            monthly_records.append(record)
+            continue
+        record["avg_source"] = str(avg_path)
+        with xr.open_dataset(avg_path) as ds:
             if "prate" in ds:
-                add_summary_fields(record, "precip_mmday", ds["prate"].values * 86400.0)
+                record.setdefault("avg_prate_source", str(avg_path))
+                if "precip_mmday_mean" not in record:
+                    add_summary_fields(record, "precip_mmday", ds["prate"].values * 86400.0)
             if {"cpr", "prate"}.issubset(ds):
                 ratio = safe_ratio(ds["cpr"].values, ds["prate"].values)
-                add_summary_fields(record, "convective_precip_ratio", ratio, fields=("mean",))
+                if "convective_precip_ratio_mean" not in record:
+                    add_summary_fields(record, "convective_precip_ratio", ratio, fields=("mean",))
             if {"avg_ishf", "avg_slhtf"}.issubset(ds):
                 ratio = safe_ratio(ds["avg_ishf"].values, ds["avg_slhtf"].values)
                 add_summary_fields(record, "bowen_ratio", ratio, fields=("mean",))
@@ -431,7 +458,7 @@ def build_markdown_report(analysis, output_dir, figure_paths=None):
             "- `t2m_mean_c`：DS2 日地表 2 米气温，已从 K 转换为 C。",
             "- `tp_mean_mm`：DS2 日累计总降水，按裁剪区域求平均。",
             "- `ds10_daily_total_mean_mm`：DS10 高频卫星降水日聚合结果，脚本会跳过 `date`、`source_files` 等非数值字段。",
-            "- `precip_mmday_mean`：DS1 月平均降水率，按 `prate * 86400` 转换为 mm/day。",
+            "- `precip_mmday_mean`：DS1 月降水强度，优先按 `MONTH_ACC tp / 当月天数` 转换为 mm/day。",
             "",
             "## 数据质量提示",
             "",

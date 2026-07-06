@@ -53,7 +53,9 @@ class SaudiDataAnalysisTests(unittest.TestCase):
         self.assertEqual(analysis["availability"]["ds2_days"], 1)
         self.assertEqual(analysis["availability"]["ds10_daily_days"], 1)
         self.assertEqual(analysis["monthly_records"][0]["period"], "202501")
-        self.assertAlmostEqual(analysis["monthly_records"][0]["precip_mmday_mean"], 8.64)
+        self.assertAlmostEqual(analysis["monthly_records"][0]["precip_total_mm_mean"], 62.0)
+        self.assertAlmostEqual(analysis["monthly_records"][0]["precip_mmday_mean"], 2.0)
+        self.assertAlmostEqual(analysis["monthly_records"][0]["convective_precip_ratio_mean"], 0.25)
         self.assertEqual(analysis["daily_records"][0]["period"], "20250101")
         self.assertAlmostEqual(analysis["daily_records"][0]["t2m_mean_c"], 36.85)
         self.assertAlmostEqual(analysis["daily_records"][0]["tp_mean_mm"], 12.0)
@@ -134,7 +136,12 @@ class SaudiDataAnalysisTests(unittest.TestCase):
 
         self._write_nc(
             root / "ds1" / month / f"saudi_ds1_ART_SINGLE_GLB_0P10_MONTH_AVG_{month}.nc",
-            {"prate": np.full(shape, 0.0001), "cpr": np.full(shape, 0.000025)},
+            {"prate": np.full(shape, np.nan), "cpr": np.full(shape, np.nan)},
+            coords,
+        )
+        self._write_nc(
+            root / "ds1" / month / f"saudi_ds1_ART_SINGLE_GLB_0P10_MONTH_ACC_{month}.nc",
+            {"tp": np.full(shape, 62.0), "acpcp": np.full(shape, 15.5), "ncpcp": np.full(shape, 46.5)},
             coords,
         )
         self._write_nc(
