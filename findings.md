@@ -88,3 +88,5 @@
 - `sst_celsius` 全年 365 天有效，区域均值约 27.78 degC，局地最大值 36.90 degC，发生在 20250822。
 - `ds10_daily_total`、`ds10_max_1h` 等 DS10 指标在指标 NetCDF 中 0 天有效，但上游 `ds10_daily/*.npz` 存在有效数据，疑似指标合并或 NetCDF 写出阶段问题。
 - `vpd_kpa` 和 `apparent_temp_c` 在 20250102、20250130 出现明显派生异常，说明后续需要在派生指标前统一清理 GRIB 缺测值。
+- DS1 月降水只有 202511 有效的问题来自旧版指标脚本使用 `MONTH_AVG prate/cpr`；原始 `MONTH_AVG` 多数月份本身缺测，但裁剪后的 `MONTH_ACC tp/acpcp/ncpcp` 12 个月都有有效值。
+- `compute_indicators.py` 已改为加载 `ds1_acc` 并使用 `MONTH_ACC` 计算月累计降水、月平均降水强度和月对流降水比例；20250101 真实数据 smoke test 输出月降水相关指标均有 35200 个有效网格。

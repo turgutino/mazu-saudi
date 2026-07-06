@@ -10,7 +10,7 @@
 - 已裁剪区域数据：`/Volumes/E/气象数据/saudi_region_output`
 - 已计算指标输出：`/Volumes/E/气象数据/saudi_region_output/indicators/saudi_indicators_YYYYMMDD.nc`
 - 时间范围：2025-01-01 至 2025-12-31，共 365 个日文件
-- 单文件最大指标数：73 个数据变量
+- 单文件最大指标数：旧版已生成指标文件为 73 个数据变量；本次修正后重跑将新增月累计降水相关变量
 - 空间范围：16.0N-32.0N，34.0E-56.0E，约 0.1 度网格
 
 本报告中的年度分布统计以“每日区域均值”为主，辅以全网格最大值。这样可以同时反映区域背景变化和局地极端信号。
@@ -37,12 +37,15 @@
 
 ### 3.1 月尺度地表和能量指标
 
-这些指标来自 DS1 月尺度产品，并在每天计算时按对应月份写入日指标文件。因此它们反映月背景，不代表逐日变化。
+这些指标来自 DS1 月尺度产品，并在每天计算时按对应月份写入日指标文件。因此它们反映月背景，不代表逐日变化。降水类月指标使用 `MONTH_ACC`，辐射、热通量和风应力等月背景指标使用 `MONTH_AVG`。
 
 | 指标 | 含义 | 计算方法 | 单位 | 使用解释 |
 |---|---|---|---|---|
-| `monthly_precip_mmday` | 月平均降水率 | `prate * 86400` | mm/day | 月尺度降水背景，当前仅 202511 有有效降水率 |
-| `monthly_convective_precip_ratio` | 月对流降水占比 | `cpr / prate` | 1 | 越高说明降水更偏对流性，需注意 `prate` 近零时不稳定 |
+| `monthly_precip_total` | 月累计总降水 | `tp` from `MONTH_ACC` | mm | 月尺度降水总量主指标 |
+| `monthly_precip_mmday` | 月平均降水强度 | `tp / days_in_month` | mm/day | 将月累计降水折算为日平均强度 |
+| `monthly_convective_precip` | 月累计对流降水 | `acpcp` from `MONTH_ACC` | mm | 月尺度对流降水贡献 |
+| `monthly_large_scale_precip` | 月累计非对流降水 | `ncpcp` from `MONTH_ACC` | mm | 月尺度层状/大尺度降水贡献 |
+| `monthly_convective_precip_ratio` | 月对流降水占比 | `acpcp / tp` | 1 | 越高说明降水更偏对流性，需注意 `tp` 近零时不稳定 |
 | `monthly_bowen_ratio` | 月 Bowen 比 | `avg_ishf / avg_slhtf` | 1 | 感热相对潜热越高，地表越干热；分母小会放大异常 |
 | `monthly_sw_net` | 月净短波辐射 | `sdswrf - suswrf` | W m-2 | 表示地表吸收的太阳短波能量 |
 | `monthly_lw_net` | 月净长波辐射 | `sdlwrf - sulwrf` | W m-2 | 通常为负，表示地表长波净损失 |
@@ -173,7 +176,7 @@
 | CAPE 和多层动力指标 | 约 291-293 天 |
 | SST | 365 天 |
 | DS10 卫星降水指标 NetCDF | 0 天有效 |
-| DS1 月平均降水率 | 30 天有效，对应 202511 月背景 |
+| DS1 月降水指标 | 旧版指标输出仅 `MONTH_AVG prate/cpr` 在 202511 有效；脚本已改为使用 `MONTH_ACC tp/acpcp/ncpcp`，需重跑指标文件刷新全年分布 |
 
 ### 4.2 核心指标年度分布表
 
@@ -229,9 +232,11 @@
 
 ## 5. 数据质量和解释限制
 
-### 5.1 DS1 月降水率缺测
+### 5.1 DS1 月降水来源修正
 
-`monthly_precip_mmday` 只有 30 天有效，对应 202511 的月背景；其他月份为缺测或填充值。因此月尺度降水背景当前不能用于全年季节性分析。建议回查 DS1 月平均 `prate/cpr` 原始提取结果，确认是源产品缺测、变量层级选择问题，还是提取/写出时缺测值未正确编码。
+旧版指标输出中，`monthly_precip_mmday` 只有 30 天有效，对应 202511 的月背景。排查后确认原因不是 DS1 裁剪坏了，而是 `MONTH_AVG` 中 `prate/cpr` 在多数月份原始 GRIB 就是缺测；与此同时，裁剪后的 DS1 `MONTH_ACC` 文件中 `tp/acpcp/ncpcp` 在 12 个月都有有效值。
+
+`compute_indicators.py` 已修正为加载 `ds1_acc`，并用 `tp/acpcp/ncpcp` 计算 `monthly_precip_total`、`monthly_precip_mmday`、`monthly_convective_precip`、`monthly_large_scale_precip` 和 `monthly_convective_precip_ratio`。已用 20250101 真实数据在 `/private/tmp` 做 smoke test，月降水相关指标均恢复为 35200 个有效网格。现有 `/Volumes/E/气象数据/saudi_region_output/indicators` 中的旧指标文件需要重跑后才会更新。
 
 ### 5.2 DS10 卫星降水指标写入后全 NaN
 

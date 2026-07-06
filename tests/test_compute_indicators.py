@@ -17,6 +17,7 @@ class ComputeIndicatorsTests(unittest.TestCase):
             datasets = load_datasets(root, "20250601")
 
         self.assertIn("ds1_avg", datasets)
+        self.assertIn("ds1_acc", datasets)
         self.assertIn("ds1_sfc", datasets)
         self.assertIn("ds2_avg", datasets)
         self.assertIn("ds2_sfc", datasets)
@@ -40,6 +41,10 @@ class ComputeIndicatorsTests(unittest.TestCase):
                 self.assertEqual(result["period"], "20250601")
                 self.assertEqual(result["status"], "computed")
                 self.assertIn("precip_mmday", saved)
+                self.assertIn("monthly_precip_total", saved)
+                self.assertIn("monthly_convective_precip", saved)
+                self.assertIn("monthly_large_scale_precip", saved)
+                self.assertIn("monthly_convective_precip_ratio", saved)
                 self.assertIn("convective_precip_ratio", saved)
                 self.assertIn("cape", saved)
                 self.assertIn("cin", saved)
@@ -67,6 +72,11 @@ class ComputeIndicatorsTests(unittest.TestCase):
                 self.assertIn("divergence850", saved)
 
                 self.assertAlmostEqual(float(saved["precip_mmday"].isel(latitude=0, longitude=0)), 8.64)
+                self.assertAlmostEqual(float(saved["monthly_precip_total"].isel(latitude=0, longitude=0)), 60.0)
+                self.assertAlmostEqual(float(saved["monthly_precip_mmday"].isel(latitude=0, longitude=0)), 2.0)
+                self.assertAlmostEqual(float(saved["monthly_convective_precip"].isel(latitude=0, longitude=0)), 15.0)
+                self.assertAlmostEqual(float(saved["monthly_large_scale_precip"].isel(latitude=0, longitude=0)), 45.0)
+                self.assertAlmostEqual(float(saved["monthly_convective_precip_ratio"].isel(latitude=0, longitude=0)), 0.25)
                 self.assertAlmostEqual(float(saved["convective_precip_ratio"].isel(latitude=0, longitude=0)), 0.25)
                 self.assertAlmostEqual(float(saved["t2m_c"].isel(latitude=0, longitude=0)), 36.85)
                 self.assertAlmostEqual(float(saved["wind10_speed"].isel(latitude=0, longitude=0)), 5.0)
@@ -92,8 +102,8 @@ class ComputeIndicatorsTests(unittest.TestCase):
         self._write_nc(
             ds1_dir / f"saudi_ds1_ART_SINGLE_GLB_0P10_MONTH_AVG_{month}.nc",
             {
-                "prate": np.full(shape, 0.0001),
-                "cpr": np.full(shape, 0.000025),
+                "prate": np.full(shape, np.nan),
+                "cpr": np.full(shape, np.nan),
                 "avg_slhtf": np.full(shape, 50.0),
                 "avg_ishf": np.full(shape, 150.0),
                 "avg_utaua": np.full(shape, 0.08),
@@ -108,6 +118,11 @@ class ComputeIndicatorsTests(unittest.TestCase):
                 "cduvb": np.full(shape, 10.0),
                 "avg_al": np.full(shape, 30.0),
             },
+            coords,
+        )
+        self._write_nc(
+            ds1_dir / f"saudi_ds1_ART_SINGLE_GLB_0P10_MONTH_ACC_{month}.nc",
+            {"tp": np.full(shape, 60.0), "acpcp": np.full(shape, 15.0), "ncpcp": np.full(shape, 45.0)},
             coords,
         )
         self._write_nc(

@@ -5,6 +5,7 @@
 # =============================================================================
 
 import argparse
+import calendar
 import glob
 import json
 from pathlib import Path
@@ -93,6 +94,13 @@ def load_datasets(data_dir="output_saudi", period=None):
             f"*AVG*{month}.nc",
         ],
     )
+    datasets["ds1_acc"] = _open_first(
+        ds1_root,
+        [
+            f"saudi_ds1_ART_SINGLE_GLB_0P10_MONTH_ACC_{month}.nc",
+            f"*ACC*{month}.nc",
+        ],
+    )
     datasets["ds1_sfc"] = _open_first(
         ds1_root,
         [
@@ -179,6 +187,10 @@ def _with_attrs(array, long_name, units, formula=None):
     return array
 
 
+def days_in_month(month):
+    return calendar.monthrange(int(str(month)[:4]), int(str(month)[4:6]))[1]
+
+
 def add_monthly_surface_indicators(results, ds):
     if "prate" in ds:
         results["monthly_precip_mmday"] = _with_attrs(
@@ -235,6 +247,30 @@ def add_monthly_surface_indicators(results, ds):
             "Monthly clear-sky to all-sky UV-B ratio",
             "1",
             "cduvb / duvb",
+        )
+
+
+def add_monthly_accumulation_indicators(results, ds, month):
+    if ds is None:
+        return
+    if "tp" in ds:
+        results["monthly_precip_total"] = _with_attrs(ds["tp"], "Monthly total precipitation", "mm", "tp")
+        results["monthly_precip_mmday"] = _with_attrs(
+            ds["tp"] / days_in_month(month),
+            "Monthly total precipitation converted to daily mean",
+            "mm/day",
+            "tp / days_in_month",
+        )
+    if "acpcp" in ds:
+        results["monthly_convective_precip"] = _with_attrs(ds["acpcp"], "Monthly convective precipitation", "mm", "acpcp")
+    if "ncpcp" in ds:
+        results["monthly_large_scale_precip"] = _with_attrs(ds["ncpcp"], "Monthly non-convective precipitation", "mm", "ncpcp")
+    if {"acpcp", "tp"}.issubset(ds):
+        results["monthly_convective_precip_ratio"] = _with_attrs(
+            _ratio(ds["acpcp"], ds["tp"]),
+            "Monthly convective precipitation fraction",
+            "1",
+            "acpcp / tp",
         )
 
 
@@ -583,6 +619,7 @@ def compute_period(data_dir, period, output_dir=OUTPUT_DIR):
 
     if "ds1_avg" in datasets:
         add_monthly_surface_indicators(results, datasets["ds1_avg"])
+    add_monthly_accumulation_indicators(results, datasets.get("ds1_acc"), datasets["month"])
     add_cloud_indicators(results, datasets["ds1_sfc"]) if "ds1_sfc" in datasets else None
     add_daily_precip_energy_indicators(results, datasets.get("ds2_avg"), datasets.get("ds2_acc"))
     add_daily_surface_indicators(results, datasets.get("ds2_sfc"), datasets.get("ds2_max"), datasets.get("ds2_min"))

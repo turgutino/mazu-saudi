@@ -47,3 +47,6 @@
 - 发现 DS10 卫星降水指标在指标 NetCDF 中全 NaN，但上游 `ds10_daily` NPZ 存在有效值；报告中标为后续修复项。
 - 发现 `vpd_kpa` 与 `apparent_temp_c` 在 20250102、20250130 被派生异常值污染；报告中标为缺测值质控问题。
 - 新增 `docs/saudi_extreme_event_indicator_report.md`，逐项说明指标含义、公式、单位、使用解释和 2025 年分布洞察。
+- 用户要求修复 DS1 月降水指标来源；按 TDD 新增测试，要求加载 `ds1_acc` 并用 `MONTH_ACC tp/acpcp/ncpcp` 计算月降水指标。
+- 修改 `compute_indicators.py`：新增 `ds1_acc` 加载、`days_in_month()` 和 `add_monthly_accumulation_indicators()`，保留 `MONTH_AVG` 用于辐射/热通量等月背景。
+- 使用真实 20250101 数据输出到 `/private/tmp/saudi_indicator_smoke` 验证，`monthly_precip_total/monthly_precip_mmday/monthly_convective_precip/monthly_large_scale_precip/monthly_convective_precip_ratio` 均恢复有效。
