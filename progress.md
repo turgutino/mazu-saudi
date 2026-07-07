@@ -70,3 +70,4 @@
 - 完整测试 `conda run -n ml python -m pytest -q` 通过：39 passed，1 个 numpy warning。
 - 经用户授权，正式重算 `/Volumes/E/气象数据/saudi_region_output/indicators` 全年 365 个指标文件。
 - 重算后 QA：365 个文件仍为 `latitude=160`、`longitude=220`，范围 `16.0..31.9N`、`34.0..55.9E`；热湿物理范围异常天数为 0；`cape` 293 天有效且二维；`flash_flood_risk` 365 天有效且最高分为 4。
+- 收到用户请求：同步更新指标报告。已刷新 `docs/saudi_extreme_event_indicator_report.md` 中的指标数、空间范围、DS10 缺测替代口径、CAPE 二维化说明、热湿填充值修正、`flash_flood_risk` 年度统计和后续建议。
