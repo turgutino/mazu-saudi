@@ -86,8 +86,11 @@
 - `daily_precip_total` 有效 363 天，区域日均值全年平均约 0.23 mm，局地最大值 254.9 mm，发生在 20250823。
 - `t2m_c` 有效 362 天，区域日均值全年平均约 27.09 degC，最高日区域均值 35.98 degC，局地最大值 45.90 degC，发生在 20250717。
 - `sst_celsius` 全年 365 天有效，区域均值约 27.78 degC，局地最大值 36.90 degC，发生在 20250822。
-- `ds10_daily_total`、`ds10_max_1h` 等 DS10 指标在指标 NetCDF 中 0 天有效，但上游 `ds10_daily/*.npz` 存在有效数据，疑似指标合并或 NetCDF 写出阶段问题。
+- 曾发现 `ds10_daily_total`、`ds10_max_1h` 等 DS10 指标在指标 NetCDF 中 0 天有效，但上游 `ds10_daily/*.npz` 存在有效数据；现已定位为坐标对齐问题并修复。
 - `vpd_kpa` 和 `apparent_temp_c` 在 20250102、20250130 出现明显派生异常，说明后续需要在派生指标前统一清理 GRIB 缺测值。
 - DS1 月降水只有 202511 有效的问题来自旧版指标脚本使用 `MONTH_AVG prate/cpr`；原始 `MONTH_AVG` 多数月份本身缺测，但裁剪后的 `MONTH_ACC tp/acpcp/ncpcp` 12 个月都有有效值。
 - `compute_indicators.py` 已改为加载 `ds1_acc` 并使用 `MONTH_ACC` 计算月累计降水、月平均降水强度和月对流降水比例；20250101 真实数据 smoke test 输出月降水相关指标均有 35200 个有效网格。
 - `analysis/analyze_saudi_region_output.py` 也曾使用 `MONTH_AVG prate` 生成图文报告中的月平均降水率，已改为优先使用 `MONTH_ACC tp / 当月天数`；刷新后 12 个月均有效，最高月份为 202512，区域平均约 0.03 mm/day。
+- DS10 指标全 NaN 的根因是 DS10 NPZ 网格相对 DS2/指标网格有半格偏移且纬度方向不同，xarray 按精确坐标对齐时把 DS10 数组对齐为空；已改为最近邻对齐到指标网格。
+- 重算后 DS10 卫星降水指标 273 天有效，有效日每个 DS10 变量均为 35200 个网格；新增 `ds10_ds2_precip_diff`、`ds10_ds2_precip_ratio`、`ds10_ds2_heavy_rain_overlap` 做 DS10 与 DS2 降水交叉验证。
+- `flash_flood_risk` 曾被带 `pressureFromGroundLayer` 的三维变量广播为三维；已限制为只使用二维 `latitude/longitude` 指标，重算后 365 天均为二维评分。

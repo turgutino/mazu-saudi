@@ -140,12 +140,15 @@
 | 指标 | 含义 | 计算方法 | 单位 | 使用解释 |
 |---|---|---|---|---|
 | `sst_celsius` | 海表温度 | `analysed_sst`，源值大于 200 时转为 `K - 273.15` | degC | 红海和波斯湾热湿背景 |
-| `ds10_daily_total` | DS10 卫星日降水 | `daily_total` | mm | 方法已定义，但当前指标 NetCDF 中全 NaN |
-| `ds10_max_30min` | DS10 30 分钟最大降水 | `max_30min` | mm | 方法已定义，但当前指标 NetCDF 中全 NaN |
-| `ds10_max_1h` | DS10 1 小时最大降水 | `max_1h` | mm | 山洪短历时降水核心候选，但当前指标 NetCDF 中全 NaN |
+| `ds10_daily_total` | DS10 卫星日降水 | `daily_total`，最近邻对齐到指标网格 | mm | 高频卫星降水日聚合，可与 DS2 日累计降水交叉验证 |
+| `ds10_max_30min` | DS10 30 分钟最大降水 | `max_30min`，最近邻对齐到指标网格 | mm | 短历时强降水核心指标 |
+| `ds10_max_1h` | DS10 1 小时最大降水 | `max_1h`，最近邻对齐到指标网格 | mm | 山洪短历时降水核心候选，并已纳入 `flash_flood_risk` |
 | `ds10_max_3h` | DS10 3 小时最大降水 | `max_3h` | mm | 短时累计降水 |
 | `ds10_max_6h` | DS10 6 小时最大降水 | `max_6h` | mm | 半日尺度强降水 |
 | `ds10_rainy_steps` | DS10 有雨时次数 | `rainy_steps` | steps | 表示日内降水持续性 |
+| `ds10_ds2_precip_diff` | DS10 与 DS2 日降水差值 | `ds10_daily_total - daily_precip_total` | mm | 正值表示 DS10 高于 DS2 |
+| `ds10_ds2_precip_ratio` | DS10/DS2 日降水比值 | `ds10_daily_total / daily_precip_total` | 1 | 用于识别两套降水估计偏差 |
+| `ds10_ds2_heavy_rain_overlap` | DS10 与 DS2 强降水重叠 | 两者均 `>= 10 mm` 时为 1 | flag | 用于筛选两套数据共同支持的强降水网格 |
 
 ### 3.8 综合山洪筛查指标
 
@@ -161,7 +164,7 @@
 - `wind10_speed >= 10 m s-1`。
 - `ds10_max_1h >= 10 mm`。
 
-由于当前 DS10 指标在 NetCDF 中无有效值，`flash_flood_risk` 实际主要由地面降水、对流比例、CAPE 和 10 米风贡献。
+DS10 指标已修正并重算，`ds10_max_1h >= 10 mm` 现在会实际参与 `flash_flood_risk`。风险评分只使用二维水平网格指标，避免带垂直层的变量把评分广播成三维。
 
 ## 4. 2025 年指标分布洞察
 
@@ -175,7 +178,7 @@
 | 日最高/最低温 | 363 天 |
 | CAPE 和多层动力指标 | 约 291-293 天 |
 | SST | 365 天 |
-| DS10 卫星降水指标 NetCDF | 0 天有效 |
+| DS10 卫星降水指标 NetCDF | 273 天有效；有效日每个 DS10 降水变量均为 35200 个网格 |
 | DS1 月降水指标 | 已按 `MONTH_ACC tp/acpcp/ncpcp` 重跑，365 个日指标文件均有月降水背景；`monthly_precip_mmday` 每日文件有效网格数为 35200 |
 
 ### 4.2 核心指标年度分布表
@@ -204,7 +207,7 @@
 | `omega500` | 292 | 0.015 Pa/s | 0.055 Pa/s | 0.145 Pa/s | 3.38 Pa/s @ 20250415 |
 | `geopotential_height500` | 293 | 5868 gpm | 5912 gpm | 5926 gpm | 5970 gpm @ 20250814 |
 | `sst_celsius` | 365 | 27.78 degC | 31.58 degC | 32.03 degC | 36.90 degC @ 20250822 |
-| `flash_flood_risk` | 365 | 0.028 | 0.076 | 0.154 | 3 @ 20250819 |
+| `flash_flood_risk` | 365 | 0.015 | 0.060 | 0.171 | 3 @ 20250307 |
 
 ### 4.3 降水和山洪信号
 
@@ -212,7 +215,7 @@
 
 DS1 月降水背景已用 `MONTH_ACC` 重新计算，`monthly_precip_mmday` 全年 365 个日指标文件均有效，按日文件统计的区域均值约 0.0076 mm/day，最高月背景为 202512，区域均值约 0.0255 mm/day。旧字段 `precip_mmday` 仍来自 `MONTH_AVG prate * 86400`，有效覆盖很少，不应作为月降水主指标。
 
-`flash_flood_risk` 的区域均值很低，全年平均约 0.028，最大日区域均值约 0.154，但网格最大分数达到 3，发生在 2025-08-19。这说明该风险分数更适合做空间网格筛查，而不是只看区域平均。后续可将其与流域、城市、山谷和道路承灾体叠加，提取局地风险热点。
+`flash_flood_risk` 的区域均值很低，全年平均约 0.015，最大日区域均值约 0.171，发生在 2025-03-07；网格最大分数达到 3。这说明该风险分数更适合做空间网格筛查，而不是只看区域平均。后续可将其与流域、城市、山谷和道路承灾体叠加，提取局地风险热点。
 
 ### 4.4 高温和干热信号
 
@@ -240,11 +243,11 @@ DS1 月降水背景已用 `MONTH_ACC` 重新计算，`monthly_precip_mmday` 全�
 
 `compute_indicators.py` 已修正为加载 `ds1_acc`，并用 `tp/acpcp/ncpcp` 计算 `monthly_precip_total`、`monthly_precip_mmday`、`monthly_convective_precip`、`monthly_large_scale_precip` 和 `monthly_convective_precip_ratio`。当前 `/Volumes/E/气象数据/saudi_region_output/indicators` 已完成重跑，365 个日指标文件中的 `monthly_precip_total` 和 `monthly_precip_mmday` 均有效，月降水相关指标每个文件恢复为 35200 个有效网格。
 
-### 5.2 DS10 卫星降水指标写入后全 NaN
+### 5.2 DS10 卫星降水网格对齐和交叉验证
 
-`ds10_daily_total`、`ds10_max_30min`、`ds10_max_1h`、`ds10_max_3h`、`ds10_max_6h`、`ds10_rainy_steps` 在指标 NetCDF 中 0 天有效。但 `/Volumes/E/气象数据/saudi_region_output/ds10_daily` 下的 NPZ 聚合文件本身存在有效数值。该问题更可能出现在指标合并或 NetCDF 写出环节，而不是 DS10 原始日聚合环节。
+此前 DS10 指标写入 NetCDF 后全 NaN，根因是 DS10 NPZ 网格相对 DS2/指标网格存在半个格点偏移，且纬度方向不同；xarray 合并时按坐标精确对齐，导致 DS10 数组被对齐为空。`compute_indicators.py` 已改为将 DS10 日聚合结果最近邻重采样到指标网格，并在写入前保持 `latitude/longitude` 坐标一致。
 
-这会削弱短历时强降水和山洪评分中的卫星降水贡献。建议后续为 `add_ds10_daily_indicators()` 增加真实 NPZ 到 NetCDF 的回归测试，并检查经纬度坐标合并时是否与已有 `latitude/longitude` 坐标冲突。
+当前重算后的指标中，`ds10_daily_total`、`ds10_max_30min`、`ds10_max_1h`、`ds10_max_3h`、`ds10_max_6h`、`ds10_rainy_steps` 均有 273 天有效，有效日每个变量均有 35200 个网格。脚本还新增 `ds10_ds2_precip_diff`、`ds10_ds2_precip_ratio` 和 `ds10_ds2_heavy_rain_overlap`，用于把 DS10 卫星日降水与 DS2 日累计降水做交叉验证。`flash_flood_risk` 已纳入 `ds10_max_1h`，并限制为二维水平网格评分。
 
 ### 5.3 派生热湿指标的填充值污染
 
@@ -266,7 +269,6 @@ DS1 月降水背景已用 `MONTH_ACC` 重新计算，`monthly_precip_mmday` 全�
 ## 6. 后续建议
 
 1. 为 `compute_indicators.py` 增加统一的缺测值清洗函数，先屏蔽 `NaN`、`inf`、GRIB missing value 和异常物理范围，再计算派生指标。
-2. 修复 DS10 指标从 NPZ 写入 NetCDF 后全 NaN 的问题，并把 `ds10_max_1h` 真正纳入 `flash_flood_risk`。
-3. 将 `flash_flood_risk` 从简单阈值计数升级为可配置权重模型，区分降水、对流、水汽、地形和承灾体暴露。
-4. 为 SST 增加红海、波斯湾分区时间序列指标，而不仅保存在属性 JSON 中。
-5. 引入多年气候态后，补充降水距平、SPI、500 hPa 高度距平、热浪持续天数等更适合预警业务的异常类指标。
+2. 将 `flash_flood_risk` 从简单阈值计数升级为可配置权重模型，区分降水、对流、水汽、地形和承灾体暴露。
+3. 为 SST 增加红海、波斯湾分区时间序列指标，而不仅保存在属性 JSON 中。
+4. 引入多年气候态后，补充降水距平、SPI、500 hPa 高度距平、热浪持续天数等更适合预警业务的异常类指标。

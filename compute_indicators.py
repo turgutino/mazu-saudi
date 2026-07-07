@@ -187,6 +187,38 @@ def _with_attrs(array, long_name, units, formula=None):
     return array
 
 
+def nearest_grid_tolerance(source_coord, target_coord):
+    source = np.asarray(source_coord.values, dtype=float)
+    target = np.asarray(target_coord.values, dtype=float)
+    spacings = []
+    for values in (source, target):
+        unique = np.unique(values[np.isfinite(values)])
+        if unique.size > 1:
+            diffs = np.diff(np.sort(unique))
+            diffs = diffs[np.isfinite(diffs) & (diffs > 0)]
+            if diffs.size:
+                spacings.append(float(np.median(diffs)))
+    if not spacings:
+        return None
+    return min(spacings) * 0.75
+
+
+def align_to_indicator_grid(array, reference):
+    if not {"latitude", "longitude"}.issubset(array.dims):
+        return array
+    aligned = array
+    for dim in ("latitude", "longitude"):
+        if dim not in reference.coords or dim not in aligned.coords:
+            continue
+        tolerance = nearest_grid_tolerance(aligned[dim], reference[dim])
+        kwargs = {"method": "nearest"}
+        if tolerance is not None:
+            kwargs["tolerance"] = tolerance
+        aligned = aligned.reindex({dim: reference[dim].values}, **kwargs)
+        aligned = aligned.assign_coords({dim: reference[dim]})
+    return aligned
+
+
 def days_in_month(month):
     return calendar.monthrange(int(str(month)[:4]), int(str(month)[4:6]))[1]
 
@@ -574,23 +606,59 @@ def add_ds10_daily_indicators(results, ds):
     for source, target in mapping.items():
         if source in ds:
             units = "steps" if source == "rainy_steps" else "mm"
-            results[target] = _with_attrs(ds[source], target.replace("_", " ").title(), units)
+            array = align_to_indicator_grid(ds[source], results)
+            results[target] = _with_attrs(array, target.replace("_", " ").title(), units)
+
+
+def add_precipitation_cross_validation_indicators(results):
+    if "daily_precip_total" not in results or "ds10_daily_total" not in results:
+        return
+    ds2_precip = results["daily_precip_total"]
+    ds10_precip = results["ds10_daily_total"]
+    results["ds10_ds2_precip_diff"] = _with_attrs(
+        ds10_precip - ds2_precip,
+        "DS10 minus DS2 daily precipitation",
+        "mm",
+        "ds10_daily_total - daily_precip_total",
+    )
+    results["ds10_ds2_precip_ratio"] = _with_attrs(
+        _ratio(ds10_precip, ds2_precip),
+        "DS10 to DS2 daily precipitation ratio",
+        "1",
+        "ds10_daily_total / daily_precip_total",
+    )
+    results["ds10_ds2_heavy_rain_overlap"] = _with_attrs(
+        xr.where((ds10_precip >= 10.0) & (ds2_precip >= 10.0), 1, 0),
+        "Grid cells where both DS10 and DS2 exceed 10 mm daily precipitation",
+        "flag",
+        "(ds10_daily_total >= 10) & (daily_precip_total >= 10)",
+    )
+
+
+def is_horizontal_grid(array):
+    return tuple(array.dims) == ("latitude", "longitude")
+
+
+def threshold_flag(results, name, threshold):
+    if name not in results or not is_horizontal_grid(results[name]):
+        return None
+    return xr.where(results[name] >= threshold, 1, 0)
 
 
 def add_flash_flood_risk(results):
     terms = []
-    if "daily_precip_total" in results:
-        terms.append(xr.where(results["daily_precip_total"] >= 10.0, 1, 0))
-    elif "precip_mmday" in results:
-        terms.append(xr.where(results["precip_mmday"] >= 10.0, 1, 0))
-    if "convective_precip_ratio" in results:
-        terms.append(xr.where(results["convective_precip_ratio"] >= 0.5, 1, 0))
-    if "cape" in results:
-        terms.append(xr.where(results["cape"] >= 1000.0, 1, 0))
-    if "wind10_speed" in results:
-        terms.append(xr.where(results["wind10_speed"] >= 10.0, 1, 0))
-    if "ds10_max_1h" in results:
-        terms.append(xr.where(results["ds10_max_1h"] >= 10.0, 1, 0))
+    precip_flag = threshold_flag(results, "daily_precip_total", 10.0)
+    if precip_flag is None:
+        precip_flag = threshold_flag(results, "precip_mmday", 10.0)
+    for flag in [
+        precip_flag,
+        threshold_flag(results, "convective_precip_ratio", 0.5),
+        threshold_flag(results, "cape", 1000.0),
+        threshold_flag(results, "wind10_speed", 10.0),
+        threshold_flag(results, "ds10_max_1h", 10.0),
+    ]:
+        if flag is not None:
+            terms.append(flag)
     if terms:
         risk = terms[0]
         for term in terms[1:]:
@@ -627,6 +695,7 @@ def compute_period(data_dir, period, output_dir=OUTPUT_DIR):
     add_multilevel_indicators(results, datasets.get("ds2_anal"))
     add_sst_indicators(results, datasets.get("ds4"))
     add_ds10_daily_indicators(results, datasets.get("ds10_daily"))
+    add_precipitation_cross_validation_indicators(results)
     add_flash_flood_risk(results)
 
     output_path = Path(output_dir) / f"saudi_indicators_{period}.nc"

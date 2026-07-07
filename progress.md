@@ -44,7 +44,7 @@
 - 新增阶段 8：极端事件指标方法与分布洞察报告。
 - 扫描 365 个 `saudi_indicators_YYYYMMDD.nc` 文件，确认单文件最多 73 个指标变量。
 - 汇总核心指标年度分布：日累计降水、温度、湿度、CAPE、PWAT、IVT、风切变、SST 和 `flash_flood_risk`。
-- 发现 DS10 卫星降水指标在指标 NetCDF 中全 NaN，但上游 `ds10_daily` NPZ 存在有效值；报告中标为后续修复项。
+- 曾发现 DS10 卫星降水指标在指标 NetCDF 中全 NaN，但上游 `ds10_daily` NPZ 存在有效值；后续已修复为最近邻网格对齐并重算全年指标。
 - 发现 `vpd_kpa` 与 `apparent_temp_c` 在 20250102、20250130 被派生异常值污染；报告中标为缺测值质控问题。
 - 新增 `docs/saudi_extreme_event_indicator_report.md`，逐项说明指标含义、公式、单位、使用解释和 2025 年分布洞察。
 - 用户要求修复 DS1 月降水指标来源；按 TDD 新增测试，要求加载 `ds1_acc` 并用 `MONTH_ACC tp/acpcp/ncpcp` 计算月降水指标。
@@ -54,3 +54,6 @@
 - 按 TDD 修改分析脚本，优先使用 DS1 `MONTH_ACC tp / 当月天数`，并刷新 `analysis/summary.json`、`analysis/saudi_data_insights_report.md` 和月降水图。
 - 刷新后月降水 12 个月均有效，最高月份为 202512，区域平均约 0.03 mm/day。
 - 用户指出指标说明报告仍像旧版；同步更新 `docs/saudi_extreme_event_indicator_report.md`，将 DS1 月降水描述改为已按 `MONTH_ACC` 重跑且 365 个日指标文件均有效。
+- 用户要求修复 DS10 卫星降水指标并做交叉验证；定位到 DS10 NPZ 半格偏移/纬度方向差异导致 xarray 精确坐标对齐成全 NaN。
+- 按 TDD 修改 `compute_indicators.py`：DS10 指标最近邻对齐到指标网格，新增 DS10-DS2 降水差值、比值和强降水重叠标志，并限制 `flash_flood_risk` 只使用二维水平网格指标。
+- 已重算 `/Volumes/E/气象数据/saudi_region_output/indicators` 全年 365 个指标文件；验证 DS10 指标 273 天有效，`flash_flood_risk` 365 天均为二维。

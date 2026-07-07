@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 import numpy as np
 import xarray as xr
 
-from compute_indicators import compute_period, load_datasets
+from compute_indicators import add_flash_flood_risk, compute_period, load_datasets
 
 
 class ComputeIndicatorsTests(unittest.TestCase):
@@ -90,6 +90,66 @@ class ComputeIndicatorsTests(unittest.TestCase):
                 self.assertAlmostEqual(float(saved["wind_shear_850_200"].isel(latitude=0, longitude=0)), 20.0)
             finally:
                 saved.close()
+
+    def test_compute_period_aligns_ds10_daily_grid_and_cross_validates_precipitation(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "input"
+            output = Path(tmp) / "indicators"
+            period = "20250601"
+            self._write_partitioned_inputs(root, period)
+
+            month = period[:6]
+            ds10_dir = root / "ds10_daily" / month
+            # Real DS10 daily NPZ files are on a half-grid offset and store
+            # arrays as (longitude, latitude), unlike the DS2 NetCDF grid.
+            np.savez_compressed(
+                ds10_dir / f"saudi_ds10_daily_{period}.npz",
+                date=np.asarray(period),
+                lat=np.array([20.05, 21.05]),
+                lon=np.array([40.05, 41.05]),
+                daily_total=np.array([[18.0, 28.0], [38.0, 48.0]]),
+                max_30min=np.array([[3.0, 4.0], [5.0, 6.0]]),
+                max_1h=np.array([[11.0, 12.0], [13.0, 14.0]]),
+                max_3h=np.array([[9.0, 10.0], [11.0, 12.0]]),
+                max_6h=np.array([[12.0, 13.0], [14.0, 15.0]]),
+                rainy_steps=np.array([[6, 7], [8, 9]], dtype=np.int16),
+                time_count=np.asarray(48, dtype=np.int16),
+            )
+
+            compute_period(root, period, output_dir=output)
+            saved = xr.open_dataset(output / f"saudi_indicators_{period}.nc")
+
+            try:
+                self.assertAlmostEqual(float(saved["ds10_daily_total"].isel(latitude=0, longitude=0)), 18.0)
+                self.assertAlmostEqual(float(saved["ds10_daily_total"].isel(latitude=1, longitude=1)), 48.0)
+                self.assertAlmostEqual(float(saved["ds10_max_1h"].isel(latitude=0, longitude=0)), 11.0)
+                self.assertAlmostEqual(float(saved["ds10_ds2_precip_diff"].isel(latitude=0, longitude=0)), 6.0)
+                self.assertAlmostEqual(float(saved["ds10_ds2_precip_ratio"].isel(latitude=0, longitude=0)), 1.5)
+                self.assertEqual(int(saved["ds10_ds2_heavy_rain_overlap"].isel(latitude=0, longitude=0)), 1)
+                self.assertEqual(int(np.isfinite(saved["ds10_daily_total"].values).sum()), 4)
+            finally:
+                saved.close()
+
+    def test_flash_flood_risk_ignores_non_horizontal_terms(self):
+        lat = np.array([20.0, 21.0])
+        lon = np.array([40.0, 41.0])
+        levels = np.array([1.0, 2.0])
+        results = xr.Dataset(
+            {
+                "daily_precip_total": (("latitude", "longitude"), np.full((2, 2), 12.0)),
+                "ds10_max_1h": (("latitude", "longitude"), np.full((2, 2), 11.0)),
+                "convective_precip_ratio": (
+                    ("latitude", "longitude", "pressureFromGroundLayer"),
+                    np.ones((2, 2, 2)),
+                ),
+            },
+            coords={"latitude": lat, "longitude": lon, "pressureFromGroundLayer": levels},
+        )
+
+        add_flash_flood_risk(results)
+
+        self.assertEqual(results["flash_flood_risk"].dims, ("latitude", "longitude"))
+        self.assertEqual(int(results["flash_flood_risk"].isel(latitude=0, longitude=0)), 2)
 
     def _write_partitioned_inputs(self, root, period):
         month = period[:6]
