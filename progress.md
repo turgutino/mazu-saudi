@@ -68,3 +68,5 @@
 - 实现 `compute_indicators.py` 质控修复：新增统一数值清洗，清理地面温湿风和体感温度输入；新增稳定度变量二维化逻辑。
 - 真实数据烟测写入 `/private/tmp/saudi_indicator_fix_smoke`：20250102/20250130 的污染热湿指标变为 NaN；20250823 的 `cape` 为二维，`flash_flood_risk` 仍为二维评分。
 - 完整测试 `conda run -n ml python -m pytest -q` 通过：39 passed，1 个 numpy warning。
+- 经用户授权，正式重算 `/Volumes/E/气象数据/saudi_region_output/indicators` 全年 365 个指标文件。
+- 重算后 QA：365 个文件仍为 `latitude=160`、`longitude=220`，范围 `16.0..31.9N`、`34.0..55.9E`；热湿物理范围异常天数为 0；`cape` 293 天有效且二维；`flash_flood_risk` 365 天有效且最高分为 4。

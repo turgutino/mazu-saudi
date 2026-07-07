@@ -107,3 +107,4 @@
 - 明确问题：`cape` 在样例文件中维度为 `pressureFromGroundLayer, latitude, longitude`，不是二维水平网格；当前 `flash_flood_risk` 只接收二维指标，因此实际评分未使用三维 CAPE 项。
 - DS10 缺测替代口径：`ds10_daily_total` 缺测时可用 DS2 `daily_precip_total` 作为日总降水替代参考；但 DS10 的 `max_30min/max_1h/max_3h/max_6h` 是短历时峰值，DS2 日累计产品不能真实替代，只能在解释 `flash_flood_risk` 时说明该短时项不可用。
 - 已修复 `compute_indicators.py`：计算热湿派生指标前清理超大填充值和明显非物理值；`cape/cin/lifted index` 等带额外层维度时折算为二维水平网格。真实烟测中 `20250102/20250130` 的污染热湿值变为 NaN，`20250823` 的 `cape` 变为二维且可参与 `flash_flood_risk`。
+- 正式重算 `/Volumes/E/气象数据/saudi_region_output/indicators` 后，365 个指标文件仍为同一沙特 bbox 网格；`t2m_c/vpd_kpa/heat_index_c/apparent_temp_c` 的物理范围异常天数均为 0；`cape` 293 天有效且维度为 `latitude, longitude`；`flash_flood_risk` 365 天有效且最高分为 4。
