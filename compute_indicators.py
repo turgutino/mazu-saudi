@@ -6,6 +6,8 @@
 
 import argparse
 import calendar
+import csv
+import datetime as dt
 import glob
 import json
 from pathlib import Path
@@ -15,11 +17,16 @@ import xarray as xr
 
 
 OUTPUT_DIR = "output_indicators"
+DS8_DIR_NAME = "8_SURF_CLI_GLB_1991_2020"
+SAUDI_LAT_MIN = 16.0
+SAUDI_LAT_MAX = 32.0
+SAUDI_LON_MIN = 34.0
+SAUDI_LON_MAX = 56.0
 
 MISSING_ADVANCED_INDICATORS = [
     "LCL/LFC/EL require vertical thermodynamic profiles",
     "500 hPa height anomaly and ridge strength require pressure-level geopotential height plus baseline",
-    "SPI and precipitation anomaly require a multi-year climatological baseline",
+    "SPI requires multi-year precipitation distributions, not only climatological means",
     "PET/ET0 requires a validated pressure/radiation/wind/temperature workflow",
 ]
 
@@ -232,6 +239,264 @@ def align_to_indicator_grid(array, reference):
 
 def days_in_month(month):
     return calendar.monthrange(int(str(month)[:4]), int(str(month)[4:6]))[1]
+
+
+def day_of_year_365(period):
+    date = dt.datetime.strptime(str(period), "%Y%m%d").date()
+    day = date.timetuple().tm_yday
+    if calendar.isleap(date.year):
+        if date.month == 2 and date.day == 29:
+            return 59
+        if day > 59:
+            return day - 1
+    return day
+
+
+def discover_climatology_root(data_dir):
+    root = Path(data_dir)
+    candidates = [
+        root / DS8_DIR_NAME,
+        root.parent / DS8_DIR_NAME,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _parse_float(value):
+    try:
+        parsed = float(str(value).strip())
+    except (TypeError, ValueError):
+        return np.nan
+    if parsed == -999.0:
+        return np.nan
+    return parsed
+
+
+def _parse_int(value):
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return None
+
+
+def ds8_daily_path(climatology_root, variable):
+    return (
+        Path(climatology_root)
+        / variable
+        / "GLB"
+        / "MDAY"
+        / f"SURF_GLB_MUL_MMUT_19912020_MDAY_{variable}.txt"
+    )
+
+
+def load_ds8_daily_normals(climatology_root, variable, day_of_year):
+    path = ds8_daily_path(climatology_root, variable)
+    if not path.exists():
+        return []
+
+    value_column = f"{int(day_of_year):03d}d"
+    stations = []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for raw_row in reader:
+            row = {str(key).strip(): value for key, value in raw_row.items() if key is not None}
+            if value_column not in row:
+                continue
+            lat = _parse_float(row.get("lat"))
+            lon = _parse_float(row.get("lon"))
+            value = _parse_float(row.get(value_column))
+            if not (
+                np.isfinite(lat)
+                and np.isfinite(lon)
+                and np.isfinite(value)
+                and SAUDI_LAT_MIN <= lat <= SAUDI_LAT_MAX
+                and SAUDI_LON_MIN <= lon <= SAUDI_LON_MAX
+            ):
+                continue
+            stations.append(
+                {
+                    "id": str(row.get("id", "")).strip(),
+                    "wmo_id": str(row.get("wmo_id", "")).strip(),
+                    "lat": float(lat),
+                    "lon": float(lon),
+                    "alt": float(_parse_float(row.get("alt"))),
+                    "normals_number": _parse_int(row.get("normals_number")),
+                    "value": float(value),
+                }
+            )
+    return stations
+
+
+def haversine_distance_km(lat1, lon1, lat2, lon2):
+    lat1_rad = np.deg2rad(lat1)
+    lat2_rad = np.deg2rad(lat2)
+    dlat = lat2_rad - lat1_rad
+    dlon = np.deg2rad(lon2 - lon1)
+    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2.0) ** 2
+    return (EARTH_RADIUS_M / 1000.0) * 2.0 * np.arcsin(np.sqrt(a))
+
+
+def station_normals_to_grid(stations, reference, name, long_name, units):
+    if not stations or "latitude" not in reference.coords or "longitude" not in reference.coords:
+        return None, None
+
+    lat = np.asarray(reference["latitude"].values, dtype=float)
+    lon = np.asarray(reference["longitude"].values, dtype=float)
+    lat_grid, lon_grid = np.meshgrid(lat, lon, indexing="ij")
+    station_lats = np.asarray([station["lat"] for station in stations], dtype=float)
+    station_lons = np.asarray([station["lon"] for station in stations], dtype=float)
+    station_values = np.asarray([station["value"] for station in stations], dtype=float)
+
+    distances = haversine_distance_km(
+        station_lats[:, None, None],
+        station_lons[:, None, None],
+        lat_grid[None, :, :],
+        lon_grid[None, :, :],
+    )
+    nearest = np.nanargmin(distances, axis=0)
+    values = station_values[nearest]
+    nearest_distance = np.take_along_axis(distances, nearest[None, :, :], axis=0)[0]
+    coords = {"latitude": reference["latitude"], "longitude": reference["longitude"]}
+
+    normal = xr.DataArray(values, dims=("latitude", "longitude"), coords=coords)
+    normal = _with_attrs(normal, long_name, units, "nearest DS8 1991-2020 station normal")
+    normal.attrs["source"] = "DS8 1991-2020 station climatology"
+    normal.attrs["station_count"] = len(stations)
+    normal.attrs["mapping"] = "nearest station within Saudi bbox"
+    normal.attrs["station_ids"] = ",".join(station["id"] for station in stations if station["id"])
+
+    distance = xr.DataArray(nearest_distance, dims=("latitude", "longitude"), coords=coords)
+    distance = _with_attrs(distance, f"Nearest station distance for {name}", "km")
+    distance.attrs["source"] = "DS8 1991-2020 station climatology"
+    return normal, distance
+
+
+def add_climatology_anomaly_indicators(results, period, climatology_root=None):
+    root = Path(climatology_root) if climatology_root else None
+    if root is None or not root.exists():
+        results.attrs["climatology_status"] = "not_computed: DS8 climatology root not found"
+    else:
+        results.attrs["climatology_status"] = f"computed_from_station_normals: {root}"
+
+    results.attrs["spi_status"] = (
+        "not_computed: SPI requires multi-year precipitation time series or distribution parameters; "
+        "DS8 provides climatological means only"
+    )
+    results.attrs["geopotential_height500_anomaly_status"] = (
+        "not_computed: 500 hPa height anomaly requires pressure-level geopotential height climatology; "
+        "DS8 is surface station climatology"
+    )
+    if root is None or not root.exists():
+        return
+
+    day = day_of_year_365(period)
+    if "daily_precip_total" in results:
+        stations = load_ds8_daily_normals(root, "PRE", day)
+        normal, distance = station_normals_to_grid(
+            stations,
+            results["daily_precip_total"],
+            "daily_precip_climatology",
+            "1991-2020 daily precipitation climatology from nearest DS8 station",
+            "mm/day",
+        )
+        if normal is not None:
+            results["daily_precip_climatology"] = normal
+            results["daily_precip_climatology_station_distance_km"] = distance
+            results["daily_precip_anomaly"] = _with_attrs(
+                results["daily_precip_total"] - normal,
+                "Daily precipitation anomaly relative to DS8 1991-2020 station climatology",
+                "mm",
+                "daily_precip_total - daily_precip_climatology",
+            )
+            results["daily_precip_anomaly_ratio"] = _with_attrs(
+                _ratio(results["daily_precip_total"] - normal, normal),
+                "Daily precipitation anomaly ratio relative to DS8 1991-2020 station climatology",
+                "1",
+                "(daily_precip_total - daily_precip_climatology) / daily_precip_climatology",
+            )
+
+    if "t2m_c" in results:
+        stations = load_ds8_daily_normals(root, "TAVG", day)
+        normal, distance = station_normals_to_grid(
+            stations,
+            results["t2m_c"],
+            "t2m_climatology_c",
+            "1991-2020 daily mean temperature climatology from nearest DS8 station",
+            "degC",
+        )
+        if normal is not None:
+            results["t2m_climatology_c"] = normal
+            results["t2m_climatology_station_distance_km"] = distance
+            results["t2m_anomaly_c"] = _with_attrs(
+                results["t2m_c"] - normal,
+                "2 m temperature anomaly relative to DS8 1991-2020 station climatology",
+                "degC",
+                "t2m_c - t2m_climatology_c",
+            )
+
+    if "tmax_c" in results:
+        stations = load_ds8_daily_normals(root, "TMAX", day)
+        normal, distance = station_normals_to_grid(
+            stations,
+            results["tmax_c"],
+            "tmax_climatology_c",
+            "1991-2020 daily maximum temperature climatology from nearest DS8 station",
+            "degC",
+        )
+        if normal is not None:
+            results["tmax_climatology_c"] = normal
+            results["tmax_climatology_station_distance_km"] = distance
+            anomaly = results["tmax_c"] - normal
+            results["tmax_anomaly_c"] = _with_attrs(
+                anomaly,
+                "Daily maximum temperature anomaly relative to DS8 1991-2020 station climatology",
+                "degC",
+                "tmax_c - tmax_climatology_c",
+            )
+            threshold = xr.where(normal + 5.0 > 40.0, normal + 5.0, 40.0)
+            results["heatwave_day_flag"] = _with_attrs(
+                xr.where(results["tmax_c"] >= threshold, 1, 0).astype(np.int16),
+                "Heatwave day flag based on absolute and climatological Tmax thresholds",
+                "flag",
+                "tmax_c >= max(40 degC, tmax_climatology_c + 5 degC)",
+            )
+
+
+def add_heatwave_duration_to_outputs(output_dir, periods):
+    output_dir = Path(output_dir)
+    previous_duration = None
+    updated = []
+    for period in sorted(str(item) for item in periods):
+        path = output_dir / f"saudi_indicators_{period}.nc"
+        if not path.exists():
+            previous_duration = None
+            continue
+        with xr.open_dataset(path) as opened:
+            ds = opened.load()
+        if "heatwave_day_flag" not in ds:
+            previous_duration = None
+            continue
+        flag = ds["heatwave_day_flag"].fillna(0).astype(np.int16)
+        if previous_duration is None:
+            duration = flag
+        else:
+            duration = xr.where(flag >= 1, previous_duration + 1, 0).astype(np.int16)
+        duration = _with_attrs(
+            duration,
+            "Consecutive heatwave duration through current day",
+            "days",
+            "consecutive count of heatwave_day_flag >= 1",
+        )
+        ds["heatwave_duration_days"] = duration
+        ds.attrs["heatwave_duration_status"] = "computed_from_heatwave_day_flag"
+        tmp_path = path.with_name(f".{path.name}.tmp")
+        ds.to_netcdf(tmp_path)
+        tmp_path.replace(path)
+        previous_duration = duration
+        updated.append(str(path))
+    return updated
 
 
 def add_monthly_surface_indicators(results, ds):
@@ -697,7 +962,15 @@ def add_flash_flood_risk(results):
         )
 
 
-def compute_period(data_dir, period, output_dir=OUTPUT_DIR):
+def resolve_climatology_root(data_dir, climatology_root="auto"):
+    if climatology_root == "auto":
+        return discover_climatology_root(data_dir)
+    if climatology_root:
+        return Path(climatology_root)
+    return None
+
+
+def compute_period(data_dir, period, output_dir=OUTPUT_DIR, climatology_root="auto"):
     datasets = load_datasets(data_dir, period)
     if not any(key.startswith("ds1_") or key.startswith("ds2_") or key == "ds10_daily" for key in datasets):
         return {"period": str(period), "status": "missing_inputs"}
@@ -722,6 +995,7 @@ def compute_period(data_dir, period, output_dir=OUTPUT_DIR):
     add_sst_indicators(results, datasets.get("ds4"))
     add_ds10_daily_indicators(results, datasets.get("ds10_daily"))
     add_precipitation_cross_validation_indicators(results)
+    add_climatology_anomaly_indicators(results, period, resolve_climatology_root(data_dir, climatology_root))
     add_flash_flood_risk(results)
 
     output_path = Path(output_dir) / f"saudi_indicators_{period}.nc"
@@ -735,7 +1009,16 @@ def compute_period(data_dir, period, output_dir=OUTPUT_DIR):
     }
 
 
-def compute_all(data_dir="output_saudi", output_dir=OUTPUT_DIR, period=None, start=None, end=None, all_periods=False, limit=None):
+def compute_all(
+    data_dir="output_saudi",
+    output_dir=OUTPUT_DIR,
+    period=None,
+    start=None,
+    end=None,
+    all_periods=False,
+    limit=None,
+    climatology_root="auto",
+):
     if period:
         periods = [str(period)]
     else:
@@ -751,9 +1034,16 @@ def compute_all(data_dir="output_saudi", output_dir=OUTPUT_DIR, period=None, sta
 
     results = []
     for selected_period in periods:
-        payload = compute_period(data_dir, selected_period, output_dir=output_dir)
+        payload = compute_period(data_dir, selected_period, output_dir=output_dir, climatology_root=climatology_root)
         results.append(payload)
         print(f"{payload['status']}\t{selected_period}\t{payload.get('output', '')}")
+    if resolve_climatology_root(data_dir, climatology_root) is not None:
+        updated = add_heatwave_duration_to_outputs(
+            output_dir,
+            [payload["period"] for payload in results if payload["status"] == "computed"],
+        )
+        if updated:
+            print(f"heatwave_duration_updated\t{len(updated)} files")
     return results
 
 
@@ -766,6 +1056,11 @@ def build_arg_parser():
     parser.add_argument("--end")
     parser.add_argument("--all", action="store_true", help="Compute all discovered periods instead of only the latest.")
     parser.add_argument("--limit", type=int)
+    parser.add_argument(
+        "--climatology-root",
+        default="auto",
+        help="DS8 1991-2020 station climatology root. Defaults to auto-discovery next to data_dir.",
+    )
     return parser
 
 
@@ -779,6 +1074,7 @@ def main(argv=None):
         end=args.end,
         all_periods=args.all,
         limit=args.limit,
+        climatology_root=args.climatology_root,
     )
 
 

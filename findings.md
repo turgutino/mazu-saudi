@@ -108,3 +108,13 @@
 - DS10 缺测替代口径：`ds10_daily_total` 缺测时可用 DS2 `daily_precip_total` 作为日总降水替代参考；但 DS10 的 `max_30min/max_1h/max_3h/max_6h` 是短历时峰值，DS2 日累计产品不能真实替代，只能在解释 `flash_flood_risk` 时说明该短时项不可用。
 - 已修复 `compute_indicators.py`：计算热湿派生指标前清理超大填充值和明显非物理值；`cape/cin/lifted index` 等带额外层维度时折算为二维水平网格。真实烟测中 `20250102/20250130` 的污染热湿值变为 NaN，`20250823` 的 `cape` 变为二维且可参与 `flash_flood_risk`。
 - 正式重算 `/Volumes/E/气象数据/saudi_region_output/indicators` 后，365 个指标文件仍为同一沙特 bbox 网格；`t2m_c/vpd_kpa/heat_index_c/apparent_temp_c` 的物理范围异常天数均为 0；`cape` 293 天有效且维度为 `latitude, longitude`；`flash_flood_risk` 365 天有效且最高分为 4。
+
+## DS8 气候态数据发现
+
+- DS8 目录为 `/Volumes/E/气象数据/8_SURF_CLI_GLB_1991_2020`，文件名和字段均表明它是 1991-2020 多年气候态 normals。
+- DS8 不是 NetCDF/GRIB 网格产品，而是全球站点 ASCII 表，包含 `PRE`、`TAVG`、`TMAX`、`TMIN` 四类变量，每类有逐日 `MDAY` 和逐月 `MMON` 两种表。
+- 逐日表字段为 `id,wmo_id,lat,lon,alt,normals_number,001d..365d`；逐月表字段为 `id,wmo_id,lat,lon,alt,normals_number,001m..012m`，`PRE/MMON` 额外有 `annual`。
+- 缺测码为 `-999`。文件每行末尾有多余逗号，使用 pandas 读取时必须指定 `index_col=False`，否则第一列会被误当索引并导致字段错位；脚本实现应清理列名空白并忽略多余空列。
+- 按当前指标 bbox `16.0..32.0N, 34.0..56.0E` 统计，逐日 PRE 有 7 个有效站点，逐日 TAVG 有 45 个有效站点，逐日 TMAX 有 11 个有效站点，逐日 TMIN 没有有效站点。
+- DS8 可支撑站点气候态映射后的降水距平、TAVG/TMAX 温度距平和基于 TMAX 的热浪日/连续日数；但不能单独支撑正式 SPI，因为 SPI 需要多年降水序列或分布参数，而 DS8 仅提供均值 normals。
+- DS8 也不能支撑 500 hPa 位势高度距平，因为它是地面站点气候态，缺少压力层位势高度气候场。该指标需要压力层历史或气候态基线。

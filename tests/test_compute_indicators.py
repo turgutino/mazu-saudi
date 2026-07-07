@@ -8,8 +8,10 @@ import xarray as xr
 from compute_indicators import (
     add_daily_surface_indicators,
     add_flash_flood_risk,
+    add_heatwave_duration_to_outputs,
     add_instability_indicators,
     compute_period,
+    load_ds8_daily_normals,
     load_datasets,
 )
 
@@ -96,6 +98,76 @@ class ComputeIndicatorsTests(unittest.TestCase):
                 self.assertAlmostEqual(float(saved["wind_shear_850_200"].isel(latitude=0, longitude=0)), 20.0)
             finally:
                 saved.close()
+
+    def test_load_ds8_daily_normals_reads_trailing_comma_station_table(self):
+        with TemporaryDirectory() as tmp:
+            climate_root = Path(tmp) / "8_SURF_CLI_GLB_1991_2020"
+            self._write_ds8_daily_normals(climate_root, "PRE", [(20.0, 40.0, [1.2, 2.4, 3.6])])
+
+            stations = load_ds8_daily_normals(climate_root, "PRE", 2)
+
+        self.assertEqual(len(stations), 1)
+        self.assertEqual(stations[0]["id"], "TEST000001")
+        self.assertAlmostEqual(stations[0]["lat"], 20.0)
+        self.assertAlmostEqual(stations[0]["lon"], 40.0)
+        self.assertAlmostEqual(stations[0]["value"], 2.4)
+        self.assertEqual(stations[0]["normals_number"], 365)
+
+    def test_compute_period_adds_ds8_climatology_anomaly_and_heatwave_flag(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "input"
+            output = Path(tmp) / "indicators"
+            climate_root = Path(tmp) / "8_SURF_CLI_GLB_1991_2020"
+            period = "20250601"
+            self._write_partitioned_inputs(root, period)
+            self._write_ds8_daily_normals(climate_root, "PRE", [(20.0, 40.0, [5.0] * 365)])
+            self._write_ds8_daily_normals(climate_root, "TMAX", [(20.0, 40.0, [36.0] * 365)])
+            self._write_ds8_daily_normals(climate_root, "TAVG", [(20.0, 40.0, [32.0] * 365)])
+
+            compute_period(root, period, output_dir=output, climatology_root=climate_root)
+            saved = xr.open_dataset(output / f"saudi_indicators_{period}.nc")
+
+            try:
+                self.assertIn("daily_precip_climatology", saved)
+                self.assertIn("daily_precip_anomaly", saved)
+                self.assertIn("daily_precip_anomaly_ratio", saved)
+                self.assertIn("tmax_climatology_c", saved)
+                self.assertIn("tmax_anomaly_c", saved)
+                self.assertIn("t2m_climatology_c", saved)
+                self.assertIn("t2m_anomaly_c", saved)
+                self.assertIn("heatwave_day_flag", saved)
+                self.assertAlmostEqual(float(saved["daily_precip_climatology"].isel(latitude=0, longitude=0)), 5.0)
+                self.assertAlmostEqual(float(saved["daily_precip_anomaly"].isel(latitude=0, longitude=0)), 7.0)
+                self.assertAlmostEqual(float(saved["daily_precip_anomaly_ratio"].isel(latitude=0, longitude=0)), 1.4)
+                self.assertAlmostEqual(float(saved["tmax_climatology_c"].isel(latitude=0, longitude=0)), 36.0)
+                self.assertAlmostEqual(float(saved["tmax_anomaly_c"].isel(latitude=0, longitude=0)), 5.85)
+                self.assertAlmostEqual(float(saved["t2m_anomaly_c"].isel(latitude=0, longitude=0)), 4.85)
+                self.assertEqual(int(saved["heatwave_day_flag"].isel(latitude=0, longitude=0)), 1)
+                self.assertEqual(saved.attrs["spi_status"].split(":")[0], "not_computed")
+                self.assertEqual(saved.attrs["geopotential_height500_anomaly_status"].split(":")[0], "not_computed")
+            finally:
+                saved.close()
+
+    def test_heatwave_duration_accumulates_consecutive_daily_flags(self):
+        with TemporaryDirectory() as tmp:
+            output = Path(tmp) / "indicators"
+            output.mkdir(parents=True)
+            coords = {"latitude": np.array([20.0]), "longitude": np.array([40.0])}
+            for period, flag in [("20250601", 1), ("20250602", 1), ("20250603", 0)]:
+                xr.Dataset(
+                    {"heatwave_day_flag": (("latitude", "longitude"), np.array([[flag]], dtype=np.int16))},
+                    coords=coords,
+                    attrs={"period": period},
+                ).to_netcdf(output / f"saudi_indicators_{period}.nc")
+
+            add_heatwave_duration_to_outputs(output, ["20250601", "20250602", "20250603"])
+
+            durations = []
+            for period in ["20250601", "20250602", "20250603"]:
+                with xr.open_dataset(output / f"saudi_indicators_{period}.nc") as ds:
+                    durations.append(int(ds["heatwave_duration_days"].isel(latitude=0, longitude=0)))
+
+        self.assertEqual(durations, [1, 2, 0])
 
     def test_compute_period_aligns_ds10_daily_grid_and_cross_validates_precipitation(self):
         with TemporaryDirectory() as tmp:
@@ -330,6 +402,17 @@ class ComputeIndicatorsTests(unittest.TestCase):
             rainy_steps=np.full(shape, 6, dtype=np.int16),
             time_count=np.asarray(48, dtype=np.int16),
         )
+
+    def _write_ds8_daily_normals(self, root, variable, stations):
+        day_columns = [f"{day:03d}d" for day in range(1, 366)]
+        path = root / variable / "GLB" / "MDAY" / f"SURF_GLB_MUL_MMUT_19912020_MDAY_{variable}.txt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        rows = ["id,wmo_id,lat,lon,alt,normals_number," + ",".join(day_columns) + ","]
+        for index, (lat, lon, values) in enumerate(stations, start=1):
+            padded = list(values) + [values[-1]] * (365 - len(values))
+            value_text = ",".join(f"{value:.1f}" for value in padded[:365])
+            rows.append(f"TEST{index:06d},{index:05d},{lat:.3f},{lon:.3f},10.0,365,{value_text},")
+        path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
     def _write_nc(self, path, variables, coords):
         path.parent.mkdir(parents=True, exist_ok=True)

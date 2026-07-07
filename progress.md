@@ -71,3 +71,16 @@
 - 经用户授权，正式重算 `/Volumes/E/气象数据/saudi_region_output/indicators` 全年 365 个指标文件。
 - 重算后 QA：365 个文件仍为 `latitude=160`、`longitude=220`，范围 `16.0..31.9N`、`34.0..55.9E`；热湿物理范围异常天数为 0；`cape` 293 天有效且二维；`flash_flood_risk` 365 天有效且最高分为 4。
 - 收到用户请求：同步更新指标报告。已刷新 `docs/saudi_extreme_event_indicator_report.md` 中的指标数、空间范围、DS10 缺测替代口径、CAPE 二维化说明、热湿填充值修正、`flash_flood_risk` 年度统计和后续建议。
+- 收到用户请求：检查数据 8 是否为多年气候态，并补充降水距平、SPI、500 hPa 高度距平、热浪持续天数等异常类预警指标。
+- 探查 DS8：确认 `/Volumes/E/气象数据/8_SURF_CLI_GLB_1991_2020` 下有 PRE/TAVG/TMAX/TMIN 的逐日和逐月 1991-2020 normals 文本表；它是全球站点气候态，不是格点数据。
+- 发现 DS8 文本行尾多一个逗号，pandas 默认读取会错位；正确解析需要 `index_col=False` 或等价的稳健 CSV 解析。
+- 重新按正确列统计沙特 bbox 站点覆盖：逐日 PRE 7 个有效站点、逐日 TAVG 45 个有效站点、逐日 TMAX 11 个有效站点、逐日 TMIN 0 个有效站点。
+- 形成实现口径：新增 DS8 站点 normals 最近邻映射后的降水和温度距平、热浪日标志及跨日连续日数；SPI 和 500 hPa 高度距平不伪计算，只在属性和报告中说明缺少所需历史分布/压力层气候态。
+- 按 TDD 新增 `tests/test_compute_indicators.py` 用例，覆盖 DS8 尾逗号站点表解析、单日距平/热浪标志写出和多日热浪持续天数累加。
+- 修改 `compute_indicators.py`：新增 DS8 自动发现、CSV 解析、逐日 365 天气候态选择、站点最近邻映射、降水距平、TAVG/TMAX 距平、热浪日标志、热浪持续天数回写，以及 `--climatology-root` CLI 参数。
+- 使用真实 20250601 写入 `/private/tmp/saudi_indicator_ds8_smoke` 验证 DS8 自动发现和新增变量；降水气候态站点平均最近距离约 768 km，TMAX 约 346 km，提示报告需标注站点代表性限制。
+- 正式重算 `/Volumes/E/气象数据/saudi_region_output/indicators` 全年 365 个指标文件，并回写 363 个有 TMAX 的 `heatwave_duration_days`。
+- 年度 QA：指标文件仍为 365 个，统一网格 `latitude=160`、`longitude=220`，范围 `16.0..31.9N`、`34.0..55.9E`；单文件变量数更新为 26-91；365 天均带 DS8 气候态状态、SPI 未计算状态和 500 hPa 高度距平未计算状态。
+- 新增异常指标覆盖：`daily_precip_anomaly` 363 天、`t2m_anomaly_c` 362 天、`tmax_anomaly_c` 363 天、`heatwave_duration_days` 363 天；局地最大热浪持续天数为 72 天，发生在 20250816。
+- 更新 `docs/saudi_extreme_event_indicator_report.md`，加入 DS8 数据性质、异常类指标方法、2025 年统计、站点代表性限制、SPI 和 500 hPa 高度距平未计算原因。
+- 最终验证 `conda run -n ml python -m pytest -q` 通过：42 passed，1 个已知 numpy warning。
