@@ -5,7 +5,13 @@ from tempfile import TemporaryDirectory
 import numpy as np
 import xarray as xr
 
-from compute_indicators import add_flash_flood_risk, compute_period, load_datasets
+from compute_indicators import (
+    add_daily_surface_indicators,
+    add_flash_flood_risk,
+    add_instability_indicators,
+    compute_period,
+    load_datasets,
+)
 
 
 class ComputeIndicatorsTests(unittest.TestCase):
@@ -150,6 +156,62 @@ class ComputeIndicatorsTests(unittest.TestCase):
 
         self.assertEqual(results["flash_flood_risk"].dims, ("latitude", "longitude"))
         self.assertEqual(int(results["flash_flood_risk"].isel(latitude=0, longitude=0)), 2)
+
+    def test_daily_surface_indicators_mask_fill_values_before_derived_metrics(self):
+        lat = np.array([20.0, 21.0])
+        lon = np.array([40.0, 41.0])
+        coords = {"latitude": lat, "longitude": lon}
+        sfc = xr.Dataset(
+            {
+                "t2m": (("latitude", "longitude"), np.array([[9.999e20, 310.0], [305.0, 300.0]])),
+                "d2m": (("latitude", "longitude"), np.full((2, 2), 295.0)),
+                "r2": (("latitude", "longitude"), np.full((2, 2), 40.0)),
+                "aptmp": (("latitude", "longitude"), np.array([[9.999e20, 312.0], [306.0, 301.0]])),
+            },
+            coords=coords,
+        )
+        results = xr.Dataset()
+
+        add_daily_surface_indicators(results, sfc, None, None)
+
+        self.assertTrue(np.isnan(results["t2m_c"].isel(latitude=0, longitude=0)))
+        self.assertTrue(np.isnan(results["vpd_kpa"].isel(latitude=0, longitude=0)))
+        self.assertTrue(np.isnan(results["heat_index_c"].isel(latitude=0, longitude=0)))
+        self.assertTrue(np.isnan(results["apparent_temp_c"].isel(latitude=0, longitude=0)))
+        self.assertAlmostEqual(float(results["t2m_c"].isel(latitude=0, longitude=1)), 36.85)
+
+    def test_instability_indicators_reduce_cape_to_horizontal_grid_for_risk(self):
+        lat = np.array([20.0, 21.0])
+        lon = np.array([40.0, 41.0])
+        layers = np.array([0.0, 180.0])
+        ds = xr.Dataset(
+            {
+                "cape": (
+                    ("pressureFromGroundLayer", "latitude", "longitude"),
+                    np.array(
+                        [
+                            [[900.0, 800.0], [700.0, 600.0]],
+                            [[1200.0, 500.0], [1100.0, 400.0]],
+                        ]
+                    ),
+                )
+            },
+            coords={"pressureFromGroundLayer": layers, "latitude": lat, "longitude": lon},
+        )
+        results = xr.Dataset(
+            {
+                "daily_precip_total": (("latitude", "longitude"), np.full((2, 2), 12.0)),
+            },
+            coords={"latitude": lat, "longitude": lon},
+        )
+
+        add_instability_indicators(results, ds)
+        add_flash_flood_risk(results)
+
+        self.assertEqual(results["cape"].dims, ("latitude", "longitude"))
+        self.assertEqual(float(results["cape"].isel(latitude=0, longitude=0)), 1200.0)
+        self.assertEqual(int(results["flash_flood_risk"].isel(latitude=0, longitude=0)), 2)
+        self.assertEqual(int(results["flash_flood_risk"].isel(latitude=0, longitude=1)), 1)
 
     def _write_partitioned_inputs(self, root, period):
         month = period[:6]

@@ -25,6 +25,7 @@ MISSING_ADVANCED_INDICATORS = [
 
 GRAVITY = 9.80665
 EARTH_RADIUS_M = 6_371_000.0
+FILL_VALUE_ABS_LIMIT = 1.0e20
 
 
 def discover_periods(data_dir, start=None, end=None):
@@ -173,6 +174,16 @@ def _grid_data_array(values, coords, name):
 
 def _k_to_c(value):
     return value - 273.15
+
+
+def clean_numeric_array(array, valid_min=None, valid_max=None):
+    cleaned = array.where(np.isfinite(array))
+    cleaned = cleaned.where(np.abs(cleaned) < FILL_VALUE_ABS_LIMIT)
+    if valid_min is not None:
+        cleaned = cleaned.where(cleaned >= valid_min)
+    if valid_max is not None:
+        cleaned = cleaned.where(cleaned <= valid_max)
+    return cleaned
 
 
 def _ratio(numerator, denominator):
@@ -348,41 +359,45 @@ def add_daily_precip_energy_indicators(results, avg_ds, acc_ds):
 def add_daily_surface_indicators(results, sfc_ds, max_ds, min_ds):
     if sfc_ds is not None:
         if "t2m" in sfc_ds:
-            t2m_c = _k_to_c(sfc_ds["t2m"])
+            t2m_c = _k_to_c(clean_numeric_array(sfc_ds["t2m"], 180.0, 350.0))
             results["t2m_c"] = _with_attrs(t2m_c, "2 m air temperature", "degC", "t2m - 273.15")
         else:
             t2m_c = None
         if "d2m" in sfc_ds:
-            d2m_c = _k_to_c(sfc_ds["d2m"])
+            d2m_c = _k_to_c(clean_numeric_array(sfc_ds["d2m"], 180.0, 330.0))
             results["d2m_c"] = _with_attrs(d2m_c, "2 m dewpoint temperature", "degC", "d2m - 273.15")
         else:
             d2m_c = None
         if t2m_c is not None and d2m_c is not None:
             results["dewpoint_depression_c"] = _with_attrs(t2m_c - d2m_c, "2 m dewpoint depression", "degC", "T2m - Td2m")
         if "r2" in sfc_ds:
-            rh = sfc_ds["r2"]
+            rh = clean_numeric_array(sfc_ds["r2"], 0.0, 100.0)
             results["rh2m"] = _with_attrs(rh, "2 m relative humidity", "%")
             if t2m_c is not None:
-                results["vpd_kpa"] = _with_attrs(vapor_pressure_deficit(t2m_c, rh), "Vapor pressure deficit", "kPa", "es(T) * (1 - RH/100)")
+                vpd = clean_numeric_array(vapor_pressure_deficit(t2m_c, rh), 0.0)
+                results["vpd_kpa"] = _with_attrs(vpd, "Vapor pressure deficit", "kPa", "es(T) * (1 - RH/100)")
                 results["heat_index_c"] = _with_attrs(heat_index_celsius(t2m_c, rh), "Heat index", "degC", "Rothfusz regression")
         if "sh2" in sfc_ds:
-            results["sh2m"] = _with_attrs(sfc_ds["sh2"], "2 m specific humidity", "kg kg-1")
+            results["sh2m"] = _with_attrs(clean_numeric_array(sfc_ds["sh2"], 0.0, 0.1), "2 m specific humidity", "kg kg-1")
         if "aptmp" in sfc_ds:
-            results["apparent_temp_c"] = _with_attrs(_k_to_c(sfc_ds["aptmp"]), "Apparent temperature", "degC", "aptmp - 273.15")
+            apparent_temp_c = _k_to_c(clean_numeric_array(sfc_ds["aptmp"], 180.0, 350.0))
+            results["apparent_temp_c"] = _with_attrs(apparent_temp_c, "Apparent temperature", "degC", "aptmp - 273.15")
         if {"u10", "v10"}.issubset(sfc_ds):
-            results["wind10_speed"] = _with_attrs(np.sqrt(sfc_ds["u10"] ** 2 + sfc_ds["v10"] ** 2), "10 m wind speed", "m s-1", "sqrt(u10^2 + v10^2)")
+            u10 = clean_numeric_array(sfc_ds["u10"], -150.0, 150.0)
+            v10 = clean_numeric_array(sfc_ds["v10"], -150.0, 150.0)
+            results["wind10_speed"] = _with_attrs(np.sqrt(u10 ** 2 + v10 ** 2), "10 m wind speed", "m s-1", "sqrt(u10^2 + v10^2)")
         add_cloud_indicators(results, sfc_ds)
 
     if max_ds is not None and "tmax" in max_ds:
-        results["tmax_c"] = _with_attrs(_k_to_c(max_ds["tmax"]), "Daily maximum 2 m temperature", "degC", "tmax - 273.15")
+        results["tmax_c"] = _with_attrs(_k_to_c(clean_numeric_array(max_ds["tmax"], 180.0, 360.0)), "Daily maximum 2 m temperature", "degC", "tmax - 273.15")
     if min_ds is not None and "tmin" in min_ds:
-        results["tmin_c"] = _with_attrs(_k_to_c(min_ds["tmin"]), "Daily minimum 2 m temperature", "degC", "tmin - 273.15")
+        results["tmin_c"] = _with_attrs(_k_to_c(clean_numeric_array(min_ds["tmin"], 180.0, 350.0)), "Daily minimum 2 m temperature", "degC", "tmin - 273.15")
     if "tmax_c" in results and "tmin_c" in results:
         results["diurnal_temp_range_c"] = _with_attrs(results["tmax_c"] - results["tmin_c"], "Daily temperature range", "degC", "tmax - tmin")
     if max_ds is not None and "qmax" in max_ds:
-        results["qmax_2m"] = _with_attrs(max_ds["qmax"], "Daily maximum 2 m specific humidity", "kg kg-1")
+        results["qmax_2m"] = _with_attrs(clean_numeric_array(max_ds["qmax"], 0.0, 0.1), "Daily maximum 2 m specific humidity", "kg kg-1")
     if min_ds is not None and "qmin" in min_ds:
-        results["qmin_2m"] = _with_attrs(min_ds["qmin"], "Daily minimum 2 m specific humidity", "kg kg-1")
+        results["qmin_2m"] = _with_attrs(clean_numeric_array(min_ds["qmin"], 0.0, 0.1), "Daily minimum 2 m specific humidity", "kg kg-1")
 
 
 def add_cloud_indicators(results, ds):
@@ -419,20 +434,31 @@ def heat_index_celsius(temp_c, rh_percent):
     return xr.where((temp_c >= 26.7) & (rh_percent >= 40.0), hi_c, temp_c)
 
 
+def reduce_to_horizontal_grid(array, reducer="max"):
+    extra_dims = [dim for dim in array.dims if dim not in ("latitude", "longitude")]
+    if not extra_dims:
+        return array
+    if reducer == "min":
+        return array.min(dim=extra_dims, skipna=True)
+    if reducer == "mean":
+        return array.mean(dim=extra_dims, skipna=True)
+    return array.max(dim=extra_dims, skipna=True)
+
+
 def add_instability_indicators(results, ds):
     if ds is None:
         return
     mapping = {
-        "cape": ("cape", "Convective available potential energy", "J kg-1"),
-        "cin": ("cin", "Convective inhibition", "J kg-1"),
-        "lftx": ("surface_lifted_index", "Surface lifted index", "K"),
-        "lftx4": ("best_lifted_index", "Best four-layer lifted index", "K"),
-        "sp": ("surface_pressure", "Surface pressure", "Pa"),
-        "orog": ("orography", "Orography", "m"),
+        "cape": ("cape", "Convective available potential energy", "J kg-1", "max"),
+        "cin": ("cin", "Convective inhibition", "J kg-1", "min"),
+        "lftx": ("surface_lifted_index", "Surface lifted index", "K", "min"),
+        "lftx4": ("best_lifted_index", "Best four-layer lifted index", "K", "min"),
+        "sp": ("surface_pressure", "Surface pressure", "Pa", "mean"),
+        "orog": ("orography", "Orography", "m", "mean"),
     }
-    for source, (target, long_name, units) in mapping.items():
+    for source, (target, long_name, units, reducer) in mapping.items():
         if source in ds:
-            results[target] = _with_attrs(ds[source], long_name, units)
+            results[target] = _with_attrs(reduce_to_horizontal_grid(ds[source], reducer=reducer), long_name, units)
 
 
 def pressure_level_name(ds):
