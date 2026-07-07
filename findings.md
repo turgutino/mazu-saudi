@@ -94,3 +94,14 @@
 - DS10 指标全 NaN 的根因是 DS10 NPZ 网格相对 DS2/指标网格有半格偏移且纬度方向不同，xarray 按精确坐标对齐时把 DS10 数组对齐为空；已改为最近邻对齐到指标网格。
 - 重算后 DS10 卫星降水指标 273 天有效，有效日每个 DS10 变量均为 35200 个网格；新增 `ds10_ds2_precip_diff`、`ds10_ds2_precip_ratio`、`ds10_ds2_heavy_rain_overlap` 做 DS10 与 DS2 降水交叉验证。
 - `flash_flood_risk` 曾被带 `pressureFromGroundLayer` 的三维变量广播为三维；已限制为只使用二维 `latitude/longitude` 指标，重算后 365 天均为二维评分。
+
+## 指标可信度质检发现
+
+- 当前 `/Volumes/E/气象数据/saudi_region_output/indicators` 下有 365 个指标文件，文件名覆盖 `saudi_indicators_20250101.nc` 到 `saudi_indicators_20251231.nc`。
+- 365 个指标文件的主网格完全一致：`latitude=160`、`longitude=220`，纬度范围 `16.0..31.9N`，经度范围 `34.0..55.9E`。这与 `saudi_data_extract.py` 中的沙特裁剪 bbox `16.0..32.0N, 34.0..56.0E` 一致。
+- 该区域是沙特 bbox 裁剪框，不是行政边界 land-only mask；网格中会包含红海、波斯湾和边界附近非沙特陆地区域。
+- 源数据覆盖：`ds1=12` 个月、`ds2=364` 天、`ds4=365` 天、`ds10_daily=273` 天、`indicators=365` 天。
+- 核心覆盖率：`monthly_precip_total/monthly_precip_mmday` 365 天全网格有效；`daily_precip_total` 363 天有效，缺 `20250818`、`20250820`；`sst_celsius` 365 天有效；`ds10_daily_total` 273 天有效，缺口主要是 `20251001..20251231` 无 DS10 日聚合源数据；`ivt` 291 天有效，缺口来自多层分析变量覆盖不足。
+- 抽样复算 `20250101`、`20250102`、`20250823`、`20251231`：`daily_precip_total == ds2_acc tp`、`monthly_precip_total == ds1_acc tp`、`t2m_c == ds2_sfc t2m - 273.15`、`wind10_speed == sqrt(u10^2+v10^2)`、可用日期的 `ds10_daily_total` 与对齐后的 NPZ 日聚合值最大绝对误差均为 `0.0`。
+- 明确问题：`t2m_c`、`heat_index_c`、`apparent_temp_c` 在 `20250102`、`20250130` 被填充值污染；`vpd_kpa` 在这两天全网格异常，另外 `20250212`、`20250306`、`20251216` 有少量接近 0 的负值。
+- 明确问题：`cape` 在样例文件中维度为 `pressureFromGroundLayer, latitude, longitude`，不是二维水平网格；当前 `flash_flood_risk` 只接收二维指标，因此实际评分未使用三维 CAPE 项。

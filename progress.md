@@ -57,3 +57,9 @@
 - 用户要求修复 DS10 卫星降水指标并做交叉验证；定位到 DS10 NPZ 半格偏移/纬度方向差异导致 xarray 精确坐标对齐成全 NaN。
 - 按 TDD 修改 `compute_indicators.py`：DS10 指标最近邻对齐到指标网格，新增 DS10-DS2 降水差值、比值和强降水重叠标志，并限制 `flash_flood_risk` 只使用二维水平网格指标。
 - 已重算 `/Volumes/E/气象数据/saudi_region_output/indicators` 全年 365 个指标文件；验证 DS10 指标 273 天有效，`flash_flood_risk` 365 天均为二维。
+- 收到用户请求：指标将作为后续分析基础，需要确认指标确实针对沙特区域且计算准确；新增阶段 9：指标可信度质检。
+- 使用 `conda run -n ml` 确认 `xarray/numpy/netCDF4` 可用，并确认 `/Volumes/E/气象数据/saudi_region_output` 当前挂载可读。
+- 扫描 365 个指标 NetCDF：主网格均为 `latitude=160`、`longitude=220`，范围 `16.0..31.9N`、`34.0..55.9E`。
+- 汇总源数据覆盖：`ds1=12` 个月、`ds2=364` 天、`ds4=365` 天、`ds10_daily=273` 天、`indicators=365` 天。
+- 抽样复算 20250101、20250102、20250823、20251231 的关键指标；日/月降水、2m 温度、10m 风速和 DS10 对齐降水均与上游变量最大绝对误差 `0.0`。
+- 定位当前不宜直接用于后续分析的指标问题：20250102/20250130 热湿变量填充值污染，以及 `cape` 为三维导致 `flash_flood_risk` 实际未使用 CAPE 项。
