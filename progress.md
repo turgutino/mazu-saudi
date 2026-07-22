@@ -97,3 +97,5 @@
 - 通过 GitHub 公开 API 验证并临时读取 `turgutino/mazu-saudi-warning`；确认其核心是 `t→t+1` 的 HGB 次日预测、半年时序留出、灾种差异化空间特征和更完整的稀有事件/校准指标。
 - 新增 `docs/reference_projects_review.md`，记录四个工程的方法、完成度、可复用资产、科研风险和自有方法的初步起点。
 - 用户新增 `reference_code/吴诗华-刘贤君-报告+代码+PPT`；开始阶段 13，将其按相同评估口径纳入参考工程横向对比。
+- 完成新增工程审查：确认其展示/服务闭环完整，但当前正式训练入口为同日随机切分 Random Forest，T+1 实现在 backup 文件中；现存模型与旧阈值混用，高温案例回退还存在未来日期泄漏。
+- 已将第五个工程加入 `docs/reference_projects_review.md`，明确其适合作为行政区聚合、Agent 编排和解释服务参考，不适合作为未经修复的论文预测基线。
