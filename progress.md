@@ -90,3 +90,9 @@
 - 收到用户请求：先理解新建的参考工程目录与 GitHub 项目 `turgutino/mazu-saudi-warning`，为后续构建自有竞赛和论文方法做准备。
 - 确认本地目录实际名为 `reference_code/`，包含三个已解压工程及对应 zip；本轮仅做只读分析，不修改参考代码。
 - 在现有文件化计划中追加阶段 12：参考工程逆向理解与横向对比。
+- 盘点 `reference_code/` 三个解压工程的目录、README、训练入口、标签构建、数据分割、评估脚本、知识图谱、Agent 和预报服务链路。
+- 确认 LightGBM 工程主要是同日规则复现，其高 CSI 和 bbox 级“真实事件命中”不能作为提前预测证据。
+- 确认 XGBoost V12 使用过去 24 日预测下一日，但存在高度重叠样本随机分割和城市阈值测试集调优问题；其 GSOD+ERA5 2015-2024 线路更有科研价值。
+- 确认小组 3 代码主预报源已转为 ECMWF IFS，README 的 FourCastNet 说明已过时；复核了 EVT/分位门控的方向、百分位缩放和预报 lead-time fallback 风险。
+- 通过 GitHub 公开 API 验证并临时读取 `turgutino/mazu-saudi-warning`；确认其核心是 `t→t+1` 的 HGB 次日预测、半年时序留出、灾种差异化空间特征和更完整的稀有事件/校准指标。
+- 新增 `docs/reference_projects_review.md`，记录四个工程的方法、完成度、可复用资产、科研风险和自有方法的初步起点。
