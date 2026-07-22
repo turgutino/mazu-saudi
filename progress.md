@@ -114,3 +114,9 @@
 - 新增 `docs/hamf_novelty_review.md`，给出近邻工作、创新矩阵、可发表性分层、最小论文问题、三个可证伪假设、实验基线与决策门。
 - 将计算机方法候选收敛为 MCR-Hazard：可观测机制状态驱动路由、机制适用性软先验、物理反事实一致性，以及缺失关键模态时的选择性可靠退化。
 - 修订 `docs/own_warning_framework.md`，将 HAMF-Light 明确降为强基线，避免继续以“多尺度 MoE + 物理图”作原创声明。
+- 收到用户请求：评估还需哪些数据，并规划一个能够支撑 Nature Communications 级研究的数据集；启动阶段 16。
+- 核对当前 2025 单年指标底座与 Nature Communications 对概念/方法推进、可复现数据和代码的要求，确认变量堆叠不能替代多年独立真值与科学问题。
+- 检索 ERA5/ERA5-Land、IMERG、ISD、Sentinel-1、Global Flood Database、HydroSHEDS/MERIT、TIGGE/GEFS、GHSL/WorldCover、GloFAS、CAMS 和 OISST 等一手数据说明。
+- 将第一主线收敛为 `AridFlash-MENA`：2001–2025 多区域干旱 Wadi 山洪数据，2014 年后增加 SAR 高分辨率子集，建立经过人工核验的 ephemeral-wadi graph。
+- 新增 `docs/nature_communications_dataset_blueprint.md`，覆盖数据层、标签体系、规模目标、冻结切分、基准任务、质量控制、双论文策略和 Gate 0–3 执行路线。
+- 更新 `docs/own_warning_framework.md`，加入 Nature Communications 级数据扩展入口；热浪仅在获得健康/影响数据后升级为主线。

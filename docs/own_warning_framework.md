@@ -263,6 +263,8 @@ docs/
 
 ## 9. 分阶段实施
 
+Nature Communications 级数据扩展不应直接把现有 2025 指标复制到更多年份。优先路线是构建 2001–2025 多区域干旱 Wadi 山洪事件数据、独立事件/影响标签、ephemeral-wadi graph 和历史 reforecast；完整方案见 [Nature Communications 级数据与论文蓝图](nature_communications_dataset_blueprint.md)。
+
 ### P0：契约与标签底座
 
 - 落地时间、空间、数据质量、标签和预测 schema。
