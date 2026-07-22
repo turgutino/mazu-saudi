@@ -84,3 +84,9 @@
 - 新增异常指标覆盖：`daily_precip_anomaly` 363 天、`t2m_anomaly_c` 362 天、`tmax_anomaly_c` 363 天、`heatwave_duration_days` 363 天；局地最大热浪持续天数为 72 天，发生在 20250816。
 - 更新 `docs/saudi_extreme_event_indicator_report.md`，加入 DS8 数据性质、异常类指标方法、2025 年统计、站点代表性限制、SPI 和 500 hPa 高度距平未计算原因。
 - 最终验证 `conda run -n ml python -m pytest -q` 通过：42 passed，1 个已知 numpy warning。
+
+## 2026-07-22
+
+- 收到用户请求：先理解新建的参考工程目录与 GitHub 项目 `turgutino/mazu-saudi-warning`，为后续构建自有竞赛和论文方法做准备。
+- 确认本地目录实际名为 `reference_code/`，包含三个已解压工程及对应 zip；本轮仅做只读分析，不修改参考代码。
+- 在现有文件化计划中追加阶段 12：参考工程逆向理解与横向对比。
