@@ -96,3 +96,4 @@
 - 确认小组 3 代码主预报源已转为 ECMWF IFS，README 的 FourCastNet 说明已过时；复核了 EVT/分位门控的方向、百分位缩放和预报 lead-time fallback 风险。
 - 通过 GitHub 公开 API 验证并临时读取 `turgutino/mazu-saudi-warning`；确认其核心是 `t→t+1` 的 HGB 次日预测、半年时序留出、灾种差异化空间特征和更完整的稀有事件/校准指标。
 - 新增 `docs/reference_projects_review.md`，记录四个工程的方法、完成度、可复用资产、科研风险和自有方法的初步起点。
+- 用户新增 `reference_code/吴诗华-刘贤君-报告+代码+PPT`；开始阶段 13，将其按相同评估口径纳入参考工程横向对比。
