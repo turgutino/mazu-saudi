@@ -120,3 +120,10 @@
 - 将第一主线收敛为 `AridFlash-MENA`：2001–2025 多区域干旱 Wadi 山洪数据，2014 年后增加 SAR 高分辨率子集，建立经过人工核验的 ephemeral-wadi graph。
 - 新增 `docs/nature_communications_dataset_blueprint.md`，覆盖数据层、标签体系、规模目标、冻结切分、基准任务、质量控制、双论文策略和 Gate 0–3 执行路线。
 - 更新 `docs/own_warning_framework.md`，加入 Nature Communications 级数据扩展入口；热浪仅在获得健康/影响数据后升级为主线。
+- 用户确认无法稳定获取山洪独立真值，将论文主线调整为“干旱区短历时极端降水的跨区域可靠预测”。
+- 启动阶段 17：将产出英文结果就绪稿、补充方法、参考文献、证据矩阵、图表计划、审稿风险和发表路线；所有未完成结果保留显式占位符。
+- 新增 `docs/manuscript/` 论文包：英文主稿、补充方法、BibTeX 文献库、claim–evidence 矩阵、图表计划、审稿风险和 Gate 0–5 发表工作计划。
+- 主稿标题 10 词、摘要 159 词，包含 62 个独立 `TODO-RESULT-*` 占位符；每类主张均有冻结产物、统计规则和降级条件。
+- 新增 `tests/test_manuscript_contract.py`，覆盖 Nature Communications 标题/摘要限制、章节完整性、结果占位符、内部链接、科学边界和参考文献库。
+- 同步更新 README、自有预警框架和旧 Nature Communications 数据蓝图，明确 Wadi 山洪已降为将来有独立真值时的下游扩展。
+- 聚焦合同测试通过：`6 passed`。完整适用测试 `conda run -n ml python -m pytest -q tests` 通过：`48 passed`，仅 1 个既有 NumPy 二进制兼容 warning。

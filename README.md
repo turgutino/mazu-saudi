@@ -13,6 +13,7 @@
 - [领域词汇表](CONTEXT.md)：统一预报起报时刻、有效时刻、标签、灾害概率、风险和预警等级等概念。
 - [自有预警框架](docs/own_warning_framework.md)：定义 MAZU-Saudi HAMF 的领域边界、科研核心、无泄漏评估、服务架构和实施路线。
 - [参考工程评估](docs/reference_projects_review.md)：记录五个参考工程可吸收的资产和不能直接继承的结论。
+- [干旱区短历时极端降水论文包](docs/manuscript/README.md)：英文结果就绪稿、补充方法、证据矩阵和发表路线。
 
 当前开发原则是先建立可信的高温/山洪 `t→t+1` 科研基线，再扩展到高频预报场、HAMF-Light、多灾种风险决策和 Agent 交付。
 

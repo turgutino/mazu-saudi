@@ -263,7 +263,7 @@ docs/
 
 ## 9. 分阶段实施
 
-Nature Communications 级数据扩展不应直接把现有 2025 指标复制到更多年份。优先路线是构建 2001–2025 多区域干旱 Wadi 山洪事件数据、独立事件/影响标签、ephemeral-wadi graph 和历史 reforecast；完整方案见 [Nature Communications 级数据与论文蓝图](nature_communications_dataset_blueprint.md)。
+当前第一论文主线已收敛为 2001–2024 多区域干旱区短历时极端降水预测，以 IMERG 作统一卫星参考、独立站点/雷达作高置信评估，并将 2025 单年全球 MAZU 限定为自监督预训练、模态增益和传感器迁移数据。Wadi 山洪仅在未来获得独立水文/灾情真值后作为下游扩展。完整论文与实验路线见 [MCR-Precip 论文包](manuscript/README.md)；原 Wadi 数据蓝图保留在 [Nature Communications 级数据与论文蓝图](nature_communications_dataset_blueprint.md) 供后续参考。
 
 ### P0：契约与标签底座
 
