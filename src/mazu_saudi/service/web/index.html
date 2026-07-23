@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>MAZU Atlas · MCR-Precip</title>
+  <meta name="description" content="干旱区短历时极端降水可靠预测工作台">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#forecast" aria-label="MAZU Atlas 首页">
+        <span class="brand-orbit"><i></i></span>
+        <span><strong>MAZU</strong><small>ATLAS / أطلس</small></span>
+      </a>
+      <nav class="nav" aria-label="主导航">
+        <a class="active" href="#forecast"><span>01</span>预报态势</a>
+        <a href="#mechanisms"><span>02</span>机制诊断</a>
+        <a href="#sources"><span>03</span>数据证据</a>
+        <a href="#history"><span>04</span>历史回放</a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="system-pill"><i></i><span>LOCAL SERVICE</span></div>
+        <p>Research preview<br>Not an operational warning</p>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">DRYLAND EXTREME PRECIPITATION</div>
+          <h1>可靠临近预测工作台</h1>
+        </div>
+        <div class="top-actions">
+          <div class="demo-mark"><span>DEMO</span><small>非业务预报</small></div>
+          <button class="icon-button" id="refresh-button" aria-label="刷新预报">↻</button>
+        </div>
+      </header>
+
+      <section class="control-deck" aria-label="预报条件">
+        <label>
+          <span>研究区域</span>
+          <select id="region-select" aria-label="选择研究区域"></select>
+        </label>
+        <div class="control-divider"></div>
+        <div class="origin-block">
+          <span>FORECAST ORIGIN</span>
+          <strong id="forecast-origin">—</strong>
+          <small>输入可用性已冻结</small>
+        </div>
+        <div class="lead-switch" role="group" aria-label="预报时效">
+          <button class="active" data-lead="1">+01H</button>
+          <button data-lead="3">+03H</button>
+          <button data-lead="6">+06H</button>
+        </div>
+      </section>
+
+      <section class="workspace" id="forecast">
+        <article class="map-card panel">
+          <div class="panel-heading">
+            <div>
+              <span class="panel-index">A / PROBABILITY FIELD</span>
+              <h2 id="map-title">极端降水发生概率</h2>
+            </div>
+            <div class="layer-tabs" role="group" aria-label="图层">
+              <button class="active" data-layer="probability">概率</button>
+              <button data-layer="uncertainty">不确定性</button>
+            </div>
+          </div>
+          <div class="map-stage">
+            <canvas id="forecast-map" aria-label="网格预报场"></canvas>
+            <div class="map-coordinates"><span id="map-north">32°N</span><span>N</span><span id="map-south">16°N</span></div>
+            <div class="map-tooltip" id="map-tooltip" hidden></div>
+            <div class="map-corner top-left"></div><div class="map-corner top-right"></div>
+            <div class="map-corner bottom-left"></div><div class="map-corner bottom-right"></div>
+          </div>
+          <div class="map-footer">
+            <div class="legend"><span>0</span><i></i><span>0.5</span><i></i><span>1.0</span></div>
+            <div><span>VALID</span><strong id="valid-time">—</strong></div>
+            <div><span>GRID</span><strong>24 × 18 demo cells</strong></div>
+          </div>
+        </article>
+
+        <aside class="insight-stack">
+          <article class="signal-card panel">
+            <div class="panel-heading compact">
+              <div><span class="panel-index">B / FORECAST SIGNAL</span><h2>预报摘要</h2></div>
+              <span class="status-chip" id="forecast-status">READY</span>
+            </div>
+            <div class="hero-metric">
+              <div><strong id="max-probability">—</strong><span>峰值概率</span></div>
+              <div class="confidence-ring" id="confidence-ring"><span id="coverage-value">—</span><small>coverage</small></div>
+            </div>
+            <div class="metric-grid">
+              <div><span>P50 累计</span><strong id="p50-rain">—</strong><small>mm</small></div>
+              <div><span>P90 累计</span><strong id="p90-rain">—</strong><small>mm</small></div>
+              <div><span>平均概率</span><strong id="mean-probability">—</strong></div>
+              <div><span>不确定性</span><strong id="uncertainty-value">—</strong></div>
+            </div>
+            <div class="boundary-note"><b>科学边界</b><p>当前为确定性演示载荷，不代表真实天气预报或业务预警。</p></div>
+          </article>
+
+          <article class="routing-card panel" id="mechanisms">
+            <div class="panel-heading compact">
+              <div><span class="panel-index">C / ROUTING</span><h2>机制贡献</h2></div>
+              <span class="micro-label">NO REGION ID</span>
+            </div>
+            <div id="routing-bars" class="routing-bars"></div>
+            <p class="panel-caption">路由仅接收可观测机制状态、数据可用性和预报时效。</p>
+          </article>
+        </aside>
+      </section>
+
+      <section class="lower-grid">
+        <article class="source-card panel" id="sources">
+          <div class="panel-heading compact">
+            <div><span class="panel-index">D / DATA LINEAGE</span><h2>数据可用性</h2></div>
+            <span class="micro-label" id="data-version">—</span>
+          </div>
+          <div id="source-list" class="source-list"></div>
+        </article>
+        <article class="timeline-card panel" id="history">
+          <div class="panel-heading compact">
+            <div><span class="panel-index">E / AUDIT TRAIL</span><h2>运行轨迹</h2></div>
+            <span class="micro-label">CAUSAL CHECKED</span>
+          </div>
+          <div id="event-list" class="event-list"></div>
+        </article>
+        <article class="model-card panel">
+          <div class="model-head">
+            <span>MCR</span>
+            <div><small>MODEL BUNDLE</small><strong id="model-version">—</strong></div>
+          </div>
+          <p>平流 · 对流生成 · 地形抬升 · 持续衰减</p>
+          <dl>
+            <div><dt>Router geography</dt><dd>Excluded</dd></div>
+            <div><dt>Test threshold tuning</dt><dd>Disabled</dd></div>
+            <div><dt>Scientific evidence</dt><dd class="warning">No — demo</dd></div>
+          </dl>
+        </article>
+      </section>
+    </main>
+  </div>
+  <div class="loading" id="loading"><span></span><p>正在生成预报产品</p></div>
+  <script src="/app.js"></script>
+</body>
+</html>

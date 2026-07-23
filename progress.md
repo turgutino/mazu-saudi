@@ -140,3 +140,9 @@
 - 完成机制适用性先验、KL 正则、反事实方向约束、稀有事件概率指标、risk–coverage、训练步骤和版本化模型包。
 - 新增工程合成批次与 `scripts/train_mcr_precip_smoke.py`；3 步烟测成功保存模型包，明确标记 `scientific_evidence=false`。
 - 新增 `docs/mcr_precip_implementation.md` 和 13 项 MCR-Precip 聚焦测试；聚焦测试 `13 passed`，全仓测试 `67 passed`，仅 1 个既有 NumPy 二进制兼容 warning。
+- 用户希望进一步借鉴参考工程的工程化代码与页面，但认为现有前端简陋；启动阶段 20，采用文件化规划与网站构建规范，目标是独立的 MCR-Precip 服务层和现代化科研预警界面。
+- 首轮盘点确认自有仓库没有前端/API；参考工程使用 Flask、Streamlit 和单文件知识图谱页，已记录其模型加载、场景预设、历史、Agent/KG 等可复用模式及科研语义风险。
+- 新增标准库本地 HTTP 服务、版本化 forecast API 合同和离线前端，支持四区域、1/3/6 小时、概率/不确定性图层、四专家路由、数据可用性与审计轨迹。
+- 首次 HTTP 集成测试因执行沙箱禁止绑定本地端口而出现 2 个 setup error；已改为对 API 分发与静态路径解析做无网络纯函数测试，保留独立的实际监听烟测。
+- 以允许本地端口的环境完成真实监听烟测：`/api/v1/health`、阿拉伯半岛 +6h 预报（432 cells、跨日 valid time）和首页资源均正常返回，随后关闭临时服务。
+- 新增 `docs/product_interface.md`，说明 API、启动方式、科学边界、从参考工程吸收/拒绝的模式和真实模型接入路线；阶段 20 首个产品垂直切片完成。
