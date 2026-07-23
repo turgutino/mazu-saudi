@@ -2,6 +2,8 @@
 
 This directory contains the results-ready paper and the evidence controls needed to turn it into a submission. It does not claim that the planned experiments have already been completed.
 
+This is **Paper A**, the computer-method and reliable-prediction track. Its contribution boundary relative to the AI4Science manuscript is defined in the [two-paper portfolio](../paper_portfolio.md).
+
 ## Reading order
 
 1. [Main manuscript](extreme_precipitation_draft.md)

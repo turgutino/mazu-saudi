@@ -127,3 +127,10 @@
 - 新增 `tests/test_manuscript_contract.py`，覆盖 Nature Communications 标题/摘要限制、章节完整性、结果占位符、内部链接、科学边界和参考文献库。
 - 同步更新 README、自有预警框架和旧 Nature Communications 数据蓝图，明确 Wadi 山洪已降为将来有独立真值时的下游扩展。
 - 聚焦合同测试通过：`6 passed`。完整适用测试 `conda run -n ml python -m pytest -q tests` 通过：`48 passed`，仅 1 个既有 NumPy 二进制兼容 warning。
+- 用户要求同时保留“预测方法论文”与“AI4Science 机制发现论文”两组初稿和后续试验计划，启动阶段 18。
+- 根据近期一手文献收窄 AI4Science 问题：不重复已知 Rossby wave breaking 的日尺度贡献，而是研究大尺度强迫转化为 1–6 小时局地极值的机制类型及其对预报误差的解释。
+- 新增 `docs/ai4science_manuscript/`：英文初稿 *Cross-scale atmospheric regimes govern sub-daily rainfall extremes across global drylands*、Experiment 0–6 试验计划、科学主张—证据矩阵和工作 BibTeX 文献库。
+- AI4Science 稿标题 10 词、摘要 149 词、全稿约 3146 词，包含 41 个 `TODO-RESULT-AI4S-*` 结果占位符；明确区分发现、关联、物理一致、机制支持和因果声明。
+- 新增 `docs/paper_portfolio.md`，规定论文 A 主张预测方法/校准/可靠性，论文 B 主张跨尺度机制图谱/物理验证/预报盲区；同一主要图表或统计比较不得同时成为两篇的标题结果。
+- 新增 `tests/test_ai4science_manuscript_contract.py`，检查标题/摘要、章节、结果占位符、科学因果边界、Experiment 0–6、双论文非重叠条款、链接和文献库。
+- 两套论文聚焦合同测试通过：`12 passed`。完整适用测试 `conda run -n ml python -m pytest -q tests` 通过：`54 passed`，仅 1 个既有 NumPy 二进制兼容 warning；7 个变更文档的本地链接检查通过。
