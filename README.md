@@ -16,6 +16,7 @@
 - [干旱区短历时极端降水论文包](docs/manuscript/README.md)：英文结果就绪稿、补充方法、证据矩阵和发表路线。
 - [双论文组合与贡献边界](docs/paper_portfolio.md)：区分 MCR-Precip 计算机方法论文与 AI4Science 机制发现论文的问题、证据和发表顺序。
 - [AI4Science 论文包](docs/ai4science_manuscript/README.md)：跨尺度机制图谱、物理验证、预报盲区及分阶段试验计划。
+- [MCR-Precip 本地实现](docs/mcr_precip_implementation.md)：论文 1 的四专家机制路由、输入合同、训练闭环和烟测命令。
 
 当前开发原则是先建立可信的高温/山洪 `t→t+1` 科研基线，再扩展到高频预报场、HAMF-Light、多灾种风险决策和 Agent 交付。
 

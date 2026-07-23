@@ -134,3 +134,9 @@
 - 新增 `docs/paper_portfolio.md`，规定论文 A 主张预测方法/校准/可靠性，论文 B 主张跨尺度机制图谱/物理验证/预报盲区；同一主要图表或统计比较不得同时成为两篇的标题结果。
 - 新增 `tests/test_ai4science_manuscript_contract.py`，检查标题/摘要、章节、结果占位符、科学因果边界、Experiment 0–6、双论文非重叠条款、链接和文献库。
 - 两套论文聚焦合同测试通过：`12 passed`。完整适用测试 `conda run -n ml python -m pytest -q tests` 通过：`54 passed`，仅 1 个既有 NumPy 二进制兼容 warning；7 个变更文档的本地链接检查通过。
+- 用户选择实现论文 1（MCR-Precip 计算机方法线），启动阶段 19：参考现有工程的优点，从头实现本地四专家机制路由模型、损失、训练闭环和合同测试。
+- 新增 `pyproject.toml`，将本仓库测试收集限制在 `tests/`，并建立 `src/mazu_saudi/mcr_precip/` 包。
+- 完成稳定样本/输出合同、四传播专家、无区域 ID 的机制路由、可用性门控、单调分位数和不确定性输出。
+- 完成机制适用性先验、KL 正则、反事实方向约束、稀有事件概率指标、risk–coverage、训练步骤和版本化模型包。
+- 新增工程合成批次与 `scripts/train_mcr_precip_smoke.py`；3 步烟测成功保存模型包，明确标记 `scientific_evidence=false`。
+- 新增 `docs/mcr_precip_implementation.md` 和 13 项 MCR-Precip 聚焦测试；聚焦测试 `13 passed`，全仓测试 `67 passed`，仅 1 个既有 NumPy 二进制兼容 warning。
