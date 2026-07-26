@@ -13,6 +13,7 @@
 - [领域词汇表](CONTEXT.md)：统一预报起报时刻、有效时刻、标签、灾害概率、风险和预警等级等概念。
 - [自有预警框架](docs/own_warning_framework.md)：定义 MAZU-Saudi HAMF 的领域边界、科研核心、无泄漏评估、服务架构和实施路线。
 - [参考工程评估](docs/reference_projects_review.md)：记录八个参考工程可吸收的资产和不能直接继承的结论。
+- [参考资产迁移蓝图](docs/reference_asset_migration_blueprint.md)：将八个工程的思想映射到自有模块、合同、制品、测试和分批实施顺序。
 - [干旱区短历时极端降水论文包](docs/manuscript/README.md)：英文结果就绪稿、补充方法、证据矩阵和发表路线。
 - [双论文组合与贡献边界](docs/paper_portfolio.md)：区分 MCR-Precip 计算机方法论文与 AI4Science 机制发现论文的问题、证据和发表顺序。
 - [AI4Science 论文包](docs/ai4science_manuscript/README.md)：跨尺度机制图谱、物理验证、预报盲区及分阶段试验计划。

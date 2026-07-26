@@ -340,3 +340,16 @@
 - 高温报告称阈值为“全年空间最大值 P90=42.62°C”，却报告 168/365 正例；若真是逐日最大值 P90，正例应约 10%。训练源码缺失，无法判断是对全部格点求分位再用于日最大值，还是文字/统计错误，因此该标签合同不可继承。
 - 高温特征代码把 `lag1` 映射到 14 日窗口的倒数第二天，而暴雨环境特征取倒数第一天；两个任务的 `forecast_origin` 语义不一致。自有实现必须让每个特征记录 valid/availability time 并由时间因果测试锁定。
 - 预警颜色阈值由硬编码概率直接映射，但没有业务成本、校准误差或拒识状态；“红/橙/黄”只适合演示，不能由模型概率自动升级成官方预警。
+
+## 参考资产迁移到自有工程（阶段 22）
+
+- 当前自有代码只有三个真实运行边界：根目录的数据裁剪/指标脚本、`mcr_precip` 科研模型包、`service` demo 产品层。设计文档中规划的 `data/labels/features/evaluation/evidence/artifacts` 尚未实现。
+- 因此不应先复制新的模型或页面，而应补齐模型上下游的可信证据链：数据清单与时间契约、事件/切分、实验锁、Forecast/Evaluation/Report 制品、基线与校准。
+- 现有 `mcr_precip` 四专家、路由、损失和评估应保持科研内核独立；Analog Ensemble 和训练期机制原型属于 `baselines/`，不应塞进四专家内部以免模糊论文消融。
+- 现有 `service` 已把 demo 与科学证据分开，适合继续作为只读制品消费者；预注册、模型训练、校准、阈值搜索或 Agent 推理不能在 HTTP 请求过程中发生。
+- `saudi_data_extract.py` 与 `compute_indicators.py` 已经稳定且处理真实大数据，阶段 22 应通过薄适配器包裹，而不是立即搬迁或重写。
+- `MCRPrecipBatch` 当前只有张量，没有 `sample_id/event_id/forecast_origin/valid_time/source_version`；时间因果只能靠上游约定，正式数据层必须先生成可审计样本清单，再由 loader 转成张量。
+- 当前 `save_bundle()` 只保存模型配置、权重和少量 metadata，尚不满足既有 ModelBundle 定义中的预处理器、校准器、特征合同哈希、训练/验证清单和评估报告；应保留 v1 兼容并新增外层 artifact manifest，而不是把所有对象继续塞进单个 pickle。
+- 当前评估模块只支持像元级 PR-AUC/CSI/POD/FAR/Brier/NLL/ECE/risk–coverage，没有事件对象、区域留出、天气过程 block bootstrap 和基线比较；这些应进入独立 `evaluation/`，而不是继续扩张模型文件。
+- `DemoForecastService` 已显式返回 demo/scientific_evidence 状态，但 HTTP 分发直接依赖具体 demo 类。正式后端应实现同一只读 ForecastBackend 协议，由服务装配选择 demo 或 frozen-artifact backend。
+- 现有四条 ADR 已锁定预测/决策分离、时间因果、模型/政策包分离和多灾种共享契约；新增迁移方案应遵循这些决定，不创建第二套平行术语。

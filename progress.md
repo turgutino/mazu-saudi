@@ -159,3 +159,13 @@
 - 将三组新增工程加入 `docs/reference_projects_review.md`，把横向地图扩展为八个工程，并给出面向 Historical Common-Core、MCR-Precip 和 MAZU Atlas 的分级吸收顺序。
 - 新增 `tests/test_reference_projects_review_contract.py`，锁定工程名称、预注册/不可观测/测试污染/未来模板边界及自有框架映射；聚焦测试 `3 passed`。
 - 全仓适用测试通过：`76 passed`，仅保留 1 个既有 NumPy 二进制兼容 warning；阶段 21 完成。
+
+## 2026-07-27
+
+- 用户询问如何把全部新增代码和设计思想整理进自有工程；启动阶段 22，使用文件化规划形成可执行迁移蓝图。
+- 恢复既有计划并盘点当前代码：确认数据脚本、MCR-Precip 科研内核和 MAZU Atlas demo 服务已存在，而数据契约、事件切分、实验注册、基线库和版本化结果制品仍未落地。
+- 初步决策是不复制参考工程或一次性重排目录；先建立可信证据链和制品层，再把 Analog/机制原型作为独立基线接入，最后让服务与 Agent 只消费冻结结果。
+- 使用领域建模补充实验锁、预报制品、评估制品和报告制品四个统一术语，并新增 ADR 0005，锁定“参考工程是设计输入而非代码依赖”。
+- 新增 `docs/reference_asset_migration_blueprint.md`：包含现状缺口、八来源落位矩阵、目标目录、依赖方向、五类合同、基线/MCR/Atlas 接入方式、Slice 1–5 和推荐提交拆分。
+- 更新 README 与自有框架入口；新增 `tests/test_reference_asset_migration_blueprint.py`，与参考审计合同一起聚焦测试 `7 passed`。
+- 全仓适用测试通过：`80 passed`，仅保留 1 个既有 NumPy 二进制兼容 warning；阶段 22 完成。
