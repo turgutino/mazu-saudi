@@ -1,5 +1,9 @@
 .worktrees/
 output_saudi*/
 output_saudi_smoke/
+output_indicators/
 __pycache__/
 *.pyc
+reference_code
+.DS_Store
+*.egg-info/

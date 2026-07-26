@@ -73,9 +73,23 @@
 
 ```text
 .
-|-- README.md                # Project overview and usage
-|-- VARIABLES.md             # DS1 variables and Saudi extreme weather relevance
-`-- saudi_data_extract.py    # Saudi region extraction script
+|-- README.md                    # Project overview and usage
+|-- AGENTS.md                    # Repository development guidelines
+|-- CONTEXT.md                   # Domain vocabulary (forecast origin, valid time, labels...)
+|-- VARIABLES.md                 # DS1 variables and Saudi extreme weather relevance
+|-- saudi_data_extract.py        # Saudi region extraction script (DS1-DS4, DS10, DS11)
+|-- compute_indicators.py        # Extreme-event indicator computation from clipped data
+|-- analysis/                    # Data insight analysis, figures, and report
+|-- docs/                        # ADRs, framework design, manuscripts, product interface
+|   |-- adr/                     # Architecture decision records
+|   |-- manuscript/              # Paper A: MCR-Precip method manuscript package
+|   `-- ai4science_manuscript/   # Paper B: AI4Science mechanism-discovery manuscript
+|-- src/mazu_saudi/               # Installable package
+|   |-- mcr_precip/              # MCR-Precip model, losses, training, evaluation
+|   `-- service/                 # Local forecast API service and web UI
+|-- scripts/                     # Training/smoke-test entry points
+|-- tests/                       # Unit and contract tests
+`-- reference_code/               # Untracked, read-only reference projects (design input only)
 ```
 
 ## Current Capabilities
