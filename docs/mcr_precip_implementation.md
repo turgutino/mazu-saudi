@@ -32,10 +32,11 @@
 
 ## 工程烟测
 
+工程烟测脚本 `scripts/train_mcr_precip_smoke.py` 已移除（未接入真实数据前价值有限）；`tests/test_mcr_precip_training.py` 已覆盖训练步骤更新和模型包保存/加载的等价测试，可通过以下命令验证核心训练闭环：
+
 ```bash
 conda run -n ml python -m pip install -e .
-conda run -n ml python scripts/train_mcr_precip_smoke.py \
-  --output /private/tmp/mcr_precip_smoke.pt --steps 5
+conda run -n ml python -m unittest tests.test_mcr_precip_training -v
 ```
 
 ## 下一数据阶段

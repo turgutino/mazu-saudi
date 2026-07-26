@@ -87,7 +87,6 @@
 |-- src/mazu_saudi/               # Installable package
 |   |-- mcr_precip/              # MCR-Precip model, losses, training, evaluation
 |   `-- service/                 # Local forecast API service and web UI
-|-- scripts/                     # Training/smoke-test entry points
 |-- tests/                       # Unit and contract tests
 `-- reference_code/               # Untracked, read-only reference projects (design input only)
 ```
