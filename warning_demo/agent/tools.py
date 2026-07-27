@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(HERE, "..", "model")
 SAVED_DIR = os.path.join(HERE, "saved_models")
-DATASET = os.path.join(HERE, "..", "data", "mazu_dataset.nc")
+DATASET = os.path.join(os.environ.get("WARNING_DEMO_DATA_DIR", os.path.join(HERE, "..", "data")), "mazu_dataset.nc")
 KG_JSON = os.path.join(HERE, "..", "kg", "kg_data.json")
 
 CITIES = {

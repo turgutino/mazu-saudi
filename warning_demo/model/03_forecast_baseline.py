@@ -32,7 +32,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATASET = os.path.join(HERE, "..", "data", "mazu_dataset.nc")
+DATASET = os.path.join(os.environ.get("WARNING_DEMO_DATA_DIR", os.path.join(HERE, "..", "data")), "mazu_dataset.nc")
 OUT_DIR = os.path.join(HERE, "..", "outputs")
 os.makedirs(OUT_DIR, exist_ok=True)
 

@@ -254,4 +254,16 @@ model/                     detection engine, forecast models, risk-map visualisa
 ## Data
 
 The 5 GB indicator NetCDF files (`saudi_indicators_YYYYMMDD.nc`) are **not** included in the
-repository. Place them locally and point the pipeline at them.
+repository. They are produced by this repo's `compute_indicators.py`
+(default output: `output_indicators/`). Place them locally and point the
+pipeline at them, either via the default relative path or by setting:
+
+- `WARNING_DEMO_RAW_DIR` — directory containing the raw `saudi_indicators_*.nc` files
+  (default: `../output_indicators` relative to `warning_demo/`)
+- `WARNING_DEMO_DATA_DIR` — directory for the consolidated `mazu_dataset.nc`
+  (default: `warning_demo/data/`)
+
+> Note: this directory was merged into the parent `mazu-saudi` repository via
+> `git subtree` from the original standalone
+> [`mazu-saudi-warning`](https://github.com/turgutino/mazu-saudi-warning)
+> repository, preserving its commit history.

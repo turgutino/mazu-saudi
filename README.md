@@ -88,6 +88,8 @@
 |   |-- mcr_precip/              # MCR-Precip model, losses, training, evaluation
 |   `-- service/                 # Local forecast API service and web UI
 |-- tests/                       # Unit and contract tests
+|-- warning_demo/                # Collaborator's multi-hazard warning demo (merged via git subtree,
+|                                 # consumes saudi_indicators_*.nc from compute_indicators.py; see its README)
 `-- reference_code/               # Untracked, read-only reference projects (design input only)
 ```
 

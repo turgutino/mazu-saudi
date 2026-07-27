@@ -16,8 +16,8 @@ import warnings
 warnings.filterwarnings("ignore")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RAW_DIR = r"E:\Data\New data\indicators"
-CONSOLIDATED = os.path.join(HERE, "..", "data", "mazu_dataset.nc")
+RAW_DIR = os.environ.get("WARNING_DEMO_RAW_DIR", os.path.join(HERE, "..", "..", "output_indicators"))
+CONSOLIDATED = os.path.join(os.environ.get("WARNING_DEMO_DATA_DIR", os.path.join(HERE, "..", "data")), "mazu_dataset.nc")
 
 NEW_VARS = ["wind10_speed", "dewpoint_depression_c"]
 N_LAT, N_LON = 160, 220

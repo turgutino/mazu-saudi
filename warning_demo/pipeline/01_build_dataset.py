@@ -8,8 +8,10 @@
 # Uses netCDF4 for reading (selective, ~0.05 s/file) instead of xarray
 # (which parses all 91 variables on open, ~13 s/file).
 #
-# Input : E:\Data\New data\indicators\saudi_indicators_YYYYMMDD.nc  (365 files)
-# Output: mazu-system\data\mazu_dataset.nc  +  dataset_report.txt
+# Input : <repo_root>/output_indicators/saudi_indicators_YYYYMMDD.nc  (365 files)
+#         (produced by this repo's compute_indicators.py; override with the
+#         WARNING_DEMO_RAW_DIR env var if the indicators live elsewhere)
+# Output: warning_demo/data/mazu_dataset.nc  +  dataset_report.txt
 # =============================================================================
 
 import os
@@ -23,8 +25,9 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-IN_DIR  = r"E:\Data\New data\indicators"
-OUT_DIR = r"C:\Users\Turqut\Desktop\Competation\mazu-system\data"
+HERE = os.path.dirname(os.path.abspath(__file__))
+IN_DIR  = os.environ.get("WARNING_DEMO_RAW_DIR", os.path.join(HERE, "..", "..", "output_indicators"))
+OUT_DIR = os.environ.get("WARNING_DEMO_DATA_DIR", os.path.join(HERE, "..", "data"))
 OUT_NC  = os.path.join(OUT_DIR, "mazu_dataset.nc")
 OUT_RPT = os.path.join(OUT_DIR, "dataset_report.txt")
 
