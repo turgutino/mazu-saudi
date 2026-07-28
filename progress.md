@@ -184,3 +184,5 @@
 - 完成 `docs/competition_innovation_audit.md`：将当前方案定位为“系统与可信工程创新已成立、MCR 方法创新仍待真实验证”，并给出 P0–P2 比赛最小增强路线。
 - 新增 `tests/test_competition_innovation_audit_contract.py`，锁定四件英文交付物、代理标签/demo 边界、真实指标弱点和合规优先级。
 - 首次 staged diff 检查发现审计文档三处行尾空格，已清理并记录；文件内容未受损。
+- 用户确认实施 MCR-Precip 比赛版真实对比；启动阶段 24，限定为现有 2025 数据、
+  同一 T+1 代理任务和公平时间切分，不扩展外部数据或通用大模型。
