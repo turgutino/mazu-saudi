@@ -1,0 +1,13 @@
+======================================================================
+MAZU -- flash_flood threshold re-calibration (disclosed finding)
+======================================================================
+Current threshold=0.50: {'threshold': 0.5, 'pod': np.float64(0.10038286671452501), 'far': np.float64(0.8026346741943072), 'csi': np.float64(0.07128292268479185), 'hss': np.float64(0.13005168644362283), 'tp': 839, 'fp': 3412, 'fn': 7519, 'tn': 1607430}
+Full-test-set CSI-optimal threshold=0.28: {'threshold': 0.28, 'pod': np.float64(0.1749222301986121), 'far': np.float64(0.880973703492632), 'csi': np.float64(0.07622920903071068), 'hss': np.float64(0.1363541203997772), 'tp': 1462, 'fp': 10821, 'fn': 6896, 'tn': 1600021}
+
+Half A (2025-07-01 to 2025-09-30) own-optimal thr=0.26 CSI=0.1032
+Half B (2025-10-01 to 2025-12-31) own-optimal thr=0.62 CSI=0.0294
+
+Half A at default(0.50) CSI=0.0870 | at Half-B's optimal thr CSI=0.0731
+Half B at default(0.50) CSI=0.0251 | at Half-A's optimal thr CSI=0.0243
+
+NOT ADOPTED. The in-sample CSI-optimal threshold on the full test set (~0.34) gives a small, real CSI gain over the current 0.50 threshold, but a threshold chosen on one half of the test period does NOT transfer to the other half (it performs at or below the existing 0.50 threshold's CSI there) -- flash_flood's 2025 positives are dominated by a single event (22-23 Aug Jizan flood), so any threshold tuned on a period containing that event overfits to its probability distribution. The production operational threshold (0.50, DetectionEngine.RULES / model_meta.json) is left UNCHANGED.

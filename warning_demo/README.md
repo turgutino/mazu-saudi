@@ -178,6 +178,19 @@ extensions were added and independently tested — see
   overconfidence problem gets an honest, additive answer instead of a
   point-estimate rewrite that trades away detection quality. See
   `agent/UNCERTAINTY_REPORT.md`.
+- **flash_flood operational-threshold re-calibration — a disclosed
+  non-finding.** The low-POD/high-FAR result above raises the obvious
+  question: would a different operational threshold trade FAR for POD/CSI
+  more favourably? A full threshold scan (0.01-0.99) on the held-out
+  Jul-Dec test set finds a small, real in-sample CSI gain at ~0.28-0.34
+  (CSI 0.076 vs. 0.071 at the current 0.50). But splitting the test period
+  in half and checking transfer shows this "optimum" does not generalize:
+  a threshold tuned on one half performs at or below the existing 0.50
+  threshold's CSI on the other half, because 2025's flash-flood positives
+  are dominated by a single event (the 22-23 Aug Jizan flood) that any
+  in-period threshold search overfits to. **Not adopted** — the production
+  threshold (0.50, `DetectionEngine.RULES` / `model_meta.json`) is left
+  unchanged. See `model/threshold_calibration_report.json`.
 - **literature_evidence_tool (7th tool) — closing the citation-coverage gap,
   inspired by a real advisor conversation about Relink.** Relink
   (`DMiC-Lab-HFUT/Relink`, GitHub) is a domain-agnostic technique for
@@ -201,7 +214,8 @@ extensions were added and independently tested — see
 All 169 unit tests pass (`agent/02_test_tools.py`, up from 32); 68 further
 independent checks verify the calibration and ensemble analyses
 (`model/09b_test_calibration.py`, `model/10b_test_calibration_fix.py`,
-`model/12b_test_ensemble.py`).
+`model/12b_test_ensemble.py`); 19 further checks verify the threshold
+re-calibration non-finding (`model/14b_test_threshold_calibration.py`).
 
 ---
 
