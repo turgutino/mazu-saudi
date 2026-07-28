@@ -1,0 +1,13 @@
+======================================================================
+MAZU -- flash_flood baseline+STGNN weighted fusion
+======================================================================
+Baseline-only (w=0.0): {'weight': 0.0, 'roc_auc': 0.8731742776960719, 'pr_auc': 0.08906247051431657, 'pod': np.float64(0.10038286671452501), 'far': np.float64(0.8026346741943072), 'csi': np.float64(0.07128292268479185), 'hss': np.float64(0.13005168644362283), 'tp': 839, 'fp': 3412, 'fn': 7519, 'tn': 1607430}
+In-sample CSI-optimal fusion weight=0.30: {'weight': 0.3, 'roc_auc': 0.9149027727212484, 'pr_auc': 0.10462878386380732, 'pod': np.float64(0.1594879157693228), 'far': np.float64(0.8607832898172324), 'csi': np.float64(0.0803012048192771), 'hss': np.float64(0.14394581035209653), 'tp': 1333, 'fp': 8242, 'fn': 7025, 'tn': 1602600}
+
+Half A (2025-07-01 to 2025-09-30) own-optimal w=0.35 CSI=0.1066
+Half B (2025-10-01 to 2025-12-31) own-optimal w=0.50 CSI=0.0368
+
+Half A at baseline-only CSI=0.0870 | at Half-B's optimal w CSI=0.0599
+Half B at baseline-only CSI=0.0251 | at Half-A's optimal w CSI=0.0281
+
+NOT ADOPTED. Full-test-set CSI-optimal fusion weight w=0.30 gives CSI=0.0803 vs baseline-only (w=0) CSI=0.0713. A weight tuned on one test half does NOT improve (or performs at/below) baseline-only CSI on the OTHER half, matching the same non-transfer pattern found for pure threshold re-calibration (14_threshold_calibration.py) -- flash_flood's 2025 positives are dominated by the single 22-23 Aug Jizan event, so any weight tuned on a period containing it overfits to that event. The production model (flash_flood_model.joblib, no STGNN blend) is left UNCHANGED.

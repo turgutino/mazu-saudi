@@ -191,6 +191,23 @@ extensions were added and independently tested — see
   in-period threshold search overfits to. **Not adopted** — the production
   threshold (0.50, `DetectionEngine.RULES` / `model_meta.json`) is left
   unchanged. See `model/threshold_calibration_report.json`.
+- **flash_flood baseline+STGNN weighted fusion — a second disclosed
+  non-finding, same root cause.** The STGNN experiment (`model/05_stgnn.py`)
+  found a real spatial-aggregation gain specifically on the 22-23 Aug Jizan
+  event (2382/8800 cells >0.5 vs. baseline's 35/8800) but was not adopted
+  overall due to worse calibration elsewhere. Rather than an all-or-nothing
+  choice, this tests a flash_flood-only per-cell blend
+  `p_fused = w*p_stgnn + (1-w)*p_baseline`, scanning `w` on the held-out
+  Jul-Dec test set. A blend weight (~0.30) gives a small, real in-sample CSI
+  gain (0.080 vs. baseline-only 0.071) — but the same Half A / Half B
+  transfer check used for the threshold finding shows it does not
+  generalize: a weight tuned on one half of the test period performs *worse*
+  than baseline-only on the other half. Same root cause as the threshold
+  finding — 2025's flash-flood positives are dominated by the single 22-23
+  Aug Jizan event, so any weight search over a period containing it overfits
+  to that one event. **Not adopted** — the production flash_flood model
+  (`flash_flood_model.joblib`, no STGNN blend) is left unchanged. See
+  `model/stgnn_fusion_report.json`.
 - **literature_evidence_tool (7th tool) — closing the citation-coverage gap,
   inspired by a real advisor conversation about Relink.** Relink
   (`DMiC-Lab-HFUT/Relink`, GitHub) is a domain-agnostic technique for
@@ -215,7 +232,9 @@ All 169 unit tests pass (`agent/02_test_tools.py`, up from 32); 68 further
 independent checks verify the calibration and ensemble analyses
 (`model/09b_test_calibration.py`, `model/10b_test_calibration_fix.py`,
 `model/12b_test_ensemble.py`); 19 further checks verify the threshold
-re-calibration non-finding (`model/14b_test_threshold_calibration.py`).
+re-calibration non-finding (`model/14b_test_threshold_calibration.py`); 19
+more checks verify the STGNN fusion non-finding
+(`model/15b_test_stgnn_fusion.py`).
 
 ---
 
