@@ -59,6 +59,37 @@ def binary_metrics(y_true, probability, threshold: float = 0.5, bins: int = 10) 
     }
 
 
+def select_csi_threshold(
+    y_true,
+    probability,
+    thresholds=None,
+) -> tuple[float, dict[str, float]]:
+    """Select an operating threshold on validation data only.
+
+    Callers are responsible for passing a validation split. The finite,
+    explicit default grid avoids a deceptively precise test-set optimum.
+    """
+
+    candidates = np.asarray(
+        thresholds if thresholds is not None else np.linspace(0.05, 0.95, 19),
+        dtype=float,
+    )
+    if candidates.ndim != 1 or candidates.size == 0:
+        raise ValueError("thresholds must be a non-empty one-dimensional sequence")
+    if ((candidates <= 0) | (candidates >= 1)).any():
+        raise ValueError("thresholds must lie strictly between zero and one")
+    scored = [(float(value), binary_metrics(y_true, probability, float(value))) for value in candidates]
+    threshold, metrics = max(
+        scored,
+        key=lambda item: (
+            -np.inf if np.isnan(item[1]["csi"]) else item[1]["csi"],
+            item[1]["pod"],
+            -item[0],
+        ),
+    )
+    return threshold, metrics
+
+
 def risk_coverage_curve(y_true, probability, uncertainty) -> tuple[np.ndarray, np.ndarray]:
     """Return error risk when retaining samples from most to least certain."""
 

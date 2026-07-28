@@ -12,10 +12,11 @@ def test_synthetic_batch_satisfies_contract():
 
 def test_contract_rejects_noncausal_lead_and_nan_inputs():
     batch, _ = make_synthetic_batch(batch_size=2)
-    batch.lead_hours[0] = 24
-    with pytest.raises(ValueError, match="1, 3, or 6"):
+    batch.lead_hours[0] = 12
+    with pytest.raises(ValueError, match="1, 3, 6, or 24"):
         batch.validate(8, 3)
-    batch.lead_hours[0] = 1
+    batch.lead_hours[0] = 24
+    batch.validate(8, 3)
     batch.dynamic[0, 0, 0, 0, 0] = torch.nan
     with pytest.raises(ValueError, match="finite"):
         batch.validate(8, 3)

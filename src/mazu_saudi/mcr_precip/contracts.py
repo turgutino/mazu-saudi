@@ -37,8 +37,8 @@ class MCRPrecipBatch:
             raise ValueError(f"availability must have shape [B,{availability_dim}]")
         if self.lead_hours.shape != (b,):
             raise ValueError("lead_hours must have shape [B]")
-        if not torch.isin(self.lead_hours, self.lead_hours.new_tensor([1, 3, 6])).all():
-            raise ValueError("lead_hours must contain only 1, 3, or 6")
+        if not torch.isin(self.lead_hours, self.lead_hours.new_tensor([1, 3, 6, 24])).all():
+            raise ValueError("lead_hours must contain only 1, 3, 6, or 24")
         if not torch.isfinite(self.dynamic).all() or not torch.isfinite(self.static).all():
             raise ValueError("inputs must be finite; encode missingness with availability")
         if ((self.availability < 0) | (self.availability > 1)).any():
