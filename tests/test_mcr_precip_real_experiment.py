@@ -8,7 +8,9 @@ from mazu_saudi.mcr_precip.real_data import (
 )
 from mazu_saudi.mcr_precip.real_experiment import (
     NeuralExperimentConfig,
+    apply_platt_calibrator,
     evaluate_neural_variant,
+    fit_platt_calibrator,
     train_neural_variant,
 )
 
@@ -51,5 +53,17 @@ def test_real_neural_experiment_smoke_uses_validation_threshold():
     result = evaluate_neural_variant(model, data, batch_days=2)
     assert training["epochs_ran"] == 1
     assert result["threshold_source"] == "validation"
+    assert result["calibration"]["method"] == "platt-validation"
     assert 0 < result["threshold"] < 1
     assert result["parameters"] > 0
+
+
+def test_platt_calibration_is_fit_only_from_explicit_arrays():
+    y = np.array([0, 0, 0, 1, 1, 1])
+    raw = np.array([0.4, 0.6, 0.7, 0.75, 0.85, 0.95])
+    parameters = fit_platt_calibrator(y, raw)
+    calibrated = apply_platt_calibrator(raw, parameters)
+    assert parameters["input_scale"] > 0
+    assert np.isfinite(calibrated).all()
+    assert ((calibrated > 0) & (calibrated < 1)).all()
+    assert np.all(np.diff(calibrated) >= 0)

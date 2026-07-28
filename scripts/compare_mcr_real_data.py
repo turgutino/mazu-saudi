@@ -21,7 +21,9 @@ from mazu_saudi.mcr_precip.evaluation import binary_metrics, select_csi_threshol
 from mazu_saudi.mcr_precip.real_data import prepare_proxy_data
 from mazu_saudi.mcr_precip.real_experiment import (
     NeuralExperimentConfig,
+    apply_platt_calibrator,
     evaluate_neural_variant,
+    fit_platt_calibrator,
     train_neural_variant,
 )
 
@@ -57,15 +59,21 @@ def run_hgb(data, seed):
         early_stopping=True,
     )
     model.fit(train_x, train_y)
-    val_probability = model.predict_proba(val_x)[:, 1]
+    val_probability_raw = model.predict_proba(val_x)[:, 1]
+    calibrator = fit_platt_calibrator(val_y, val_probability_raw)
+    val_probability = apply_platt_calibrator(val_probability_raw, calibrator)
     threshold, validation = select_csi_threshold(val_y, val_probability)
     started = time.perf_counter()
-    test_probability = model.predict_proba(test_x)[:, 1]
+    test_probability_raw = model.predict_proba(test_x)[:, 1]
     elapsed = time.perf_counter() - started
+    test_probability = apply_platt_calibrator(test_probability_raw, calibrator)
     return {
         "seed": seed,
         "threshold_source": "validation",
         "threshold": threshold,
+        "calibration": {"method": "platt-validation", **calibrator},
+        "raw_validation": binary_metrics(val_y, val_probability_raw),
+        "raw_test": binary_metrics(test_y, test_probability_raw, threshold=0.5),
         "validation": validation,
         "test": binary_metrics(test_y, test_probability, threshold),
         "test_observations": int(test_y.size),
@@ -80,10 +88,55 @@ def summarize(runs):
     metrics = ("pr_auc", "csi", "pod", "far", "brier", "nll", "ece")
     return {
         metric: {
-            "mean": float(np.mean([run["test"][metric] for run in runs])),
-            "std": float(np.std([run["test"][metric] for run in runs])),
+            "mean": float(np.nanmean([run["test"][metric] for run in runs])),
+            "std": float(np.nanstd([run["test"][metric] for run in runs])),
         }
         for metric in metrics
+    }
+
+
+def json_safe(value):
+    if isinstance(value, dict):
+        return {key: json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [json_safe(item) for item in value]
+    if isinstance(value, float) and not np.isfinite(value):
+        return None
+    return value
+
+
+def decide(models):
+    hgb_runs = models["hgb_matched"]["runs"]
+    mcr_runs = models["mcr_prior"]["runs"]
+    paired_pr_wins = [
+        mcr["test"]["pr_auc"] >= hgb["test"]["pr_auc"]
+        for hgb, mcr in zip(hgb_runs, mcr_runs)
+    ]
+    hgb = models["hgb_matched"]["summary"]
+    moe = models["moe_unconstrained"]["summary"]
+    mcr = models["mcr_prior"]["summary"]
+    beats_hgb = (
+        mcr["pr_auc"]["mean"] > hgb["pr_auc"]["mean"]
+        and mcr["csi"]["mean"] >= hgb["csi"]["mean"]
+        and mcr["brier"]["mean"] <= hgb["brier"]["mean"]
+        and all(paired_pr_wins)
+    )
+    prior_supported = (
+        mcr["pr_auc"]["mean"] >= moe["pr_auc"]["mean"]
+        and mcr["brier"]["mean"] <= moe["brier"]["mean"]
+    )
+    return {
+        "adopt_mcr_as_competition_performance_claim": bool(beats_hgb),
+        "mechanism_prior_supported_in_this_experiment": bool(prior_supported),
+        "paired_seed_pr_auc_wins_vs_hgb": paired_pr_wins,
+        "status": "adopted" if beats_hgb else "research_only_not_adopted",
+        "reason": (
+            "MCR improved discrimination, operating-point skill, and calibrated probability "
+            "across every paired seed."
+            if beats_hgb
+            else "MCR did not beat the matched HGB on the preregistered joint gate; keep it as "
+            "an implemented research prototype and do not use it as a competition performance claim."
+        ),
     }
 
 
@@ -99,7 +152,8 @@ def render_report(result):
         f"- Grid: stride {result['protocol']['stride']} ({result['protocol']['grid_shape']})",
         f"- Seeds: {result['protocol']['seeds']}",
         f"- Terrain available: {result['protocol']['terrain_available']}",
-        "- Thresholds are selected on June validation data; July–December is test-only.",
+        "- Platt calibration and thresholds are fitted on June validation data;",
+        "  July–December is test-only.",
         "",
         "| Model | PR-AUC | CSI | POD | FAR | Brier | ECE |",
         "|---|---:|---:|---:|---:|---:|---:|",
@@ -124,6 +178,11 @@ def render_report(result):
         "  different stride and no independent validation threshold.",
         "- A gain is competition evidence only if it is stable across seeds and does",
         "  not trade lower PR-AUC/Brier reliability for a test-tuned operating point.",
+        "",
+        "## Decision",
+        "",
+        f"- Status: `{result['decision']['status']}`",
+        f"- {result['decision']['reason']}",
     ]
     return "\n".join(lines) + "\n"
 
@@ -180,10 +239,12 @@ def main():
         "legacy_hgb_context_only": REFERENCE_HGB,
         "models": models,
     }
+    result["decision"] = decide(models)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "results.json").write_text(
-        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(json_safe(result), ensure_ascii=False, indent=2, allow_nan=False),
+        encoding="utf-8",
     )
     (output_dir / "report.md").write_text(render_report(result), encoding="utf-8")
     print(render_report(result))

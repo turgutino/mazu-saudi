@@ -23,6 +23,41 @@ class NeuralExperimentConfig:
     prior_weight: float = 0.1
 
 
+def fit_platt_calibrator(y_true, probability) -> dict[str, float]:
+    """Fit one-dimensional Platt scaling on validation probabilities."""
+
+    from sklearn.linear_model import LogisticRegression
+
+    y = np.asarray(y_true, dtype=int).ravel()
+    p = np.clip(np.asarray(probability, dtype=float).ravel(), 1e-6, 1 - 1e-6)
+    if y.size != p.size or y.size == 0:
+        raise ValueError("calibration targets and probabilities must be non-empty and aligned")
+    if np.unique(y).size < 2:
+        raise ValueError("Platt calibration requires both target classes")
+    logits = np.log(p / (1 - p))
+    input_mean = float(logits.mean())
+    input_scale = float(logits.std())
+    if not np.isfinite(input_scale) or input_scale < 1e-6:
+        input_scale = 1.0
+    standardized = ((logits - input_mean) / input_scale)[:, None]
+    calibrator = LogisticRegression(C=1.0, solver="liblinear", max_iter=200)
+    calibrator.fit(standardized, y)
+    return {
+        "coefficient": float(calibrator.coef_[0, 0]),
+        "intercept": float(calibrator.intercept_[0]),
+        "input_mean": input_mean,
+        "input_scale": input_scale,
+    }
+
+
+def apply_platt_calibrator(probability, parameters: dict[str, float]) -> np.ndarray:
+    p = np.clip(np.asarray(probability, dtype=float), 1e-6, 1 - 1e-6)
+    logits = np.log(p / (1 - p))
+    standardized = (logits - parameters["input_mean"]) / parameters["input_scale"]
+    calibrated_logits = parameters["coefficient"] * standardized + parameters["intercept"]
+    return 1.0 / (1.0 + np.exp(-np.clip(calibrated_logits, -40, 40)))
+
+
 def _observable_flat(target: torch.Tensor, probability: np.ndarray):
     y = target.detach().cpu().numpy().reshape(-1)
     p = np.asarray(probability).reshape(-1)
@@ -151,7 +186,9 @@ def evaluate_neural_variant(
     val_target, val_probability = predict_indices(
         model, data, data.split.validation, batch_days, target_device
     )
-    val_y, val_p = _observable_flat(torch.from_numpy(val_target), val_probability)
+    val_y, val_p_raw = _observable_flat(torch.from_numpy(val_target), val_probability)
+    calibrator = fit_platt_calibrator(val_y, val_p_raw)
+    val_p = apply_platt_calibrator(val_p_raw, calibrator)
     threshold, validation_metrics = select_csi_threshold(val_y, val_p)
 
     start = time.perf_counter()
@@ -159,10 +196,14 @@ def evaluate_neural_variant(
         model, data, data.split.test, batch_days, target_device
     )
     elapsed = time.perf_counter() - start
-    test_y, test_p = _observable_flat(torch.from_numpy(test_target), test_probability)
+    test_y, test_p_raw = _observable_flat(torch.from_numpy(test_target), test_probability)
+    test_p = apply_platt_calibrator(test_p_raw, calibrator)
     return {
         "threshold_source": "validation",
         "threshold": float(threshold),
+        "calibration": {"method": "platt-validation", **calibrator},
+        "raw_validation": binary_metrics(val_y, val_p_raw),
+        "raw_test": binary_metrics(test_y, test_p_raw, threshold=0.5),
         "validation": validation_metrics,
         "test": binary_metrics(test_y, test_p, threshold=threshold),
         "test_observations": int(test_y.size),

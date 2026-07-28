@@ -18,6 +18,7 @@
 - [双论文组合与贡献边界](docs/paper_portfolio.md)：区分 MCR-Precip 计算机方法论文与 AI4Science 机制发现论文的问题、证据和发表顺序。
 - [AI4Science 论文包](docs/ai4science_manuscript/README.md)：跨尺度机制图谱、物理验证、预报盲区及分阶段试验计划。
 - [MCR-Precip 本地实现](docs/mcr_precip_implementation.md)：论文 1 的四专家机制路由、输入合同、训练闭环和烟测命令。
+- [MCR-Precip 2025 代理任务对比](experiments/mcr_precip_2025_proxy/report.md)：同输入 HGB、普通 MoE 与机制先验 MCR 的三种子真实数据负结果。
 - [MAZU Atlas 产品界面](docs/product_interface.md)：本地预测 API、现代化科研预报页面、演示边界与启动方式。
 - [竞赛创新性与工程完成度审计](docs/competition_innovation_audit.md)：依据正式提交要求核对创新证据、产品完成度、合规缺口和比赛优先级。
 

@@ -42,3 +42,31 @@ conda run -n ml python -m unittest tests.test_mcr_precip_training -v
 ## 下一数据阶段
 
 当前沙特 2025 指标文件适合做适配器烟测，但不能单独支撑跨区域论文结论。下一步应按 `valid_time / availability_time / forecast_origin` 建立 Historical Common-Core，生成事件级冻结切分，再分别实现 IMERG、历史 forecast/reforecast、地形和 MAZU 的数据适配器。模型核心不应随具体数据源字段变化。
+
+## 2025 沙特真实数据代理任务对比
+
+仓库已增加一个严格收敛的 24 小时真实数据实验：
+
+```bash
+conda run -n ml python scripts/compare_mcr_real_data.py \
+  --orography-source /Volumes/E/气象数据/saudi_region_output/indicators/saudi_indicators_20250823.nc \
+  --stride 4 \
+  --seeds 42,43,44 \
+  --epochs 20 \
+  --hidden-channels 8
+```
+
+协议为 2025 年 1–5 月训练、6 月验证、7–12 月测试。概率 Platt 校准和 CSI
+阈值均只在 6 月拟合。任务标签是 `flash_flood_risk>=2` 的内部代理标签，不是独立
+山洪真值。对比使用相同的 stride=4 网格和输入，包含匹配 HGB、无机制先验 MoE 和
+机制先验 MCR；MCR 只启用适用性先验，没有在本次有限实验中加入真实反事实训练。
+
+正式三种子结果位于：
+
+- `experiments/mcr_precip_2025_proxy/results.json`
+- `experiments/mcr_precip_2025_proxy/report.md`
+
+结果不支持将 MCR 作为比赛性能贡献：HGB、普通 MoE、MCR 的平均 PR-AUC 分别为
+0.0759、0.0590、0.0542；MCR 的 FAR 为 0.9502。机器可读状态固定为
+`research_only_not_adopted`。MCR 仍可作为已实现研究原型展示，但比赛主结果继续
+使用经过验证的轻量 HGB，并明确其单年代理标签边界。
