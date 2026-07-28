@@ -3,7 +3,7 @@
 #
 # Three independently-testable tools the LLM agent can call:
 #   forecast_tool(city, date, hazard)   -> tomorrow's risk probability
-#   causal_kg_tool(hazard)              -> driving mechanisms + literature citations
+#   causal_kg_tool(hazard)              -> asserted mechanisms + bounded evidence
 #   conditions_tool(city, date)         -> today's actual raw indicator values
 #
 # Scope note (disclosed): this operates on the 2025 historical dataset only.
@@ -367,11 +367,14 @@ def forecast_tool(city: str, target_date: str, hazard: str) -> dict:
 
 
 # =============================================================================
-# TOOL 2: causal knowledge graph query
+# TOOL 2: hazard mechanism & evidence graph query
 # =============================================================================
 
 def causal_kg_tool(hazard: str) -> dict:
-    """Return the driving mechanisms for a hazard and their literature grounding.
+    """Return asserted mechanisms for a hazard and their evidence status.
+
+    The legacy function name is retained for API compatibility. The underlying
+    artifact is an evidence graph, not a causal-discovery system.
 
     Args:
         hazard: one of the Hazard node ids in the KG, e.g. "flash_flood", "heatwave"
@@ -384,10 +387,21 @@ def causal_kg_tool(hazard: str) -> dict:
                          f"{[n['id'] for n in kg['nodes'] if n.get('ntype')=='Hazard']}"}
 
     # edge direction (verified against kg/01_build_structural_kg.py): hazard --driven_by--> mechanism
-    mechanisms = [l["target"] for l in kg["links"]
-                 if l.get("etype") == "driven_by" and l["source"] == hazard]
-    indicators = [l["source"] for l in kg["links"]
-                 if l.get("etype") == "contributes_to" and l["target"] == hazard]
+    mechanism_edges = [l for l in kg["links"]
+                       if l.get("etype") == "driven_by" and l["source"] == hazard]
+    indicator_edges = [l for l in kg["links"]
+                       if l.get("etype") == "contributes_to" and l["target"] == hazard]
+    mechanisms = [l["target"] for l in mechanism_edges]
+    indicators = [l["source"] for l in indicator_edges]
+
+    def audit_fields(edge):
+        return {
+            k: edge.get(k) for k in (
+                "evidence_class", "construction_method", "source_ref",
+                "confidence", "review_status",
+                "eligible_for_causal_explanation",
+            )
+        }
 
     mech_info = []
     for m in mechanisms:
@@ -399,15 +413,35 @@ def causal_kg_tool(hazard: str) -> dict:
             cit_details.append({
                 "citation": cnode.get("label"), "url": cnode.get("url"),
                 "evidence": cnode.get("evidence", [])[:2],   # cap for brevity
+                "source_text_kind": cnode.get("source_text_kind"),
+                "verification_scope": cnode.get("verification_scope"),
+                "review_status": cnode.get("review_status"),
             })
+        relation_edge = next(l for l in mechanism_edges if l["target"] == m)
         mech_info.append({
             "mechanism": m, "description": node_by_id[m].get("desc", ""),
             "literature_grounded": len(cit_details) > 0,
+            "literature_support_available": len(cit_details) > 0,
+            "mechanism_relation_audit": audit_fields(relation_edge),
             "citations": cit_details,
         })
 
     return {
+        "graph_name": kg.get("graph", {}).get(
+            "name", "MAZU Hazard Mechanism & Evidence Graph"
+        ),
+        "tool_semantics": "evidence_retrieval_not_causal_discovery",
+        "claim_boundary": (
+            "Mechanism relations are hand-authored domain assertions. Citation "
+            "quotes were matched to curated local paraphrases, not automatically "
+            "verified against original-publication wording. This graph is not "
+            "used to train or score the forecast model."
+        ),
         "hazard": hazard, "contributing_indicators": indicators,
+        "contributing_indicator_relations": [
+            {"indicator": l["source"], "relation_audit": audit_fields(l)}
+            for l in indicator_edges
+        ],
         "mechanisms": mech_info,
     }
 
@@ -442,7 +476,7 @@ def conditions_tool(city: str, date: str) -> dict:
 
 
 # =============================================================================
-# TOOL 4: similar historical events
+# TOOL 4: similar dataset extreme samples
 # =============================================================================
 
 # Which raw indicators are compared per hazard. Chosen because they are the
@@ -463,7 +497,10 @@ def _load_events():
     if _EVENTS is None:
         with open(KG_JSON, encoding="utf-8") as f:
             kg = json.load(f)
-        _EVENTS = [n for n in kg["nodes"] if n.get("ntype") == "Event"]
+        _EVENTS = [
+            n for n in kg["nodes"]
+            if n.get("ntype") in ("ExtremeSample", "Event")
+        ]
     return _EVENTS
 
 
@@ -506,16 +543,16 @@ def _get_vector(date, lat, lon, features):
 
 
 def similar_events_tool(city: str, date: str, hazard: str) -> dict:
-    """Compare a city/date's actual indicator values against the KG's 5 known
-    real 2025 extreme events (3 flash_flood, 2 heatwave, 1 dust_storm), ranked
-    by similarity, so the agent can say "this looks like the 23 Aug event"
+    """Compare a city/date's indicators against dataset-derived 2025 extrema,
+    ranked by similarity, so the agent can say "this resembles the 23 Aug
+    extreme sample"
     instead of only stating a bare number.
 
     Similarity method (documented, not tuned to any specific outcome):
     z-score each shared feature using the dataset's own mean/std, then convert
     normalized Euclidean distance to a 0-100% score via 100/(1+distance) --
     distance 0 -> 100%, larger distance -> lower, monotonically decreasing.
-    An event needs at least half its features available on both sides to be
+    A sample needs at least half its features available on both sides to be
     ranked; otherwise it is excluded with a reason (not silently dropped).
     """
     if city not in CITIES:
@@ -536,7 +573,7 @@ def similar_events_tool(city: str, date: str, hazard: str) -> dict:
         e_lat, e_lon = _parse_event_location(e["location"])
         event_vec = _get_vector(e["date"], e_lat, e_lon, features)
         if event_vec is None:
-            excluded.append({"event": e["label"], "reason": "event date not in dataset"})
+            excluded.append({"event": e["label"], "reason": "sample date not in dataset"})
             continue
 
         sq_dists = []
@@ -559,10 +596,10 @@ def similar_events_tool(city: str, date: str, hazard: str) -> dict:
         similarity_pct = round(100.0 / (1.0 + distance), 1)
         # Rough great-circle-ish distance (deg->km at ~111km/deg, adequate at
         # this latitude/precision for a disclosure caveat, not navigation).
-        # Event coordinates in the KG are each event's own grid-cell MAXIMUM
+        # Sample coordinates in the graph are each sample's grid-cell MAXIMUM
         # (e.g. the exact storm centroid), which is commonly tens of km from
         # a city's center -- discovered while testing this tool (Jizan city
-        # center vs the "Jizan" 08-23 rain event's own coordinates are ~74km
+        # center vs the "Jizan" 08-23 rain sample's own coordinates are ~74km
         # apart, and daily_precip_total differs hugely: 0.6mm at the city vs
         # 254.9mm at the storm centroid). Surfacing this distance lets the
         # agent/user understand why a same-named, same-day event can still
@@ -570,6 +607,8 @@ def similar_events_tool(city: str, date: str, hazard: str) -> dict:
         # a bug in this comparison.
         km = round(((city_lat - e_lat) ** 2 + (city_lon - e_lon) ** 2) ** 0.5 * 111)
         results.append({
+            # Legacy `event_*` keys are retained for compatibility with saved
+            # transcripts; reference_type and note define their true meaning.
             "event": e["label"], "event_date": e["date"], "event_location": e["location"],
             "event_headline_value": e["value"], "similarity_pct": similarity_pct,
             "features_compared": len(sq_dists),
@@ -579,13 +618,15 @@ def similar_events_tool(city: str, date: str, hazard: str) -> dict:
     results.sort(key=lambda r: -r["similarity_pct"])
     return {
         "city": city, "date": date, "hazard": hazard,
+        "reference_type": "dataset_extreme_samples_not_independently_verified_events",
         "query_indicators": query_vec,
         "ranked_similar_events": results,
         "excluded_events": excluded,
         "note": ("similarity_pct is a descriptive, z-scored-distance-based measure "
                  "(100/(1+normalized_distance)), NOT a probability or a claim that this "
-                 "event WILL repeat -- it only says how physically similar the raw "
-                 "indicators are to a known past event. Each event's coordinates are its "
+                 "sample represents a verified disaster or WILL repeat -- it only says "
+                 "how physically similar the raw indicators are to a dataset extreme. "
+                 "Each sample's coordinates are its "
                  "own grid-cell MAXIMUM (the storm/heat centroid), often tens of km from a "
                  "same-named city's center -- a same-city, same-day comparison can still "
                  "score LOW if the extreme was hyperlocal (see event_distance_from_city_km "
@@ -624,10 +665,20 @@ def region_risk_tool(city: str, date: str = None) -> dict:
         kg = json.load(f)
     node_by_id = {n["id"]: n for n in kg["nodes"]}
 
-    hazards = [l["target"] for l in kg["links"]
-              if l.get("etype") == "at_risk_of" and l["source"] == city]
-    city_mechs = [l["target"] for l in kg["links"]
-                 if l.get("etype") == "exposed_to" and l["source"] == city]
+    hazard_edges = [l for l in kg["links"]
+                    if l.get("etype") == "at_risk_of" and l["source"] == city]
+    city_mech_edges = [l for l in kg["links"]
+                       if l.get("etype") == "exposed_to" and l["source"] == city]
+    hazards = [l["target"] for l in hazard_edges]
+    city_mechs = [l["target"] for l in city_mech_edges]
+
+    def relation_audit(edge):
+        return {
+            k: edge.get(k) for k in (
+                "evidence_class", "construction_method", "source_ref",
+                "confidence", "review_status",
+            )
+        }
 
     if not hazards:
         return {"error": f"No at_risk_of data in the KG for '{city}' "
@@ -649,6 +700,13 @@ def region_risk_tool(city: str, date: str = None) -> dict:
             "mechanisms_affecting_this_city": [m for m in city_mechs if m in hz_mechs],
             "all_mechanisms_for_this_hazard": hz_mechs,
             "has_forecast_model": hz in FORECASTABLE_HAZARDS,
+            "regional_risk_relation_audit": relation_audit(
+                next(l for l in hazard_edges if l["target"] == hz)
+            ),
+            "city_mechanism_relation_audits": [
+                {"mechanism": l["target"], "relation_audit": relation_audit(l)}
+                for l in city_mech_edges if l["target"] in hz_mechs
+            ],
         }
         if date is not None and hz in FORECASTABLE_HAZARDS:
             fr = forecast_tool(city, date, hz)
@@ -659,7 +717,18 @@ def region_risk_tool(city: str, date: str = None) -> dict:
                                      "model_verified_roc_auc": fr["model_verified_roc_auc"]}
         profile.append(entry)
 
-    result = {"city": city, "hazard_count": len(hazards), "hazards": profile}
+    result = {
+        "graph_name": kg.get("graph", {}).get(
+            "name", "MAZU Hazard Mechanism & Evidence Graph"
+        ),
+        "claim_boundary": (
+            "City-hazard and city-mechanism relations are hand-authored exposure "
+            "assertions pending region-specific source review; they are not "
+            "forecast probabilities. Forecast fields, when requested, come from "
+            "the separately trained model."
+        ),
+        "city": city, "hazard_count": len(hazards), "hazards": profile,
+    }
     if date is not None:
         result["date"] = date
         if date_error:
@@ -825,7 +894,7 @@ def cap_alert_tool(city: str, target_date: str, hazard: str) -> dict:
 # TOOL 7: literature evidence search (CANDIDATE, not a verified KG fact)
 #
 # Motivation (disclosed limitation, see agent/REGION_RISK_REPORT.md and
-# LITERATURE_EVIDENCE_REPORT.md): the formal causal KG has only 6-7
+# LITERATURE_EVIDENCE_REPORT.md): the formal evidence graph has only 6-7
 # hand-verified citations grounding 5 mechanisms -- some city/mechanism
 # combinations have no grounding at all (e.g. the Jeddah/heatwave gap: Jeddah
 # is at_risk_of heatwave but its exposed_to mechanisms don't overlap with
@@ -839,7 +908,7 @@ def cap_alert_tool(city: str, target_date: str, hazard: str) -> dict:
 # to a lightweight TF-IDF search instead of Relink's own Neo4j+Redis+trained-
 # ranker stack, which is unnecessary at this corpus size and would add
 # unverifiable LLM-predicted-relation risk this project has avoided
-# throughout (see kg/causal/02_extract_causal.py's verbatim-quote gate).
+# throughout (see kg/causal/02_extract_causal.py's local-passage gate).
 # =============================================================================
 
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -873,7 +942,7 @@ def _load_literature_corpus():
         with open(KG_JSON, encoding="utf-8") as f:
             kg = json.load(f)
         # mechanisms with >=1 triple that already passed the formal
-        # verbatim-quote-verified extraction pipeline (kg_data.json's
+        # curated-passage-matched extraction pipeline (kg_data.json's
         # grounded_by edges) -- distinguishes "already a verified KG citation,
         # just not linked to this exact city" from "candidate-only, never run
         # through the verified-extraction pipeline at all"

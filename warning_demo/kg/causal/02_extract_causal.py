@@ -1,14 +1,13 @@
 # =============================================================================
-# MAZU — Layer 3: DeepSeek + Chain-of-Thought causal triple extraction
+# MAZU — Layer 3: DeepSeek-assisted mechanism evidence extraction
 #
 # Method (adapted from LLM4TyphoonKG, github.com/2BAIHAO/LLM4TyphoonKG):
 # a LLM reads a literature passage and outputs structured causal triples.
 #
-# Anti-hallucination safeguard (this project's addition): every triple must
-# include an EXACT VERBATIM QUOTE from the source text as evidence. After
-# extraction, each quote is automatically checked against the source text —
-# any triple whose quote cannot be found verbatim is REJECTED, not silently
-# kept. This makes fabrication mechanically detectable, not just plausible.
+# Anti-hallucination safeguard: every triple must include an exact substring
+# from the CURATED LOCAL PASSAGE in corpus.py. This detects fabrication
+# relative to that local passage. It does not verify wording against the
+# original publication, because corpus.py contains curated paraphrases.
 #
 # Output: kg/causal/causal_triples.json (verified triples only)
 #         kg/causal/extraction_report.txt (full audit: accepted + rejected)
@@ -132,7 +131,7 @@ def main():
                 report_lines.append(f"             quote: \"{q}\"")
             else:
                 all_rejected.append(record)
-                report_lines.append(f"  [REJECTED — quote not verbatim in source] "
+                report_lines.append(f"  [REJECTED — quote not found in curated local passage] "
                                     f"{t.get('subject')} --{t.get('relation')}--> {t.get('object')}")
                 report_lines.append(f"             claimed quote: \"{q}\"")
         report_lines.append("")
@@ -145,7 +144,11 @@ def main():
                         f"({len(all_accepted)+len(all_rejected)} candidates)")
     if len(all_accepted) + len(all_rejected) > 0:
         rate = 100 * len(all_accepted) / (len(all_accepted) + len(all_rejected))
-        report_lines.append(f"Verbatim-quote verification pass rate: {rate:.1f}%")
+        report_lines.append(f"Curated-passage substring verification pass rate: {rate:.1f}%")
+    report_lines.append(
+        "BOUNDARY: this check verifies fidelity to corpus.py's curated local "
+        "passages, not verbatim fidelity to the original publications."
+    )
     report = "\n".join(report_lines)
     with open(OUT_REPORT, "w", encoding="utf-8") as f:
         f.write(report)

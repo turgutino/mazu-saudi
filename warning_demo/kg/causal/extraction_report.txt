@@ -1,5 +1,5 @@
 ======================================================================
-MAZU Layer 3 — Causal triple extraction (DeepSeek + CoT)
+MAZU Layer 3 — Mechanism evidence extraction (DeepSeek-assisted)
 ======================================================================
 Corpus entries: 7
 
@@ -82,4 +82,6 @@ Raw extracted: 1 candidate triples
 
 ======================================================================
 TOTAL: 21 accepted, 0 rejected (21 candidates)
-Verbatim-quote verification pass rate: 100.0%
+Curated-passage substring verification pass rate: 100.0%
+BOUNDARY: this check verifies fidelity to corpus.py's curated local passages,
+not verbatim fidelity to the original publications.

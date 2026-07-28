@@ -1,12 +1,12 @@
 # =============================================================================
-# MAZU — Layer 3: Literature corpus for causal KG extraction
+# MAZU — Layer 3: Curated corpus for mechanism-evidence extraction
 #
-# Every entry below is a concise, faithful paraphrase of material found via
-# live web search of real, citable publications (see `citation`/`url`).
-# Nothing here is invented — the DeepSeek extraction step (02_extract_causal.py)
-# is instructed to extract triples ONLY from this exact text, and every
-# extracted triple is verified to trace back to a specific entry before it
-# enters the knowledge graph.
+# Every entry below is a curated local paraphrase associated with a cited
+# publication. The DeepSeek extraction step is restricted to this local text
+# and verifies quote containment in it. That safeguard prevents the extractor
+# from departing from its supplied passage, but it is NOT original-paper
+# quotation verification. Publication-level wording and edge-level scientific
+# applicability require a separate human review.
 # =============================================================================
 
 CORPUS = [

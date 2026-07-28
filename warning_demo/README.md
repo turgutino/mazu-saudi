@@ -3,7 +3,7 @@
 沙特多灾种极端天气早期预警系统 — MAZU (Multi-hazard · Alert · Zero-gap · Universal).
 
 An early-warning system for **flash floods**, **heatwaves**, and **dust storms** over Saudi Arabia, built on
-CMA 10 km meteorological indicators. It combines a **literature-grounded causal knowledge
+CMA 10 km meteorological indicators. It combines an auditable **hazard-mechanism evidence
 graph**, a **weighted spatial detection engine**, a **verified one-day-ahead forecast model**,
 and an **explainable warning agent** (DeepSeek function calling).
 
@@ -11,10 +11,11 @@ and an **explainable warning agent** (DeepSeek function calling).
 
 ---
 
-## Full system audit
+## Full system audit status
 
-`FULL_SYSTEM_AUDIT.py` independently traces 121 numbers — from the consolidated
-dataset, the knowledge graph's event values, the causal citations, an
+The recorded `FULL_SYSTEM_AUDIT.py` result is a **historical audit of the
+pre-refactor graph artifact**. It independently traced 121 numbers — from the consolidated
+dataset, the graph's extreme-sample values, the curated literature evidence, an
 agent tool's output, and ten post-Layer-4 extensions (terrain elevation,
 population context, an A/B ablation test re-derived from raw saved
 transcripts, a reflexive self-check whose two headline findings are
@@ -30,8 +31,13 @@ literature-search results re-derived from a freshly rebuilt TF-IDF index
 across all 24 city×hazard combinations, not a sample)
 — back to the raw 5GB source data (365 daily NetCDF files), plus checks the
 deployed GitHub site matches the local repo exactly.
-**Result: 121/121 passed, zero fabricated values found.** Full log in
-[`AUDIT_RESULTS.txt`](AUDIT_RESULTS.txt).
+That historical run reported **121/121 passed**; its full log remains in
+[`AUDIT_RESULTS.txt`](AUDIT_RESULTS.txt) for traceability. It must not be read
+as a fresh audit of Evidence Graph schema v2. The current graph's claim
+boundaries, edge provenance, isolated associations, sample labelling, citation
+scope, and showcase counts are verified by
+`tests/test_evidence_graph_contract.py`; the full repository test suite and
+the 169 Agent-tool checks are rerun for the current artifact.
 
 ---
 
@@ -40,10 +46,10 @@ deployed GitHub site matches the local repo exactly.
 | Layer | Status | Description |
 |-------|--------|-------------|
 | Indicator pipeline | ✅ | Consolidates 365 daily NetCDF files (10 km grid) into one analysis-ready dataset of 22 core reliable indicators. |
-| Knowledge graph | ✅ | 60 nodes / 183 edges — indicators, hazards (now 3: flash flood, heatwave, **dust storm**), mechanisms, regions, **real 2025 events with observed values**, and **6 peer-reviewed citations** grounding 4 of 5 mechanisms in verbatim-verified literature text. Interactive. |
+| Mechanism & evidence graph | ✅ | 60 nodes / 145 auditable edges — indicators, hazards, mechanisms, regions, **six reproducible 2025 dataset extrema (not verified disaster events)**, and 6 citation records supporting 4 of 5 mechanisms. Every edge records its construction method, evidence class, confidence, and review status. The 51 Pearson associations are isolated in `kg/kg_observational_associations.json` and cannot be used as causal evidence. |
 | Detection engine | ✅ | Weighted multi-condition rules + spatial connected-component clustering. Validated against known 2025 events and a spatial-climatology check. |
 | Forecast (t→t+1) | ✅ | Gradient-boosted spatiotemporal model. Heatwave ROC-AUC 0.971 (PR-AUC 0.795); flash-flood ROC-AUC 0.873 — plus WMO-standard POD/FAR/CSI/HSS at each hazard's operational threshold (see below). A GNN variant was also tested and honestly reported (mixed result, not deployed). |
-| Explainable agent | ✅ | DeepSeek function-calling agent wiring 7 tools — forecast, causal KG, live conditions, similar events, region risk, CAP 1.2 alert generation, and literature evidence search — into grounded answers. 169 tool tests + 4 end-to-end scenarios, all passing. See `agent/LAYER4_REPORT.md` and the [worked examples](agent_view.html). |
+| Explainable agent | ✅ | DeepSeek function-calling agent wiring 7 tools — forecast, mechanism-evidence retrieval, conditions, extreme-sample comparison, region risk, CAP 1.2 alert generation, and literature evidence search — into bounded answers. The graph constrains explanations; it is not used to train or score the forecast model. |
 
 ---
 
@@ -81,13 +87,14 @@ extensions were added and independently tested — see
   above local climatology) that the detection engine's fixed absolute
   thresholds missed entirely — real evidence the ML model adds value beyond
   simple thresholding. See `agent/REFLEXIVE_CHECK_REPORT.md`.
-- **Similar historical events (4th agent tool).** `similar_events_tool`
-  compares a city/date's indicators against the KG's 5 known real events via
-  z-scored similarity, making those event nodes agent-usable rather than
+- **Similar dataset extrema (4th agent tool).** `similar_events_tool`
+  compares a city/date's indicators against six reproducible dataset-derived extrema via
+  z-scored similarity. These are reference samples, not independently
+  verified disaster records. This makes the extreme-sample nodes agent-usable rather than
   only browsable. Found a real, investigated quirk: an event's coordinates
   are its own grid-cell maximum (the storm centroid), often tens of km from
   a same-named city's center, so a same-city/same-day query can legitimately
-  score LOW similarity to "its own" event — now surfaced explicitly via an
+  score LOW similarity to the associated sample — now surfaced explicitly via an
   `event_distance_from_city_km` field rather than silently confusing.
   Verified with a real found-and-independently-checked positive match too
   (Mecca 08-04 vs. the 07-25 Empty Quarter heat event, 46.1%, despite being
@@ -221,8 +228,8 @@ extensions were added and independently tested — see
   (already-installed `sklearn`, no new infrastructure) over a 12-entry
   literature pool (the original 7 KG citations + 5 new, freshly-researched
   papers), with every result permanently labeled `verified: false` until a
-  human runs it through the same verbatim-quote pipeline the original
-  citations went through. A real bug was caught during testing: the first
+  human reviews it against the original publication and promotes it into the
+  formal evidence set. A real bug was caught during testing: the first
   version's query used underscored hazard names (`flash_flood`) that
   silently matched nothing in the corpus text, collapsing every non-heatwave
   query to the same generic result — fixed and locked in as a regression
@@ -240,16 +247,15 @@ more checks verify the STGNN fusion non-finding
 
 ## Highlights
 
-- **Data-grounded, not assumed.** Every event node carries its real observed indicator values
+- **Data-derived and accurately labelled.** Every extreme-sample node carries its observed indicator values
   (e.g. 23 Aug Jizan extreme rain 254.9 mm; IVT 728 kg/m/s; Tmax 53.7 °C).
-- **Literature-grounded causality, not just my own assertions.** 21 candidate causal triples
-  were extracted from 7 real, cited publications (e.g. de Vries et al. 2013, JGR-Atmospheres;
-  Yu et al. 2016, JGR-Atmospheres) using an LLM with a mandatory verbatim-quote field; every
-  quote is automatically re-checked against the source text, and one triple that passed the
-  automatic check but was circular on manual review was disclosed and excluded — see
-  `kg/causal/LAYER3_REPORT.md` for the full audit trail.
-- **Physics recovered from data.** Data-driven correlations reproduce known meteorology —
-  sea-surface temperature ↔ convective instability (r ≈ 0.68), moisture ↔ transport (r ≈ 0.74).
+- **Bounded literature support, not causal discovery.** DeepSeek extracted candidate triples
+  from curated local paraphrases and each evidence string was checked against that supplied
+  passage. This prevents extractor-only fabrication, but does not verify wording against the
+  original paper or prove every hand-authored graph edge. The graph exposes that boundary.
+- **Associations isolated from explanations.** Pearson correlations are retained in a
+  separate observational-analysis artifact with explicit limitations (seasonality,
+  autocorrelation, multiple testing, and formula ancestry) and do not enter the evidence graph.
 - **Spatially verified.** Annual hotspots emerge correctly: flash floods over the SW Asir
   mountains / Red Sea coast; heatwaves over the low, hot interior.
 - **Genuine forecasting, not same-day detection.** The model predicts tomorrow's risk from
@@ -269,9 +275,9 @@ kg_view.html               interactive knowledge graph
 agent_view.html            real, verified agent transcripts
 img/                       risk maps + forecast visualisations
 pipeline/build_dataset.py  365 daily files -> consolidated dataset
-kg/                        knowledge-graph builder + dashboard generator
-kg/causal/                 literature-grounded causal extraction (DeepSeek + CoT)
-agent/                     forecast + causal-KG + conditions tools, DeepSeek agent
+kg/                        evidence-graph builder + isolated association artifact
+kg/causal/                 DeepSeek-assisted curated-passage evidence extraction
+agent/                     forecast + evidence retrieval + conditions tools, DeepSeek agent
 model/                     detection engine, forecast models, risk-map visualisation
 ```
 

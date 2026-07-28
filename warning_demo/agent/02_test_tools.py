@@ -309,7 +309,8 @@ check("flash_flood: at least one mechanism literature-grounded", len(grounded) >
      f"grounded={[m['mechanism'] for m in grounded]}")
 if grounded:
     ev = grounded[0]["citations"][0]["evidence"]
-    check("citation carries verbatim evidence quotes", len(ev) > 0 and "quote" in ev[0], ev)
+    check("citation carries evidence strings matched to curated local passages",
+          len(ev) > 0 and "quote" in ev[0], ev)
 
 k2 = tools.causal_kg_tool("heatwave")
 print(f"  heatwave mechanisms: {[m['mechanism'] for m in k2['mechanisms']]}")
@@ -501,12 +502,12 @@ check("dust_storm: contributing_indicators includes the 2 newly-added raw variab
      "wind10_speed" in k_dust["contributing_indicators"] and "dewpoint_depression_c" in k_dust["contributing_indicators"],
      k_dust["contributing_indicators"])
 
-# --- similar_events_tool: 1 real dust_storm event exists in the KG (auto-
-# detected the same way as the other 5: annual grid-max of the headline
-# variable, wind10_speed, on 2025-07-26 near the Arabian Sea).
+# --- similar_events_tool: one reproducible dust-storm extreme sample exists,
+# selected as the annual wind10_speed maximum and explicitly labelled as a
+# dataset extreme rather than an independently verified disaster.
 s_dust = tools.similar_events_tool("Dammam", "2025-07-06", "dust_storm")
 check("dust_storm similar_events: no error", "error" not in s_dust, s_dust)
-check("dust_storm similar_events: exactly 1 event compared against (only 1 dust_storm event in KG)",
+check("dust_storm similar_events: exactly 1 reproducible dataset extreme sample is available",
      len(s_dust["ranked_similar_events"]) + len(s_dust["excluded_events"]) == 1,
      (s_dust["ranked_similar_events"], s_dust["excluded_events"]))
 
@@ -643,8 +644,12 @@ r_cap2 = tools.cap_alert_tool("Dammam", "2025-01-02", "dust_storm")
 check("cap_alert_tool: certainty 'Likely' when model/rule-engine AGREE (consistent_elevated)",
      r_cap2["cap_certainty"] == "Likely", r_cap2)
 parsed2 = ET.fromstring(r_cap2["cap_xml"])
+_dust_label_from_kg = next(
+    n["label"] for n in _kg["nodes"] if n["id"] == "dust_storm"
+)
 check("cap_alert_tool XML: <event> uses the KG's human-readable label, not the raw hazard id",
-     parsed2.find("cap:info/cap:event", CAP_NS_MAP).text == "Dust Storm", r_cap2["cap_xml"])
+     parsed2.find("cap:info/cap:event", CAP_NS_MAP).text == _dust_label_from_kg,
+     r_cap2["cap_xml"])
 
 # Low-probability day: no alert should be issued at all (matches real warning
 # systems -- not every day gets a CAP message), and no cap_xml key present.

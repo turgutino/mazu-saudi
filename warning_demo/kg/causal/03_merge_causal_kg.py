@@ -1,18 +1,23 @@
 # =============================================================================
-# MAZU — Layer 3: merge verified causal triples into the structural KG
+# MAZU — Layer 3: attach curated literature evidence to the evidence graph
 #
 # Adds:
 #   - Citation nodes (one per literature source), with title/authors/url
 #   - grounded_by edges: Mechanism -> Citation, for mechanisms that now have
-#     verbatim-verified literature support
+#     support extracted from curated local passages
 #   - Each Citation node carries its verified evidence triples (subject/
 #     relation/object/quote) as metadata, shown in the dashboard on click
+#
+# Important boundary: corpus.py stores curated paraphrases. The automatic
+# check verifies quote containment in those local passages, not in the
+# original publication. Citation attachment supports evidence retrieval; it
+# does not convert hand-authored graph edges into discovered causal facts.
 #
 # Quality gate: one extracted triple (from ref_redsea_coast_trends) was
 # manually reviewed and found to be circular/descriptive rather than a real
 # causal claim (the source text lists statistical trends and labels them
 # "consistent with warming" — not a mechanism). It passed the automatic
-# verbatim-quote check but is EXCLUDED here after manual review. This is
+# local-passage substring check but is EXCLUDED here after manual review. This is
 # disclosed, not hidden — see causal_kg_report.txt.
 #
 # Mechanism honestly left WITHOUT literature grounding: orographic_lift.
@@ -92,13 +97,25 @@ def main():
                 "id": cid, "ntype": "Citation", "label": meta["citation"],
                 "desc": meta["title"], "url": meta["url"],
                 "evidence": evidence_list, "n_triples": len(group),
+                "source_text_kind": "curated_local_paraphrase",
+                "verification_scope": "substring_matched_in_curated_passage_not_original_publication",
+                "review_status": "automatic_substring_check_plus_manual_quality_screen",
             })
             existing_ids.add(cid)
             added_citation_nodes += 1
 
         mech = group[0]["mechanism"]
         if mech in existing_ids:
-            kg["links"].append({"etype": "grounded_by", "source": mech, "target": cid})
+            kg["links"].append({
+                "etype": "grounded_by", "source": mech, "target": cid,
+                "evidence_class": "curated_literature_support",
+                "construction_method": "llm_extraction_plus_local_passage_substring_check",
+                "source_ref": source_id,
+                "confidence": "medium",
+                "review_status": "original_publication_wording_not_verified",
+                "eligible_for_causal_explanation": True,
+                "verification_scope": "curated_local_passage_only",
+            })
             added_grounded_edges += 1
             mechanisms_grounded.add(mech)
 
@@ -109,8 +126,8 @@ def main():
     ungrounded = all_mechanisms - mechanisms_grounded
 
     lines = [
-        "=" * 70, "MAZU Layer 3 — Causal KG merge report", "=" * 70,
-        f"Input triples: {len(triples)} (all passed verbatim-quote verification)",
+        "=" * 70, "MAZU Layer 3 — Evidence attachment report", "=" * 70,
+        f"Input triples: {len(triples)} (all passed curated-passage substring verification)",
         f"Manually excluded after quality review: {len(excluded)}",
         f"  Reason: circular/descriptive framing (trend statistics relabelled as causal),",
         f"          not a genuine mechanistic claim, despite passing the quote check.",
@@ -120,6 +137,11 @@ def main():
         f"KG after:  {len(kg['nodes'])} nodes, {len(kg['links'])} edges",
         f"Added: {added_citation_nodes} Citation nodes, {added_grounded_edges} grounded_by edges",
         "",
+        "Verification boundary:",
+        "  - quotes were matched against curated local paraphrases in corpus.py",
+        "  - original-publication wording was not automatically verified",
+        "  - citations support mechanism retrieval; they do not prove every graph edge",
+        "",
         f"Mechanisms now literature-grounded ({len(mechanisms_grounded)}/{len(all_mechanisms)}):",
     ]
     triples_per_mechanism = {}
@@ -127,7 +149,7 @@ def main():
         triples_per_mechanism.setdefault(t["mechanism"], 0)
         triples_per_mechanism[t["mechanism"]] += 1
     for m in sorted(mechanisms_grounded):
-        lines.append(f"  - {m}  ({triples_per_mechanism.get(m, 0)} verified triples)")
+        lines.append(f"  - {m}  ({triples_per_mechanism.get(m, 0)} locally matched evidence triples)")
     lines.append("")
     lines.append(f"Mechanisms WITHOUT literature grounding (honest disclosure, {len(ungrounded)}):")
     for m in sorted(ungrounded):

@@ -2,7 +2,7 @@
 # MAZU KG Dashboard generator
 # Reads kg_data.json and writes a self-contained interactive HTML page
 # (data embedded inline so it works by double-click, no server needed).
-# Output: dashboard/kg_view.html
+# Output: warning_demo/kg_view.html
 # =============================================================================
 
 import os
@@ -10,7 +10,7 @@ import json
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KG_JSON = os.path.join(HERE, "kg_data.json")
-OUT_HTML = os.path.join(HERE, "..", "dashboard", "kg_view.html")
+OUT_HTML = os.path.join(HERE, "..", "kg_view.html")
 
 with open(KG_JSON, encoding="utf-8") as f:
     kg = json.load(f)
@@ -20,29 +20,31 @@ NODE_COLORS = {
     "Indicator":  "#2BC8E2",
     "Hazard":     "#FF5A5A",
     "Mechanism":  "#B07AFF",
-    "Event":      "#FFD166",
+    "ExtremeSample": "#FFD166",
     "Region":     "#1DDBA0",
     "DataSource": "#8AA0B4",
+    "Citation":   "#F2A65A",
 }
 NODE_SHAPES = {
     "Indicator":  "dot",
     "Hazard":     "diamond",
     "Mechanism":  "hexagon",
-    "Event":      "star",
+    "ExtremeSample": "star",
     "Region":     "triangle",
     "DataSource": "square",
+    "Citation":   "box",
 }
 EDGE_COLORS = {
     "contributes_to":  "#FF7D45",
-    "triggers":        "#B07AFF",
+    "mechanistically_related_to": "#B07AFF",
     "driven_by":       "#9B6DFF",
     "at_risk_of":      "#FF8FA3",
     "exposed_to":      "#4FD6C0",
-    "correlates_with": "#3A6EA5",
     "sourced_from":    "#5D7A8C",
-    "occurs_at":       "#1DDBA0",
-    "manifests_as":    "#FF5A5A",
+    "nearest_named_region": "#1DDBA0",
+    "sample_for_hazard": "#FF5A5A",
     "observed_value":  "#FFD166",
+    "grounded_by":     "#F2A65A",
 }
 
 # degree (for node sizing)
@@ -57,10 +59,12 @@ vis_nodes = []
 for n in kg["nodes"]:
     nt = n.get("ntype", "Indicator")
     tip = [f"<b>{n.get('label', n['id'])}</b>", f"type: {nt}"]
-    for key in ("desc", "unit", "source", "date", "value", "hazard", "location", "kind"):
+    for key in ("desc", "unit", "source", "date", "value", "hazard", "location", "kind",
+                "construction_method", "verification_status", "verification_scope",
+                "review_status"):
         if n.get(key):
             tip.append(f"{key}: {n[key]}")
-    base = {"Hazard": 6, "Mechanism": 4, "Event": 3}.get(nt, 1)
+    base = {"Hazard": 6, "Mechanism": 4, "ExtremeSample": 3}.get(nt, 1)
     vis_nodes.append({
         "id": n["id"],
         "label": n.get("label", n["id"]),
@@ -75,10 +79,12 @@ vis_edges = []
 for _i, e in enumerate(kg["links"]):
     et = e.get("etype", "")
     lbl = ""
-    if et == "correlates_with" and "weight" in e:
-        lbl = f"r={e['weight']}"
-    elif et == "observed_value" and "value" in e:
+    if et == "observed_value" and "value" in e:
         lbl = str(e["value"])
+    audit = " · ".join(
+        str(e[k]) for k in ("evidence_class", "confidence", "review_status")
+        if e.get(k)
+    )
     vis_edges.append({
         "id": _i,
         "from": e["source"],
@@ -86,8 +92,10 @@ for _i, e in enumerate(kg["links"]):
         "color": {"color": EDGE_COLORS.get(et, "#888"), "opacity": 0.45},
         "etype": et,
         "val": lbl,
-        "dashes": et in ("correlates_with", "observed_value"),
-        "arrows": "" if et == "correlates_with" else "to",
+        "audit": audit,
+        "title": audit,
+        "dashes": et == "observed_value",
+        "arrows": "to",
     })
 
 # counts
@@ -108,7 +116,7 @@ legend_edges = "".join(
 html = """<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MAZU - Saudi Arabia Extreme Events Knowledge Graph</title>
+<title>MAZU - Hazard Mechanism & Evidence Graph</title>
 <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <style>
   :root{--bg:#0E1B2A;--panel:#16283C;--line:#243B54;--txt:#E6EEF6;--mut:#8AA0B4;--accent:#2BC8E2}
@@ -141,8 +149,8 @@ html = """<!doctype html>
 </style></head>
 <body>
 <header>
-  <h1><span>MAZU</span> Saudi Arabia Extreme Events Knowledge Graph</h1>
-  <div class="sub">multi-hazard · causal · data-grounded</div>
+  <h1><span>MAZU</span> Hazard Mechanism &amp; Evidence Graph</h1>
+  <div class="sub">multi-hazard · provenance-aware · evidence-bounded</div>
   <div class="stat">Nodes <b>__NNODES__</b> &nbsp; Edges <b>__NEDGES__</b></div>
 </header>
 <div class="wrap">
@@ -155,6 +163,10 @@ html = """<!doctype html>
     <div class="filters" id="filters"></div>
     <h3>Details</h3>
     <div id="detail"><div class="hint">Click any node to see its relationships and metadata.</div></div>
+    <p class="hint"><b>Claim boundary:</b> this graph organises hand-authored
+    assertions, rule mappings, dataset observations, and curated literature
+    support. It does not discover causality or improve forecast-model skill.
+    Pearson associations are isolated in a separate analysis artifact.</p>
     <h3 style="margin-top:18px">Node legend</h3>
     <div class="legend">__LEGN__</div>
     <h3>Edge legend</h3>
@@ -187,8 +199,8 @@ function showDetail(id){
   h += '<div class="row"><b>Type:</b> '+n.group+'</div>';
   if(n.title){ n.title.split('<br>').slice(1).forEach(t=>{ if(t && !t.startsWith('type:')) h+='<div class="row">'+t+'</div>';}); }
   const rels = {};
-  out.forEach(e=>{ (rels[e.etype]=rels[e.etype]||[]).push('&rarr; '+e.to+(e.val?' ('+e.val+')':'')); });
-  inc.forEach(e=>{ (rels[e.etype]=rels[e.etype]||[]).push('&larr; '+e.from+(e.val?' ('+e.val+')':'')); });
+  out.forEach(e=>{ (rels[e.etype]=rels[e.etype]||[]).push('&rarr; '+e.to+(e.val?' ('+e.val+')':'')+(e.audit?' ['+e.audit+']':'')); });
+  inc.forEach(e=>{ (rels[e.etype]=rels[e.etype]||[]).push('&larr; '+e.from+(e.val?' ('+e.val+')':'')+(e.audit?' ['+e.audit+']':'')); });
   Object.keys(rels).forEach(k=>{ h+='<div class="row" style="margin-top:8px"><b>'+k+'</b></div>'; rels[k].forEach(r=>h+='<span class="chip">'+r+'</span>'); });
   document.getElementById('detail').innerHTML = h;
 }
