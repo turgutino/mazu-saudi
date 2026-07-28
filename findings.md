@@ -353,3 +353,8 @@
 - 当前评估模块只支持像元级 PR-AUC/CSI/POD/FAR/Brier/NLL/ECE/risk–coverage，没有事件对象、区域留出、天气过程 block bootstrap 和基线比较；这些应进入独立 `evaluation/`，而不是继续扩张模型文件。
 - `DemoForecastService` 已显式返回 demo/scientific_evidence 状态，但 HTTP 分发直接依赖具体 demo 类。正式后端应实现同一只读 ForecastBackend 协议，由服务装配选择 demo 或 frozen-artifact backend。
 - 现有四条 ADR 已锁定预测/决策分离、时间因果、模型/政策包分离和多灾种共享契约；新增迁移方案应遵循这些决定，不创建第二套平行术语。
+
+## 竞赛创新性与工程完成度审计（阶段 23）
+
+- 比赛要求输入实际位于 `docs/requirement/`（单数），共四张 PNG，当前均为用户未跟踪文件。
+- 本轮审计必须把代码存在、合成烟测、回顾性分析、demo 输出和真实样本外预测证据分开，避免把论文设计或 UI 场景写成已完成能力。

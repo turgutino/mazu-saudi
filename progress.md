@@ -169,3 +169,10 @@
 - 新增 `docs/reference_asset_migration_blueprint.md`：包含现状缺口、八来源落位矩阵、目标目录、依赖方向、五类合同、基线/MCR/Atlas 接入方式、Slice 1–5 和推荐提交拆分。
 - 更新 README 与自有框架入口；新增 `tests/test_reference_asset_migration_blueprint.py`，与参考审计合同一起聚焦测试 `7 passed`。
 - 全仓适用测试通过：`80 passed`，仅保留 1 个既有 NumPy 二进制兼容 warning；阶段 22 完成。
+
+## 2026-07-29
+
+- 用户要求优先完成比赛，依据 `docs/requirement/` 四张要求图评估现有数据处理、
+  指标、`warning_demo` 和论文框架的创新性与工程完成度。
+- 恢复既有规划文件，确认四张 PNG 位于未跟踪的 `docs/requirement/`，本轮只读查看。
+- 启动阶段 23：先提取比赛要求，再以仓库证据审计创新主张、完成度、风险和最小增强路线。
