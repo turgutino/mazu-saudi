@@ -181,3 +181,6 @@
 - 完成第一轮仓库与模型产物盘点：确认真实数据链、MCR-Precip 方法代码、两套前端/服务并存；记录 `warning_demo` 三灾种指标、代理标签边界和两项山洪未泛化负结果。
 - 核对 MCR-Precip 源码与 MAZU Atlas 服务：原创机制路由核心确已实现且有测试，但只完成合成训练闭环；Atlas 为显式 demo backend，尚未连接真实模型与数据。
 - 核对数据覆盖、正式交付文件、Agent 依赖和合规资产：四件英文主件均不存在；DeepSeek 工具编排实际已完成；数据授权清单/数据卡/项目许可证和地图合规证据尚缺。
+- 完成 `docs/competition_innovation_audit.md`：将当前方案定位为“系统与可信工程创新已成立、MCR 方法创新仍待真实验证”，并给出 P0–P2 比赛最小增强路线。
+- 新增 `tests/test_competition_innovation_audit_contract.py`，锁定四件英文交付物、代理标签/demo 边界、真实指标弱点和合规优先级。
+- 首次 staged diff 检查发现审计文档三处行尾空格，已清理并记录；文件内容未受损。
