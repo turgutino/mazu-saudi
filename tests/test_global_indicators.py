@@ -196,6 +196,8 @@ def test_daily_output_is_atomic_resumable_and_records_missing_products(tmp_path)
     assert not output_is_complete(path, config, changed_source)
     assert not path.with_name(f".{path.name}.tmp").exists()
     with xr.open_dataset(path) as dataset:
+        assert dataset.attrs["pipeline_version"] == "3"
+        assert dataset.attrs["indicator_formula_version"] == "1.0.0"
         assert dataset.attrs["missing_source_products"] == "accumulation"
         assert dataset.attrs["saudi_cells_excluded_before_aggregation"] == "true"
         assert set(ALL_OUTPUT_VARIABLES).issubset(dataset.data_vars)

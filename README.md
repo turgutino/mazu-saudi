@@ -209,6 +209,37 @@ python saudi_data_extract.py batch /Volumes/E/气象数据 \
 
 批处理默认写入 `manifest.jsonl` 和 `errors.jsonl`，并跳过已存在输出文件。需要重跑时可以加 `--overwrite`。
 
+### 统一指标公式与重算
+
+沙特指标和全球图谱指标共同调用
+`src/mazu_saudi/indicator_definitions.py` 中版本化的物理公式。当前公式版本为
+`1.0.0`，IVT 固定使用 `1000,925,850,700,500,300 hPa`；FYMERG
+`Pre_cal` 按 `mm/h × 0.5 h` 转换为每半小时降水量。
+
+旧沙特 DS10 日文件没有公式版本，重新运行聚合命令时会被自动识别并覆盖：
+
+```bash
+PYTHONPATH=src conda run -n ml python saudi_data_extract.py \
+  aggregate-ds10-daily \
+  /Volumes/E/气象数据/saudi_region_output/ds10 \
+  --output /Volumes/E/气象数据/saudi_region_output/ds10_daily \
+  --start 20250101 \
+  --end 20250930
+```
+
+随后重新计算沙特全年指标：
+
+```bash
+PYTHONPATH=src conda run -n ml python compute_indicators.py \
+  /Volumes/E/气象数据/saudi_region_output \
+  --output /Volumes/E/气象数据/saudi_region_output/indicators \
+  --start 20250101 \
+  --end 20251231 \
+  --all
+```
+
+指标脚本会拒绝没有当前公式版本的旧 DS10 日文件，防止把错误累计值写成新版本结果。
+
 ### Extract all legacy sample datasets
 
 ```bash

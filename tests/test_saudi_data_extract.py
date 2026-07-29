@@ -395,18 +395,30 @@ class Ds10DailyAggregationTests(unittest.TestCase):
 
             results = aggregate_ds10_daily(root, output, start="20250101", end="20250101")
             daily = np.load(output / "202501/saudi_ds10_daily_20250101.npz")
+            second = aggregate_ds10_daily(
+                root,
+                output,
+                start="20250101",
+                end="20250101",
+            )
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["status"], "aggregated")
         np.testing.assert_array_equal(daily["lat"], np.array([20.0, 21.0]))
         np.testing.assert_array_equal(daily["lon"], np.array([40.0, 41.0]))
-        np.testing.assert_array_equal(daily["daily_total"], np.array([[4.0, 0.0], [6.0, 1.0]]))
-        np.testing.assert_array_equal(daily["max_30min"], np.array([[3.0, 0.0], [4.0, 1.0]]))
-        np.testing.assert_array_equal(daily["max_1h"], np.array([[4.0, 0.0], [6.0, 1.0]]))
-        np.testing.assert_array_equal(daily["max_3h"], np.array([[4.0, 0.0], [6.0, 1.0]]))
-        np.testing.assert_array_equal(daily["max_6h"], np.array([[4.0, 0.0], [6.0, 1.0]]))
+        np.testing.assert_array_equal(daily["daily_total"], np.array([[2.0, 0.0], [3.0, 0.5]]))
+        np.testing.assert_array_equal(daily["max_30min"], np.array([[1.5, 0.0], [2.0, 0.5]]))
+        np.testing.assert_array_equal(daily["max_1h"], np.array([[2.0, 0.0], [3.0, 0.5]]))
+        np.testing.assert_array_equal(daily["max_3h"], np.array([[2.0, 0.0], [3.0, 0.5]]))
+        np.testing.assert_array_equal(daily["max_6h"], np.array([[2.0, 0.0], [3.0, 0.5]]))
         np.testing.assert_array_equal(daily["rainy_steps"], np.array([[2, 0], [2, 1]]))
         self.assertEqual(int(daily["time_count"]), 2)
+        self.assertEqual(str(daily["source_units"]), "mm/h")
+        self.assertEqual(str(daily["output_units"]), "mm")
+        self.assertEqual(float(daily["frame_duration_hours"]), 0.5)
+        self.assertEqual(str(daily["indicator_formula_version"]), "1.0.0")
+
+        self.assertEqual(second[0]["status"], "skipped_existing")
 
     def _write_npz(self, path, precipitation):
         path.parent.mkdir(parents=True, exist_ok=True)

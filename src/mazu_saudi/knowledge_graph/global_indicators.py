@@ -11,9 +11,19 @@ from typing import Any, Iterable
 
 import numpy as np
 
+from mazu_saudi.indicator_definitions import (
+    DEFAULT_IVT_LEVELS_HPA,
+    FYMERG_EXPECTED_FRAMES_PER_DAY,
+    FYMERG_FRAME_DURATION_HOURS,
+    INDICATOR_FORMULA_VERSION,
+    integrate_ivt as integrate_ivt_components,
+    kelvin_to_celsius,
+    precipitation_rate_to_amount,
+    vapor_pressure_deficit_kpa,
+    wind_speed,
+)
 
-GRAVITY = 9.80665
-PIPELINE_VERSION = "2"
+PIPELINE_VERSION = "3"
 REQUIRED_OUTPUT_VARIABLES = (
     "ivt",
     "cape",
@@ -53,7 +63,7 @@ class SaudiExclusion:
 class GlobalIndicatorConfig:
     year: int = 2025
     tile_degrees: float = 10.0
-    ivt_levels_hpa: tuple[int, ...] = (1000, 925, 850, 700, 500, 300)
+    ivt_levels_hpa: tuple[int, ...] = DEFAULT_IVT_LEVELS_HPA
     exclusion: SaudiExclusion = SaudiExclusion()
     max_days_with_missing_sources: int = 5
 
@@ -325,6 +335,8 @@ def output_is_complete(
         with xr.open_dataset(path) as dataset:
             complete = (
                 dataset.attrs.get("pipeline_version") == PIPELINE_VERSION
+                and dataset.attrs.get("indicator_formula_version")
+                == INDICATOR_FORMULA_VERSION
                 and float(dataset.attrs.get("tile_degrees")) == config.tile_degrees
                 and dataset.attrs.get("ivt_levels_hpa")
                 == ",".join(str(level) for level in config.ivt_levels_hpa)
@@ -421,52 +433,19 @@ def read_single_level_fields(
     return found, grid
 
 
-def trapezoid_pressure_weights(levels_hpa: tuple[int, ...]) -> dict[int, float]:
-    levels = np.asarray(sorted(set(levels_hpa)), dtype=np.float64)
-    if levels.size < 2 or np.any(levels <= 0):
-        raise ValueError("At least two positive IVT pressure levels are required")
-    weights = np.empty_like(levels)
-    weights[0] = (levels[1] - levels[0]) / 2.0
-    weights[-1] = (levels[-1] - levels[-2]) / 2.0
-    weights[1:-1] = (levels[2:] - levels[:-2]) / 2.0
-    return {
-        int(level): float(weight * 100.0 / GRAVITY)
-        for level, weight in zip(levels, weights)
-    }
-
-
 def integrate_ivt(
     humidity: dict[int, np.ndarray],
     zonal_wind: dict[int, np.ndarray],
     meridional_wind: dict[int, np.ndarray],
     levels_hpa: tuple[int, ...],
 ) -> np.ndarray:
-    weights = trapezoid_pressure_weights(levels_hpa)
-    missing = {
-        variable: sorted(set(weights) - set(fields))
-        for variable, fields in {
-            "q": humidity,
-            "u": zonal_wind,
-            "v": meridional_wind,
-        }.items()
-        if set(weights) - set(fields)
-    }
-    if missing:
-        raise ValueError(f"IVT source levels are incomplete: {missing}")
-    first = humidity[next(iter(weights))]
-    ivt_u = np.zeros_like(first, dtype=np.float64)
-    ivt_v = np.zeros_like(first, dtype=np.float64)
-    valid = np.ones(first.shape, dtype=bool)
-    for level, weight in weights.items():
-        q = humidity[level]
-        u = zonal_wind[level]
-        v = meridional_wind[level]
-        level_valid = np.isfinite(q) & np.isfinite(u) & np.isfinite(v)
-        valid &= level_valid
-        ivt_u += np.where(level_valid, q * u * weight, 0.0)
-        ivt_v += np.where(level_valid, q * v * weight, 0.0)
-    magnitude = np.sqrt(ivt_u**2 + ivt_v**2)
-    return np.where(valid, magnitude, np.nan).astype(np.float32)
+    _, _, magnitude = integrate_ivt_components(
+        humidity,
+        zonal_wind,
+        meridional_wind,
+        levels_hpa,
+    )
+    return np.asarray(magnitude, dtype=np.float32)
 
 
 def read_analysis_fields(
@@ -531,18 +510,18 @@ def read_analysis_fields(
 def derive_surface_indicators(fields: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
     result: dict[str, np.ndarray] = {}
     if {"t2m", "rh2m"}.issubset(fields):
-        temp_c = fields["t2m"] - 273.15
+        temp_c = kelvin_to_celsius(fields["t2m"])
         rh = np.clip(fields["rh2m"], 0.0, 100.0)
-        saturation = 0.6108 * np.exp((17.27 * temp_c) / (temp_c + 237.3))
         result["vpd_kpa"] = np.where(
             np.isfinite(temp_c) & np.isfinite(rh),
-            saturation * (1.0 - rh / 100.0),
+            vapor_pressure_deficit_kpa(temp_c, rh),
             np.nan,
         ).astype(np.float32)
     if {"u10", "v10"}.issubset(fields):
-        result["wind10_speed"] = np.sqrt(
-            fields["u10"] ** 2 + fields["v10"] ** 2
-        ).astype(np.float32)
+        result["wind10_speed"] = np.asarray(
+            wind_speed(fields["u10"], fields["v10"]),
+            dtype=np.float32,
+        )
     return result
 
 
@@ -570,7 +549,7 @@ def read_sst_tiles(
                 exclusion=config.exclusion,
             )
             raw = np.asarray(dataset["analysed_sst"].values, dtype=np.float32)
-        raw = np.where(raw > 200.0, raw - 273.15, raw)
+        raw = np.where(raw > 200.0, kelvin_to_celsius(raw), raw)
         raw = _clean(raw, -5.0, 50.0)
         tiled, counts = grid.aggregate(raw)
         valid = np.isfinite(tiled)
@@ -643,12 +622,17 @@ def read_satellite_precip_tiles(
         tiled, counts = grid.aggregate(rate)
         valid = np.isfinite(tiled)
         # Pre_cal is a precipitation rate in mm/h; each file spans 30 minutes.
-        total[valid] += tiled[valid] * 0.5
+        total[valid] += precipitation_rate_to_amount(
+            tiled[valid],
+            FYMERG_FRAME_DURATION_HOURS,
+        )
         frame_count[valid] += 1
         cell_count = np.maximum(cell_count, counts)
     daily_total = np.full(output_grid.shape, np.nan, dtype=np.float32)
     daily_total[frame_count > 0] = total[frame_count > 0]
-    coverage = (frame_count.astype(np.float32) / 48.0).astype(np.float32)
+    coverage = (
+        frame_count.astype(np.float32) / FYMERG_EXPECTED_FRAMES_PER_DAY
+    ).astype(np.float32)
     coverage[frame_count == 0] = np.nan
     return (
         {
@@ -695,7 +679,9 @@ def read_monthly_context_tiles(
             grid=grid,
         )
         if "monthly_tmax_k" in fields:
-            raw["monthly_tmax_c"] = fields["monthly_tmax_k"] - 273.15
+            raw["monthly_tmax_c"] = kelvin_to_celsius(
+                fields["monthly_tmax_k"]
+            )
     values: dict[str, np.ndarray] = {}
     counts: dict[str, np.ndarray] = {}
     for name in ("monthly_precip_total", "monthly_tmax_c"):
@@ -764,7 +750,7 @@ def read_daily_raw_indicators(
             grid=grid,
         )
         if "tmax_k" in fields:
-            raw["tmax_c"] = fields["tmax_k"] - 273.15
+            raw["tmax_c"] = kelvin_to_celsius(fields["tmax_k"])
     surface = source.files["surface"]
     if surface is not None:
         fields, grid = read_single_level_fields(
@@ -864,6 +850,7 @@ def write_daily_indicators(
         coords=coordinates,
         attrs={
             "pipeline_version": PIPELINE_VERSION,
+            "indicator_formula_version": INDICATOR_FORMULA_VERSION,
             "period": source.day,
             "source_product": "DS1+DS2+DS4+DS10 layered global indicators",
             "source_file_manifest": _source_manifest(source),

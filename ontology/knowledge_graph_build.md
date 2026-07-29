@@ -158,6 +158,11 @@ PYTHONPATH=src conda run -n ml python scripts/build_global_knowledge_graph.py \
 存在错误就不会进入图谱构建阶段并以非零状态退出。每个输出还保存源文件路径、大小和修改
 时间；如果之后补齐或替换了缺失源产品，断点续跑会自动重新计算受影响日期。
 
+全球流水线版本现为 `3`，并与沙特指标共用公式版本 `1.0.0`。旧的全球 v2 日文件因缺少
+当前流水线和公式版本会自动重新计算。共享公式统一了 Kelvin 转摄氏度、VPD、风速、六层
+IVT 梯形积分，以及 FYMERG `mm/h × 0.5 h` 的半小时降水量换算；全球和沙特仍分别保留
+空间块与细网格表示。
+
 如果指标已全部生成，只重建图谱：
 
 ```bash
@@ -169,7 +174,6 @@ PYTHONPATH=src conda run -n ml python scripts/build_global_knowledge_graph.py \
 
 ```text
 --tile-degrees 10
---ivt-levels 1000,925,850,700,500,300
 --max-days-with-missing-sources 5
 --max-lag-days 3
 --min-support-episodes 8
@@ -178,8 +182,8 @@ PYTHONPATH=src conda run -n ml python scripts/build_global_knowledge_graph.py \
 ```
 
 IVT 默认使用 1000、925、850、700、500、300 hPa 六层，在原始格点进行梯形压力积分，
-再计算矢量模长和空间块面积加权均值。可以通过 `--ivt-levels` 增加层数，代价是更长的
-GRIB 解码时间和更高内存。
+再计算矢量模长和空间块面积加权均值。该层集合由共享公式模块固定，避免全球图谱与沙特
+预测指标因命令行覆盖而再次产生口径分歧。
 
 脚本会先核对原始清单，完成指标后物化并核对当前本体，再原子写入一个新的不可变构建批次。
 构建结果以 JSON 输出批次 ID、文件数、空间块数、节点数、关系数、断言数、证据过程数和

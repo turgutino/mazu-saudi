@@ -7,6 +7,7 @@ from dataclasses import asdict
 import json
 from pathlib import Path
 
+from mazu_saudi.indicator_definitions import DEFAULT_IVT_LEVELS_HPA
 from mazu_saudi.knowledge_graph import BuildConfig, build_statistical_knowledge_graph
 from mazu_saudi.knowledge_graph.global_indicators import (
     GlobalIndicatorConfig,
@@ -32,11 +33,6 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--ontology-source", type=Path, default=DEFAULT_ONTOLOGY)
     result.add_argument("--year", type=int, default=2025)
     result.add_argument("--tile-degrees", type=float, default=10.0)
-    result.add_argument(
-        "--ivt-levels",
-        default="1000,925,850,700,500,300",
-        help="Comma-separated pressure levels used for trapezoidal IVT integration.",
-    )
     result.add_argument("--max-days-with-missing-sources", type=int, default=5)
     result.add_argument("--start", help="First YYYYMMDD to compute.")
     result.add_argument("--end", help="Last YYYYMMDD to compute.")
@@ -56,22 +52,12 @@ def parser() -> argparse.ArgumentParser:
     return result
 
 
-def _parse_levels(text: str) -> tuple[int, ...]:
-    try:
-        levels = tuple(int(part.strip()) for part in text.split(",") if part.strip())
-    except ValueError as exc:
-        raise ValueError("--ivt-levels must contain comma-separated integer hPa levels") from exc
-    if len(set(levels)) < 2:
-        raise ValueError("--ivt-levels must contain at least two distinct levels")
-    return levels
-
-
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     indicator_config = GlobalIndicatorConfig(
         year=args.year,
         tile_degrees=args.tile_degrees,
-        ivt_levels_hpa=_parse_levels(args.ivt_levels),
+        ivt_levels_hpa=DEFAULT_IVT_LEVELS_HPA,
         max_days_with_missing_sources=args.max_days_with_missing_sources,
     )
     sources = discover_daily_sources(args.data_root, indicator_config)

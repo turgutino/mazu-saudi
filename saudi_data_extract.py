@@ -9,6 +9,13 @@ from pathlib import Path
 
 import numpy as np
 
+from mazu_saudi.indicator_definitions import (
+    FYMERG_FRAME_DURATION_HOURS,
+    INDICATOR_FORMULA_VERSION,
+    precipitation_rate_to_amount,
+    rolling_precipitation_amount_max,
+)
+
 # Saudi Arabia bounding box
 LAT_MIN, LAT_MAX = 16.0, 32.0
 LON_MIN, LON_MAX = 34.0, 56.0
@@ -553,25 +560,33 @@ def read_ds10_precip_npz(path, precip_key="Pre_cal"):
     return lat, lon, precip
 
 
-def rolling_sum_max(stack, window):
-    if stack.shape[0] == 0:
-        raise ValueError("Cannot aggregate an empty DS10 time stack")
-    if stack.shape[0] <= window:
-        return np.nansum(stack, axis=0)
-    best = None
-    for start in range(0, stack.shape[0] - window + 1):
-        window_sum = np.nansum(stack[start : start + window], axis=0)
-        best = window_sum if best is None else np.maximum(best, window_sum)
-    return best
-
-
 def ds10_daily_output_path(output_root, day):
     return Path(output_root) / day[:6] / f"saudi_ds10_daily_{day}.npz"
 
 
+def ds10_daily_output_is_current(path):
+    path = Path(path)
+    if not path.is_file():
+        return False
+    try:
+        with np.load(path) as data:
+            return (
+                "indicator_formula_version" in data.files
+                and str(data["indicator_formula_version"])
+                == INDICATOR_FORMULA_VERSION
+                and "frame_duration_hours" in data.files
+                and float(data["frame_duration_hours"])
+                == FYMERG_FRAME_DURATION_HOURS
+                and "output_units" in data.files
+                and str(data["output_units"]) == "mm"
+            )
+    except (OSError, ValueError):
+        return False
+
+
 def aggregate_ds10_day(day, records, output_root, precip_key="Pre_cal", rain_threshold=0.0, overwrite=False):
     output_path = ds10_daily_output_path(output_root, day)
-    if output_path.exists() and not overwrite:
+    if not overwrite and ds10_daily_output_is_current(output_path):
         return {
             "day": day,
             "status": "skipped_existing",
@@ -594,17 +609,28 @@ def aggregate_ds10_day(day, records, output_root, precip_key="Pre_cal", rain_thr
         source_files.append(str(record["path"]))
 
     stack = np.stack(frames, axis=0)
+    amount_stack = precipitation_rate_to_amount(
+        stack,
+        FYMERG_FRAME_DURATION_HOURS,
+    )
     output = {
         "date": np.asarray(day),
         "lat": lats,
         "lon": lons,
-        "daily_total": np.nansum(stack, axis=0),
-        "max_30min": np.nanmax(stack, axis=0),
-        "max_1h": rolling_sum_max(stack, 2),
-        "max_3h": rolling_sum_max(stack, 6),
-        "max_6h": rolling_sum_max(stack, 12),
+        "daily_total": np.nansum(amount_stack, axis=0),
+        "max_30min": np.nanmax(amount_stack, axis=0),
+        "max_1h": rolling_precipitation_amount_max(stack, 2),
+        "max_3h": rolling_precipitation_amount_max(stack, 6),
+        "max_6h": rolling_precipitation_amount_max(stack, 12),
         "rainy_steps": np.sum(np.nan_to_num(stack, nan=0.0) > rain_threshold, axis=0).astype(np.int16),
         "time_count": np.asarray(stack.shape[0], dtype=np.int16),
+        "source_units": np.asarray("mm/h"),
+        "output_units": np.asarray("mm"),
+        "frame_duration_hours": np.asarray(
+            FYMERG_FRAME_DURATION_HOURS,
+            dtype=np.float32,
+        ),
+        "indicator_formula_version": np.asarray(INDICATOR_FORMULA_VERSION),
         "source_files": np.asarray(source_files),
     }
     ensure_output_dir(output_path.parent)
@@ -828,7 +854,12 @@ def build_arg_parser():
     ds10_daily_parser.add_argument("--end")
     ds10_daily_parser.add_argument("--limit-days", type=int)
     ds10_daily_parser.add_argument("--precip-key", default="Pre_cal")
-    ds10_daily_parser.add_argument("--rain-threshold", type=float, default=0.0)
+    ds10_daily_parser.add_argument(
+        "--rain-threshold",
+        type=float,
+        default=0.0,
+        help="Half-hour precipitation-rate threshold in mm/h for rainy_steps.",
+    )
     ds10_daily_parser.add_argument("--overwrite", action="store_true")
     ds10_daily_parser.add_argument("--manifest")
     ds10_daily_parser.add_argument("--dry-run", action="store_true")

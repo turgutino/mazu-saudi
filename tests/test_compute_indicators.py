@@ -7,6 +7,7 @@ import xarray as xr
 
 from compute_indicators import (
     add_daily_surface_indicators,
+    add_ds10_daily_indicators,
     add_flash_flood_risk,
     add_heatwave_duration_to_outputs,
     add_instability_indicators,
@@ -17,6 +18,21 @@ from compute_indicators import (
 
 
 class ComputeIndicatorsTests(unittest.TestCase):
+    def test_legacy_ds10_daily_aggregation_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "Legacy DS10"):
+            add_ds10_daily_indicators(
+                xr.Dataset(),
+                xr.Dataset(
+                    {
+                        "daily_total": (
+                            ("latitude", "longitude"),
+                            np.ones((1, 1)),
+                        )
+                    },
+                    coords={"latitude": [20.0], "longitude": [40.0]},
+                ),
+            )
+
     def test_load_datasets_reads_partitioned_saudi_outputs(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -65,6 +81,8 @@ class ComputeIndicatorsTests(unittest.TestCase):
                 self.assertIn("net_radiation", saved)
                 self.assertIn("sst_celsius", saved)
                 self.assertIn("ds10_daily_total", saved)
+                self.assertIn("satellite_precip_total", saved)
+                self.assertIn("satellite_precip_coverage", saved)
                 self.assertIn("ds10_max_1h", saved)
                 self.assertIn("ivt", saved)
                 self.assertIn("ivt_u", saved)
@@ -89,7 +107,12 @@ class ComputeIndicatorsTests(unittest.TestCase):
                 self.assertAlmostEqual(float(saved["t2m_c"].isel(latitude=0, longitude=0)), 36.85)
                 self.assertAlmostEqual(float(saved["wind10_speed"].isel(latitude=0, longitude=0)), 5.0)
                 self.assertAlmostEqual(float(saved["ds10_max_1h"].isel(latitude=0, longitude=0)), 5.0)
-                self.assertAlmostEqual(float(saved["ivt"].isel(latitude=0, longitude=0)), 917.74, places=2)
+                self.assertAlmostEqual(float(saved["ivt"].isel(latitude=0, longitude=0)), 713.80, places=2)
+                self.assertEqual(saved.attrs["indicator_formula_version"], "1.0.0")
+                self.assertEqual(
+                    saved.attrs["ivt_levels_hpa"],
+                    "1000,925,850,700,500,300",
+                )
                 self.assertAlmostEqual(float(saved["wind850_speed"].isel(latitude=0, longitude=0)), 10.0)
                 self.assertAlmostEqual(float(saved["moisture_transport850"].isel(latitude=0, longitude=0)), 0.1)
                 self.assertAlmostEqual(float(saved["omega500"].isel(latitude=0, longitude=0)), -0.2)
@@ -192,6 +215,10 @@ class ComputeIndicatorsTests(unittest.TestCase):
                 max_6h=np.array([[12.0, 13.0], [14.0, 15.0]]),
                 rainy_steps=np.array([[6, 7], [8, 9]], dtype=np.int16),
                 time_count=np.asarray(48, dtype=np.int16),
+                source_units=np.asarray("mm/h"),
+                output_units=np.asarray("mm"),
+                frame_duration_hours=np.asarray(0.5, dtype=np.float32),
+                indicator_formula_version=np.asarray("1.0.0"),
             )
 
             compute_period(root, period, output_dir=output)
@@ -401,6 +428,10 @@ class ComputeIndicatorsTests(unittest.TestCase):
             max_6h=np.full(shape, 12.0),
             rainy_steps=np.full(shape, 6, dtype=np.int16),
             time_count=np.asarray(48, dtype=np.int16),
+            source_units=np.asarray("mm/h"),
+            output_units=np.asarray("mm"),
+            frame_duration_hours=np.asarray(0.5, dtype=np.float32),
+            indicator_formula_version=np.asarray("1.0.0"),
         )
 
     def _write_ds8_daily_normals(self, root, variable, stations):
@@ -426,7 +457,7 @@ class ComputeIndicatorsTests(unittest.TestCase):
     def _write_analysis_nc(self, path, coords):
         path.parent.mkdir(parents=True, exist_ok=True)
         shape = (len(coords["latitude"]), len(coords["longitude"]))
-        levels = np.array([1000.0, 850.0, 500.0, 300.0, 200.0])
+        levels = np.array([1000.0, 925.0, 850.0, 700.0, 500.0, 300.0, 200.0])
         level_shape = (len(levels), *shape)
         level_coords = {"isobaricInhPa": levels, **coords}
         q = np.full(level_shape, 0.01)
@@ -434,9 +465,10 @@ class ComputeIndicatorsTests(unittest.TestCase):
         v = np.zeros(level_shape)
         u[-1, :, :] = 30.0
         w = np.zeros(level_shape)
-        w[2, :, :] = -0.2
+        level_500_index = int(np.where(levels == 500.0)[0][0])
+        w[level_500_index, :, :] = -0.2
         gh = np.zeros(level_shape)
-        gh[2, :, :] = 5880.0
+        gh[level_500_index, :, :] = 5880.0
         absv = np.full(level_shape, 1.0e-4)
 
         data_vars = {

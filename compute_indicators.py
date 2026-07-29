@@ -15,6 +15,16 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
+from mazu_saudi.indicator_definitions import (
+    DEFAULT_IVT_LEVELS_HPA,
+    FYMERG_EXPECTED_FRAMES_PER_DAY,
+    FYMERG_FRAME_DURATION_HOURS,
+    INDICATOR_FORMULA_VERSION,
+    integrate_ivt,
+    kelvin_to_celsius,
+    vapor_pressure_deficit_kpa,
+    wind_speed,
+)
 
 OUTPUT_DIR = "output_indicators"
 DS8_DIR_NAME = "8_SURF_CLI_GLB_1991_2020"
@@ -30,7 +40,6 @@ MISSING_ADVANCED_INDICATORS = [
     "PET/ET0 requires a validated pressure/radiation/wind/temperature workflow",
 ]
 
-GRAVITY = 9.80665
 EARTH_RADIUS_M = 6_371_000.0
 FILL_VALUE_ABS_LIMIT = 1.0e20
 
@@ -163,7 +172,23 @@ def load_ds10_daily_npz(path):
                 variables[name] = _grid_data_array(np.asarray(data[name]), coords, name)
         if "time_count" in data.files:
             variables["time_count"] = xr.DataArray(np.asarray(data["time_count"]))
-    return xr.Dataset(variables, attrs={"source_file": str(path)})
+        metadata = {
+            name: str(data[name])
+            for name in (
+                "source_units",
+                "output_units",
+                "indicator_formula_version",
+            )
+            if name in data.files
+        }
+        if "frame_duration_hours" in data.files:
+            metadata["frame_duration_hours"] = float(
+                data["frame_duration_hours"]
+            )
+    return xr.Dataset(
+        variables,
+        attrs={"source_file": str(path), **metadata},
+    )
 
 
 def _grid_data_array(values, coords, name):
@@ -180,7 +205,7 @@ def _grid_data_array(values, coords, name):
 
 
 def _k_to_c(value):
-    return value - 273.15
+    return kelvin_to_celsius(value)
 
 
 def clean_numeric_array(array, valid_min=None, valid_max=None):
@@ -200,6 +225,7 @@ def _ratio(numerator, denominator):
 def _with_attrs(array, long_name, units, formula=None):
     array.attrs["long_name"] = long_name
     array.attrs["units"] = units
+    array.attrs["indicator_formula_version"] = INDICATOR_FORMULA_VERSION
     if formula:
         array.attrs["formula"] = formula
     return array
@@ -650,7 +676,12 @@ def add_daily_surface_indicators(results, sfc_ds, max_ds, min_ds):
         if {"u10", "v10"}.issubset(sfc_ds):
             u10 = clean_numeric_array(sfc_ds["u10"], -150.0, 150.0)
             v10 = clean_numeric_array(sfc_ds["v10"], -150.0, 150.0)
-            results["wind10_speed"] = _with_attrs(np.sqrt(u10 ** 2 + v10 ** 2), "10 m wind speed", "m s-1", "sqrt(u10^2 + v10^2)")
+            results["wind10_speed"] = _with_attrs(
+                wind_speed(u10, v10),
+                "10 m wind speed",
+                "m s-1",
+                "sqrt(u10^2 + v10^2)",
+            )
         add_cloud_indicators(results, sfc_ds)
 
     if max_ds is not None and "tmax" in max_ds:
@@ -678,8 +709,7 @@ def add_cloud_indicators(results, ds):
 
 
 def vapor_pressure_deficit(temp_c, rh_percent):
-    saturation = 0.6108 * np.exp((17.27 * temp_c) / (temp_c + 237.3))
-    return saturation * (1.0 - rh_percent / 100.0)
+    return vapor_pressure_deficit_kpa(temp_c, rh_percent)
 
 
 def heat_index_celsius(temp_c, rh_percent):
@@ -750,11 +780,6 @@ def select_level(data, level_hpa, tolerance_hpa=30.0):
     return data.sel(isobaricInhPa=nearest)
 
 
-def pressure_integral(data):
-    sorted_data = data.sortby("isobaricInhPa")
-    return sorted_data.integrate("isobaricInhPa") * 100.0
-
-
 def horizontal_gradients(data):
     if "latitude" not in data.dims or "longitude" not in data.dims:
         return None, None
@@ -795,11 +820,32 @@ def add_multilevel_indicators(results, ds):
         results["pwat"] = _with_attrs(ds["pwat"], "Precipitable water", "kg m-2")
 
     if q is not None and u is not None and v is not None:
-        ivt_u = pressure_integral(q * u) / GRAVITY
-        ivt_v = pressure_integral(q * v) / GRAVITY
+        def canonical_levels(data):
+            selected = {
+                level: select_level(data, level, tolerance_hpa=0.1)
+                for level in DEFAULT_IVT_LEVELS_HPA
+            }
+            return {
+                level: values
+                for level, values in selected.items()
+                if values is not None
+            }
+
+        humidity = canonical_levels(q)
+        zonal = canonical_levels(u)
+        meridional = canonical_levels(v)
+        ivt_u, ivt_v, ivt = integrate_ivt(
+            humidity,
+            zonal,
+            meridional,
+            DEFAULT_IVT_LEVELS_HPA,
+        )
         results["ivt_u"] = _with_attrs(ivt_u, "Integrated vapor transport zonal component", "kg m-1 s-1", "1/g integral(q*u dp)")
         results["ivt_v"] = _with_attrs(ivt_v, "Integrated vapor transport meridional component", "kg m-1 s-1", "1/g integral(q*v dp)")
-        results["ivt"] = _with_attrs(np.sqrt(ivt_u**2 + ivt_v**2), "Integrated vapor transport magnitude", "kg m-1 s-1", "sqrt(IVT_u^2 + IVT_v^2)")
+        results["ivt"] = _with_attrs(ivt, "Integrated vapor transport magnitude", "kg m-1 s-1", "sqrt(IVT_u^2 + IVT_v^2)")
+        results["ivt"].attrs["pressure_levels_hpa"] = ",".join(
+            str(level) for level in DEFAULT_IVT_LEVELS_HPA
+        )
         div_x, _ = horizontal_gradients(ivt_u)
         _, div_y = horizontal_gradients(ivt_v)
         if div_x is not None and div_y is not None:
@@ -867,7 +913,7 @@ def add_sst_indicators(results, ds):
     if ds is None or "analysed_sst" not in ds:
         return
     sst = ds["analysed_sst"]
-    sst_c = xr.where(sst > 200.0, sst - 273.15, sst)
+    sst_c = xr.where(sst > 200.0, kelvin_to_celsius(sst), sst)
     results["sst_celsius"] = _with_attrs(sst_c, "Analysed sea surface temperature", "degC", "K to degC when source values exceed 200")
     lat_name = "lat" if "lat" in sst_c.coords else "latitude"
     lon_name = "lon" if "lon" in sst_c.coords else "longitude"
@@ -886,6 +932,20 @@ def add_sst_indicators(results, ds):
 def add_ds10_daily_indicators(results, ds):
     if ds is None:
         return
+    current_contract = (
+        ds.attrs.get("indicator_formula_version")
+        == INDICATOR_FORMULA_VERSION
+        and ds.attrs.get("source_units") == "mm/h"
+        and ds.attrs.get("output_units") == "mm"
+        and ds.attrs.get("frame_duration_hours")
+        == FYMERG_FRAME_DURATION_HOURS
+    )
+    if not current_contract:
+        raise ValueError(
+            "Legacy DS10 daily aggregation detected; rerun "
+            "`saudi_data_extract.py aggregate-ds10-daily` before computing "
+            "Saudi indicators"
+        )
     mapping = {
         "daily_total": "ds10_daily_total",
         "max_30min": "ds10_max_30min",
@@ -899,6 +959,26 @@ def add_ds10_daily_indicators(results, ds):
             units = "steps" if source == "rainy_steps" else "mm"
             array = align_to_indicator_grid(ds[source], results)
             results[target] = _with_attrs(array, target.replace("_", " ").title(), units)
+    if "ds10_daily_total" in results:
+        results["satellite_precip_total"] = results["ds10_daily_total"].copy()
+        results["satellite_precip_total"].attrs.update(
+            {
+                "long_name": "FYMERG satellite daily precipitation total",
+                "units": "mm",
+                "canonical_alias_for": "ds10_daily_total",
+            }
+        )
+        if "time_count" in ds:
+            coverage = xr.full_like(
+                results["ds10_daily_total"],
+                float(ds["time_count"]) / FYMERG_EXPECTED_FRAMES_PER_DAY,
+            )
+            results["satellite_precip_coverage"] = _with_attrs(
+                coverage,
+                "FYMERG satellite daily frame coverage",
+                "1",
+                "time_count / 48",
+            )
 
 
 def add_precipitation_cross_validation_indicators(results):
@@ -980,6 +1060,10 @@ def compute_period(data_dir, period, output_dir=OUTPUT_DIR, climatology_root="au
             "period": str(period),
             "month": str(period)[:6],
             "source_root": str(Path(data_dir)),
+            "indicator_formula_version": INDICATOR_FORMULA_VERSION,
+            "ivt_levels_hpa": ",".join(
+                str(level) for level in DEFAULT_IVT_LEVELS_HPA
+            ),
             "missing_advanced_indicators": "; ".join(MISSING_ADVANCED_INDICATORS),
         }
     )
