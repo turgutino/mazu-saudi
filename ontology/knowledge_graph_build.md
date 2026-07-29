@@ -37,7 +37,36 @@ eligible_for_causal_explanation = false
 当前
 `/Volumes/E/气象数据/saudi_region_output/indicators`
 满足这个输入契约，但它是沙特区域指标，只能用于链路验证，不能冒充全球图谱。正式全球
-构建需要先把全球原始产品转换为同一每日指标契约。
+构建由 `scripts/build_global_knowledge_graph.py` 直接读取 E 盘全球日 GRIB2 产品，先生成
+满足同一契约的空间块指标文件。
+
+### 2.1 全球原始数据入口与沙特隔离
+
+全球流水线读取：
+
+```text
+/Volumes/E/气象数据/2_NAFP_ART_SFC_GLB_DAY_PROD/YYYYMMDD/
+```
+
+每天使用 `DAY_ANAL`、`DAY_ACC`、`DAY_MAX` 和 `DAY_SFC` 四类产品。它不会先把约 942 GB
+原始数据复制成另一套全球细网格，而是逐 GRIB 消息解码所需变量，在原始格点上计算指标后
+立刻聚合到图谱空间块。
+
+沙特研究区域采用与区域提取脚本一致的保守边界框
+`16–32°N, 34–56°E`。掩膜在空间聚合之前应用，因此框内原始格点不会参与全球阈值、
+天气过程或滞后关系；不是在展示层删除沙特节点。输出批次范围必须标记为
+`global-2025-excluding-saudi`。
+
+当前 E 盘清单有 365 个日期目录，但原始产品存在三个已知缺口：
+
+| 日期 | 缺少产品 |
+|---|---|
+| 2025-08-17 | `DAY_MAX` |
+| 2025-08-18 | 四类必需产品全部缺少 |
+| 2025-08-20 | `DAY_ACC` |
+
+流水线会为这些日期保留显式缺测值，不会将缺测当作状态未发生。默认最多允许 5 个日期
+存在源产品缺口，超过即停止；清单审计会在长任务开始前输出全部缺口。
 
 ## 3. 统计方法
 
@@ -81,29 +110,67 @@ Lift 只是限定样本内的关联强度。第一阶段不计算显著性因果
 
 ## 5. 构建命令
 
-正式全球日指标目录准备好以后运行：
+先只检查 E 盘文件清单，不计算数据：
 
 ```bash
-PYTHONPATH=src conda run -n ml python scripts/build_knowledge_graph.py \
-  --input-dir /path/to/global_2025_daily_indicators \
-  --scope-label global-2025 \
-  --database runtime/ontology/mazu_weather.sqlite3
+PYTHONPATH=src conda run -n ml python scripts/build_global_knowledge_graph.py \
+  --stage audit
+```
+
+建议先计算一天，验证运行环境、耗时和输出：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/build_global_knowledge_graph.py \
+  --stage indicators \
+  --start 20250101 \
+  --end 20250101
+```
+
+确认后执行全年指标与图谱构建：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/build_global_knowledge_graph.py \
+  --stage all
+```
+
+默认指标输出为：
+
+```text
+/Volumes/E/气象数据/global_excluding_saudi_2025/indicators/
+```
+
+每个日文件是已经排除沙特格点的 `10° × 10°` 图谱用指标，而不是原始全球细网格副本。
+脚本逐日原子写入，并自动跳过结构完整的已有文件；中断后重复同一命令即可继续。运行记录
+追加到 `indicator_build_manifest.jsonl`。单日错误默认记入清单后继续处理其他日期，但只要
+存在错误就不会进入图谱构建阶段并以非零状态退出。每个输出还保存源文件路径、大小和修改
+时间；如果之后补齐或替换了缺失源产品，断点续跑会自动重新计算受影响日期。
+
+如果指标已全部生成，只重建图谱：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/build_global_knowledge_graph.py \
+  --stage graph
 ```
 
 关键参数：
 
 ```text
 --tile-degrees 10
+--ivt-levels 1000,925,850,700,500,300
+--max-days-with-missing-sources 5
 --max-lag-days 3
 --min-support-episodes 8
 --min-lift 1.15
 --max-assertions 160
---evidence-episode-limit 12
---min-indicator-file-coverage 0.50
 ```
 
-脚本会先物化并核对当前本体，再原子写入一个新的不可变构建批次。构建结果以 JSON 输出
-批次 ID、文件数、空间块数、节点数、关系数、断言数、证据过程数和阈值数。
+IVT 默认使用 1000、925、850、700、500、300 hPa 六层，在原始格点进行梯形压力积分，
+再计算矢量模长和空间块面积加权均值。可以通过 `--ivt-levels` 增加层数，代价是更长的
+GRIB 解码时间和更高内存。
+
+脚本会先核对原始清单，完成指标后物化并核对当前本体，再原子写入一个新的不可变构建批次。
+构建结果以 JSON 输出批次 ID、文件数、空间块数、节点数、关系数、断言数、证据过程数和
+阈值数。
 
 ## 6. 服务与展示
 
