@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import os
 from typing import Any
+from urllib import request as urllib_request
 
 from .adapters import HistoricalToolAdapter, WarningAdapter, finite_json, level_for_probability
 from .settings import AppSettings
@@ -134,3 +137,63 @@ class HistoricalWarningService:
             f"{uncertainty.get('std', '不可用')}。这是基于代理标签的2025历史演练，"
             "不是业务预警。"
         )
+
+    def assistant_response(
+        self, run: dict[str, Any], message: str, locale: str
+    ) -> tuple[str, str]:
+        fallback = self.deterministic_analysis(run, locale)
+        api_key = os.environ.get("DEEPSEEK_API_KEY")
+        if not api_key:
+            return fallback, "deterministic"
+        result = run["result"]
+        compact_context = {
+            "forecast": result["forecast"],
+            "decision": result["decision"],
+            "conditions": result["conditions"],
+            "evidence": result["evidence"],
+            "boundaries": result["boundaries"],
+        }
+        system = (
+            "You are the bounded analysis layer of a 2025 historical weather-warning "
+            "exercise. Answer only from the supplied frozen JSON. Never change forecast "
+            "values, invent mechanisms, call this an operational warning, or treat proxy "
+            "labels as independent disaster truth. Explicitly preserve uncertainty and "
+            "evidence-review boundaries. Respond in Chinese."
+            if locale == "zh"
+            else
+            "You are the bounded analysis layer of a 2025 historical weather-warning "
+            "exercise. Answer only from the supplied frozen JSON. Never change forecast "
+            "values, invent mechanisms, call this an operational warning, or treat proxy "
+            "labels as independent disaster truth. Explicitly preserve uncertainty and "
+            "evidence-review boundaries. Respond in English."
+        )
+        payload = json.dumps(
+            {
+                "model": "deepseek-chat",
+                "temperature": 0,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {
+                        "role": "user",
+                        "content": f"Frozen result:\n{json.dumps(compact_context, ensure_ascii=False)}\n\nQuestion:\n{message}",
+                    },
+                ],
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        outbound = urllib_request.Request(
+            "https://api.deepseek.com/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib_request.urlopen(outbound, timeout=20) as response:
+                parsed = json.loads(response.read().decode("utf-8"))
+            content = parsed["choices"][0]["message"]["content"].strip()
+            return content or fallback, "deepseek"
+        except Exception:
+            return fallback, "deterministic_fallback"

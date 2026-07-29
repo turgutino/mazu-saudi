@@ -6,6 +6,17 @@
 
 当前仓库首先解决数据工程基础问题：从海量全球气象产品中裁剪沙特阿拉伯及周边关键区域，为后续多灾种预警模型、知识图谱和大模型决策模块提供统一的数据底座。
 
+## Competition Application
+
+当前比赛主入口是 React + FastAPI
+[MAZU Saudi Historical Warning Console](docs/competition_application.md)，将
+2025 历史预测、事件分析、证据图谱、受约束助手、CAP Exercise 和可下载报告整合为
+一个可离线运行的应用。
+
+```bash
+./scripts/start_competition_app.sh
+```
+
 ## Framework Design
 
 基于八个参考工程的横向审查，本项目已经形成面向竞赛与论文的自有框架设计：

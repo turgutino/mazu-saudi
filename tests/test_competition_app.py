@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from fastapi.testclient import TestClient
 
@@ -165,3 +166,49 @@ def test_public_contract_has_no_future_model_or_operational_claims(tmp_path):
     config = client.get("/api/v1/config").json()
     assert "Not an operational warning" in config["boundaries"]
     assert config["date_range"] == {"start": "2025-01-02", "end": "2025-12-31"}
+    routed_page = client.get("/analysis")
+    assert routed_page.status_code == 200
+    assert "MAZU Saudi" in routed_page.text
+
+
+def test_optional_llm_reads_frozen_result_and_falls_back_safely(tmp_path, monkeypatch):
+    client, _ = make_client(tmp_path)
+    created = client.post(
+        "/api/v1/runs",
+        json={"city": "Mecca", "target_date": "2025-08-04", "hazard": "heatwave", "locale": "en"},
+    ).json()
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {"choices": [{"message": {"content": "Bounded analysis from frozen evidence."}}]}
+            ).encode()
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-only-key")
+    monkeypatch.setattr(
+        "mazu_saudi.competition.service.urllib_request.urlopen",
+        lambda request, timeout: FakeResponse(),
+    )
+    response = client.post(
+        "/api/v1/assistant/messages",
+        json={"run_id": created["id"], "message": "Explain", "locale": "en"},
+    )
+    assert response.json()["mode"] == "deepseek"
+    assert response.json()["content"] == "Bounded analysis from frozen evidence."
+
+    monkeypatch.setattr(
+        "mazu_saudi.competition.service.urllib_request.urlopen",
+        lambda request, timeout: (_ for _ in ()).throw(TimeoutError()),
+    )
+    fallback = client.post(
+        "/api/v1/assistant/messages",
+        json={"run_id": created["id"], "message": "Explain", "locale": "en"},
+    )
+    assert fallback.json()["mode"] == "deterministic_fallback"
+    assert "historical exercise" in fallback.json()["content"]

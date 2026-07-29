@@ -154,13 +154,13 @@ def create_app(
         run = store.get_run(request.run_id)
         if run is None or run["status"] != "complete":
             raise HTTPException(404, "Completed run not found")
-        store.save_message(request.run_id, "user", request.message, "deterministic")
-        content = service.deterministic_analysis(run, request.locale)
-        message = store.save_message(request.run_id, "assistant", content, "deterministic")
+        store.save_message(request.run_id, "user", request.message, "user")
+        content, mode = service.assistant_response(run, request.message, request.locale)
+        message = store.save_message(request.run_id, "assistant", content, mode)
         return {
             **message,
             "llm_available": settings.preflight()["llm_available"],
-            "note": "Deterministic evidence-grounded fallback; forecast values are unchanged.",
+            "note": "Evidence-grounded analysis over frozen results; forecast values are unchanged.",
         }
 
     @app.get("/api/v1/reports")
@@ -201,7 +201,19 @@ def create_app(
     if settings.warning_root.is_dir():
         app.mount("/legacy", StaticFiles(directory=settings.warning_root, html=True), name="legacy")
     if settings.frontend_dist.is_dir():
-        app.mount("/", StaticFiles(directory=settings.frontend_dist, html=True), name="frontend")
+        assets = settings.frontend_dist / "assets"
+        if assets.is_dir():
+            app.mount("/assets", StaticFiles(directory=assets), name="frontend-assets")
+
+        @app.get("/{spa_path:path}", include_in_schema=False)
+        def frontend(spa_path: str):
+            candidate = (settings.frontend_dist / spa_path).resolve()
+            if (
+                candidate.is_file()
+                and settings.frontend_dist.resolve() in candidate.parents
+            ):
+                return FileResponse(candidate)
+            return FileResponse(settings.frontend_dist / "index.html")
 
     return app
 
