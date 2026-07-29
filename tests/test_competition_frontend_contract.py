@@ -53,7 +53,7 @@ def test_competition_frontend_explains_truth_layers_and_assistant_mode():
         "运行结果动态生成",
     ):
         assert boundary in app
-    assert "代理标签验证" in app
+    assert "2025历史数据 · 代理标签" in app
     assert "追问只读取当前运行记录" in app
     assert "不能修改概率、等级或 CAP" in app
     assert 'assistant: "决策简报"' in translations
@@ -72,3 +72,30 @@ def test_decision_brief_is_primary_and_follow_up_is_optional():
     app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
     for section in ("一句话结论", "主要依据", "交叉复核", "必须说明的限制", "OPTIONAL FOLLOW-UP"):
         assert section in app
+
+
+def test_ui_ux_system_keeps_context_and_task_outputs_visible():
+    app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    styles = (FRONTEND / "src" / "styles.css").read_text(encoding="utf-8")
+    translations = (FRONTEND / "src" / "i18n.ts").read_text(encoding="utf-8")
+    for component in ("active-run-chip", "analysis-summary", "network-selection-card", "artifact-grid"):
+        assert component in app
+    for token in ("--surface-raised", "--action", "--risk-high", "--focus"):
+        assert token in styles
+    assert "button:focus-visible" in styles
+    assert "@media (max-width: 900px)" in styles
+    assert 'analysisTitle: "事件诊断"' in translations
+    assert 'reportsTitle: "提交材料"' in translations
+
+
+def test_ui_design_system_documents_user_tasks_and_accessibility():
+    design_system = (FRONTEND.parent / "docs" / "competition_app_design_system.md").read_text(encoding="utf-8")
+    for contract in (
+        "10–20 seconds",
+        "current exercise",
+        "`--focus`",
+        "`focus-visible`",
+        "390 px",
+        "proxy-label",
+    ):
+        assert contract in design_system

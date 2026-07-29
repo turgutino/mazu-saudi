@@ -67,7 +67,7 @@ const nav = [
 ] as const;
 
 function Layout({ children }: { children: ReactNode }) {
-  const { locale, setLocale, health } = useApp();
+  const { locale, setLocale, health, selectedRun } = useApp();
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -93,6 +93,7 @@ function Layout({ children }: { children: ReactNode }) {
             <span>{t(locale, "historical")}</span>
             <small>{t(locale, "boundary")}</small>
           </div>
+          {selectedRun && <Link className="active-run-chip" to="/analysis"><i /><span><small>{locale === "zh" ? "当前演练" : "Current exercise"}</small><strong>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</strong></span><b>{selectedRun.target_date.slice(5)}</b></Link>}
           <div className="top-actions">
             <span className="year-chip">DATASET / 2025</span>
             <div className="language-switch" aria-label="Language">
@@ -116,8 +117,7 @@ function PageHeading({ eyebrow, title, lead, truth }: { eyebrow: string; title: 
     <span>{eyebrow}</span><h1>{title}</h1><p>{lead}</p>
     <div className="truth-strip" aria-label={locale === "zh" ? "真实性边界" : "Evidence boundary"}>
       <span>{health?.ready_for_inference ? truth : (locale === "zh" ? "归档回放" : "Archive replay")}</span>
-      <span>{locale === "zh" ? "2025历史数据" : "2025 historical data"}</span>
-      <span>{locale === "zh" ? "代理标签验证" : "Proxy-label validation"}</span>
+      <span>{locale === "zh" ? "2025历史数据 · 代理标签" : "2025 historical data · proxy labels"}</span>
     </div>
   </header>;
 }
@@ -250,6 +250,13 @@ function AnalysisPage() {
   return (
     <>
       <PageHeading eyebrow="EVENT DIAGNOSTICS / 02" title={t(locale, "analysisTitle")} lead={t(locale, "analysisLead")} truth={locale === "zh" ? "模型与规则派生分析" : "Model- and rule-derived analysis"} />
+      <section className="analysis-summary" aria-label={locale === "zh" ? "事件摘要" : "Event summary"}>
+        <div className="summary-identity"><span>{cityLabel(locale, forecast.city)} · {hazardLabel(locale, forecast.hazard)}</span><strong>{forecast.target_date}</strong></div>
+        <div><span>{locale === "zh" ? "模型概率" : "Model"}</span><strong>{Math.round(forecast.probability * 100)}%</strong></div>
+        <div><span>{locale === "zh" ? "规则风险" : "Rule"}</span><strong>{forecast.reflexive_check?.detection_engine_risk_score.toFixed(2) ?? "—"}</strong></div>
+        <div><span>{locale === "zh" ? "集合分歧" : "Spread"}</span><strong>±{forecast.uncertainty.std.toFixed(3)}</strong></div>
+        <div className={forecast.reflexive_check?.consistency.includes("consistent") ? "summary-status agree" : "summary-status review"}><span>{locale === "zh" ? "复核状态" : "Cross-check"}</span><strong>{forecast.reflexive_check?.consistency.replaceAll("_", " ")}</strong></div>
+      </section>
       <section className="analysis-grid">
         <RiskMap run={selectedRun} />
         <article className="metrics-panel panel">
@@ -344,6 +351,7 @@ function EvidencePage() {
               {mechanisms.map((item, index) => <button key={item.mechanism} className={`network-node assertion ${selectedNode === `mechanism-${item.mechanism}` ? "selected" : ""}`} style={{ left: "42%", top: `${mechanismY(index) / 5.6}%` }} onClick={() => setSelectedNode(`mechanism-${item.mechanism}`)}><small>MECHANISM</small><strong>{item.mechanism.replaceAll("_", " ")}</strong></button>)}
               <button className={`network-node hazard ${selectedNode === "hazard" ? "selected" : ""}`} style={{ left: "70%", top: "50%" }} onClick={() => setSelectedNode("hazard")}><small>HAZARD</small><strong>{hazardLabel(locale, evidence.hazard)}</strong><b>{Math.round(selectedRun.result.forecast.probability * 100)}%</b></button>
               {citations.map((item, index) => <button key={item.id} className={`network-node citation ${selectedNode === item.id ? "selected" : ""}`} style={{ left: "89%", top: `${citationY(index) / 5.6}%` }} onClick={() => setSelectedNode(item.id)}><small>CITATION</small><strong>{locale === "zh" ? "文献记录" : "Literature"}</strong></button>)}
+              <div className="network-selection-card" aria-live="polite"><span>{selected?.type}</span><strong>{selected?.title}</strong><small>{selected?.status}</small></div>
             </div>
           </div>
           <div className="network-boundary"><strong>{locale === "zh" ? "关系边界" : "Edge boundary"}</strong><span>{evidence.claim_boundary}</span></div>
@@ -379,7 +387,12 @@ function AssistantPage() {
   const forecast = selectedRun.result.forecast;
   const decision = selectedRun.result.decision;
   const rule = forecast.reflexive_check;
-  const topIndicators = Object.entries(selectedRun.result.conditions.indicators || selectedRun.result.conditions.conditions || {}).filter(([, value]) => value != null).slice(0, 4);
+  const conditionValues = selectedRun.result.conditions.indicators || selectedRun.result.conditions.conditions || {};
+  const evidenceIndicators = selectedRun.result.evidence.contributing_indicators;
+  const topIndicators = evidenceIndicators
+    .map((name) => [name, conditionValues[name]] as const)
+    .filter(([, value]) => value != null)
+    .slice(0, 4);
   return (
     <>
       <PageHeading eyebrow="DECISION BRIEF / 04" title={t(locale, "assistantTitle")} lead={locale === "zh" ? "它不是另一个聊天页面：系统把当前演练自动整理成结论、依据、分歧、限制和下一步，方便评委快速理解一次运行。" : "This is not another chat screen. It turns the current run into a conclusion, evidence, disagreement, limitations and next steps."} truth={health?.llm_available ? (locale === "zh" ? "自动简报 + 可选 AI 追问" : "Automatic brief + optional AI") : (locale === "zh" ? "确定性自动简报" : "Deterministic automatic brief")} />
@@ -434,9 +447,17 @@ function ReportsPage() {
     <>
       <PageHeading eyebrow="ARTIFACT LIBRARY / 05" title={t(locale, "reportsTitle")} lead={locale === "zh" ? "固定研究材料与每次演练的可下载证据包统一归档。" : "Fixed research materials and run-specific evidence packages in one library."} truth={locale === "zh" ? "运行结果动态生成" : "Generated from run results"} />
       <section className="report-layout">
-        <article className="generate-panel panel">
-          <div className="panel-label"><span>A / CURRENT EXERCISE</span><b>{selectedRun ? "READY" : "NO RUN"}</b></div>
-          {selectedRun?.result ? <><div className="report-run"><span>{selectedRun.target_date}</span><h2>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</h2><p>{Math.round(selectedRun.result.forecast.probability * 100)}% · {selectedRun.result.decision.level}</p></div><div className="report-actions"><button className="primary-button" onClick={createReport}>{t(locale, "generateReport")}<span>↓</span></button><button className="secondary-button" onClick={createCap}>{t(locale, "generateCap")}<span>↓</span></button></div>{generated.report && <div className="downloads"><a href={generated.report} target="_blank">HTML / PDF</a><a href={generated.evidence}>JSON EVIDENCE</a>{generated.cap && <a href={generated.cap}>CAP XML</a>}{generated.note && <p>{generated.note}</p>}</div>}</> : <p>{t(locale, "noSelectedRun")}</p>}
+        <article className="submission-panel panel">
+          <div className="panel-label"><span>A / {locale === "zh" ? "当前演练制品" : "CURRENT RUN ARTIFACTS"}</span><b>{selectedRun ? "READY" : "NO RUN"}</b></div>
+          {selectedRun?.result ? <>
+            <div className="submission-runline"><div><span>{selectedRun.target_date}</span><h2>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</h2></div><p><strong>{Math.round(selectedRun.result.forecast.probability * 100)}%</strong><small>{selectedRun.result.decision.level}</small></p></div>
+            <div className="artifact-grid">
+              <article><span>01</span><h3>{locale === "zh" ? "双语演练报告" : "Bilingual run report"}</h3><p>{locale === "zh" ? "适合打印或保存为PDF，包含结论、指标和边界。" : "Print-ready findings, indicators and boundaries."}</p><button onClick={createReport}>{generated.report ? (locale === "zh" ? "重新生成" : "Regenerate") : t(locale, "generateReport")}<b>→</b></button></article>
+              <article><span>02</span><h3>{locale === "zh" ? "JSON证据包" : "JSON evidence pack"}</h3><p>{locale === "zh" ? "保存模型、规则、证据版本和完整审计字段。" : "Model, rule, evidence versions and audit fields."}</p>{generated.evidence ? <a href={generated.evidence}>{locale === "zh" ? "下载证据包" : "Download evidence"}<b>↓</b></a> : <small>{locale === "zh" ? "随报告一同生成" : "Generated with the report"}</small>}</article>
+              <article><span>03</span><h3>CAP Exercise XML</h3><p>{locale === "zh" ? "仅达到既有阈值时生成，状态始终为Exercise。" : "Available only above the fixed threshold; always Exercise."}</p><button onClick={createCap}>{generated.cap ? (locale === "zh" ? "重新生成" : "Regenerate") : t(locale, "generateCap")}<b>→</b></button></article>
+            </div>
+            {(generated.report || generated.cap || generated.note) && <div className="artifact-downloads">{generated.report && <a href={generated.report} target="_blank">HTML / PDF ↓</a>}{generated.cap && <a href={generated.cap}>CAP XML ↓</a>}{generated.note && <p>{generated.note}</p>}</div>}
+          </> : <p className="submission-empty">{t(locale, "noSelectedRun")}</p>}
         </article>
         <article className="library-panel panel">
           <div className="panel-label"><span>B / DOCUMENT LIBRARY</span><b>{reports.length} ITEMS</b></div>

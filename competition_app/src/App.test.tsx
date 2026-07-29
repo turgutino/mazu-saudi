@@ -105,7 +105,7 @@ describe("historical warning application", () => {
 
   it("renders the application task flow and boundary", async () => {
     render(<BrowserRouter><App /></BrowserRouter>);
-    expect(await screen.findByText("构建一次可审计的历史预警任务")).toBeInTheDocument();
+    expect(await screen.findByText("历史预警演练")).toBeInTheDocument();
     expect(screen.getByText("2025历史数据 · 非业务预警")).toBeInTheDocument();
     expect(await screen.findByText("麦加高温信号")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /运行风险评估/ })).toBeEnabled();
@@ -122,7 +122,7 @@ describe("historical warning application", () => {
   it("switches the primary interface to English", async () => {
     render(<BrowserRouter><App /></BrowserRouter>);
     fireEvent.click(await screen.findByRole("button", { name: "EN" }));
-    expect(screen.getByText("Build one auditable historical warning task")).toBeInTheDocument();
+    expect(screen.getByText("Historical warning exercise")).toBeInTheDocument();
     expect(screen.getByText("2025 historical data · Not an operational warning")).toBeInTheDocument();
   });
 });
