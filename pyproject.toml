@@ -8,8 +8,11 @@ version = "0.1.0"
 description = "Mechanism-constrained prediction of short-duration precipitation extremes"
 requires-python = ">=3.10"
 dependencies = [
+  "fastapi>=0.115,<1",
   "numpy>=1.24",
+  "pydantic>=2.9,<3",
   "torch>=2.0",
+  "uvicorn>=0.30,<1",
 ]
 
 [tool.setuptools.packages.find]
@@ -17,6 +20,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "mazu_saudi.service" = ["web/*.html", "web/*.css", "web/*.js"]
+"mazu_saudi.competition" = ["web_dist/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

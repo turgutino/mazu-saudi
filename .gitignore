@@ -7,3 +7,6 @@ __pycache__/
 reference_code
 .DS_Store
 *.egg-info/
+runtime/
+competition_app/node_modules/
+competition_app/dist/
