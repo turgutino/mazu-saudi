@@ -10,3 +10,5 @@ reference_code
 runtime/
 competition_app/node_modules/
 competition_app/dist/
+research/historical_warning/data/
+research/historical_warning/outputs/

@@ -22,7 +22,10 @@ import warnings
 warnings.filterwarnings("ignore")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATASET = os.path.join(os.environ.get("WARNING_DEMO_DATA_DIR", os.path.join(HERE, "..", "data")), "mazu_dataset.nc")
+DATASET = os.path.join(
+    os.environ.get("MAZU_HISTORICAL_DATA_DIR", os.path.join(HERE, "..", "data")),
+    "mazu_dataset.nc",
+)
 
 sys.path.insert(0, HERE)
 import importlib.util

@@ -13,8 +13,14 @@ import xarray as xr
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RAW_DIR = os.environ.get("WARNING_DEMO_RAW_DIR", os.path.join(HERE, "..", "..", "output_indicators"))
-CONSOLIDATED = os.path.join(os.environ.get("WARNING_DEMO_DATA_DIR", os.path.join(HERE, "..", "data")), "mazu_dataset.nc")
+RAW_DIR = os.environ.get(
+    "MAZU_HISTORICAL_RAW_DIR",
+    os.path.join(HERE, "..", "..", "..", "output_indicators"),
+)
+CONSOLIDATED = os.path.join(
+    os.environ.get("MAZU_HISTORICAL_DATA_DIR", os.path.join(HERE, "..", "data")),
+    "mazu_dataset.nc",
+)
 
 SAMPLE_RAW = os.path.join(RAW_DIR, "saudi_indicators_20250823.nc")
 

@@ -198,7 +198,7 @@ def create_app(
             raise HTTPException(404, "Artifact file not found")
         return FileResponse(path, media_type=artifact["media_type"], filename=artifact["filename"])
 
-    reports_dir = settings.warning_root / "reports"
+    reports_dir = settings.research_assets_root / "reports"
     if reports_dir.is_dir():
         app.mount("/reports-static", StaticFiles(directory=reports_dir), name="reports-static")
     if settings.frontend_dist.is_dir():

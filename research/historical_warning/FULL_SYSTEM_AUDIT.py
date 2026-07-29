@@ -7,7 +7,7 @@
 # pipeline/KG/agent produced. Any mismatch is a FAIL, not a warning.
 #
 # Reproducibility note: Sections A-C and E require the raw 5GB source files
-# locally (path set via the WARNING_DEMO_RAW_DIR env var, defaulting to
+# locally (path set via the MAZU_HISTORICAL_RAW_DIR env var, defaulting to
 # <repo_root>/output_indicators) -- these are NOT included in this
 # repository (see README's Data section), so this script cannot be re-run
 # standalone by someone who only has the repo. The full output/results of
@@ -25,8 +25,14 @@ import warnings
 warnings.filterwarnings("ignore")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-RAW_DIR = os.environ.get("WARNING_DEMO_RAW_DIR", os.path.join(HERE, "..", "output_indicators"))
-CONSOLIDATED = os.path.join(os.environ.get("WARNING_DEMO_DATA_DIR", os.path.join(HERE, "data")), "mazu_dataset.nc")
+RAW_DIR = os.environ.get(
+    "MAZU_HISTORICAL_RAW_DIR",
+    os.path.join(HERE, "..", "..", "output_indicators"),
+)
+CONSOLIDATED = os.path.join(
+    os.environ.get("MAZU_HISTORICAL_DATA_DIR", os.path.join(HERE, "data")),
+    "mazu_dataset.nc",
+)
 KG_JSON = os.path.join(HERE, "kg", "kg_data.json")
 CORPUS_PY = os.path.join(HERE, "kg", "causal", "corpus.py")
 

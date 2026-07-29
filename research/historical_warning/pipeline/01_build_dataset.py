@@ -10,8 +10,8 @@
 #
 # Input : <repo_root>/output_indicators/saudi_indicators_YYYYMMDD.nc  (365 files)
 #         (produced by this repo's compute_indicators.py; override with the
-#         WARNING_DEMO_RAW_DIR env var if the indicators live elsewhere)
-# Output: warning_demo/data/mazu_dataset.nc  +  dataset_report.txt
+#         MAZU_HISTORICAL_RAW_DIR env var if the indicators live elsewhere)
+# Output: research/historical_warning/data/mazu_dataset.nc + dataset_report.txt
 # =============================================================================
 
 import os
@@ -26,8 +26,14 @@ import warnings
 warnings.filterwarnings("ignore")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-IN_DIR  = os.environ.get("WARNING_DEMO_RAW_DIR", os.path.join(HERE, "..", "..", "output_indicators"))
-OUT_DIR = os.environ.get("WARNING_DEMO_DATA_DIR", os.path.join(HERE, "..", "data"))
+IN_DIR = os.environ.get(
+    "MAZU_HISTORICAL_RAW_DIR",
+    os.path.join(HERE, "..", "..", "..", "output_indicators"),
+)
+OUT_DIR = os.environ.get(
+    "MAZU_HISTORICAL_DATA_DIR",
+    os.path.join(HERE, "..", "data"),
+)
 OUT_NC  = os.path.join(OUT_DIR, "mazu_dataset.nc")
 OUT_RPT = os.path.join(OUT_DIR, "dataset_report.txt")
 

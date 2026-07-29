@@ -1,10 +1,9 @@
 import json
-import re
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-KG_DIR = ROOT / "warning_demo" / "kg"
+KG_DIR = ROOT / "research" / "historical_warning" / "kg"
 KG_PATH = KG_DIR / "kg_data.json"
 ASSOCIATIONS_PATH = KG_DIR / "kg_observational_associations.json"
 
@@ -81,19 +80,6 @@ def test_citation_records_disclose_local_paraphrase_verification_scope():
         and edge["review_status"] == "original_publication_wording_not_verified"
         for edge in grounded_edges
     )
-
-
-def test_showcase_counts_match_generated_graph_and_avoids_causal_uplift_claim():
-    graph = load_json(KG_PATH)
-    index = (ROOT / "warning_demo" / "index.html").read_text(encoding="utf-8")
-    readme = (ROOT / "warning_demo" / "README.md").read_text(encoding="utf-8")
-    expected = f"{len(graph['nodes'])} nodes / {len(graph['links'])}"
-
-    assert expected in readme
-    assert f"{len(graph['nodes'])} / {len(graph['links'])}" in index
-    assert "not an automatic causal-discovery system" in index
-    assert "not used to train or score the forecast model" in readme
-    assert not re.search(r"\b60 nodes, 183 edges\b", index + readme)
 
 
 def test_bundled_frontend_kg_data_matches_source_graph_bytes():

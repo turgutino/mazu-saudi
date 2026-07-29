@@ -4,9 +4,9 @@
 
 The competition application is an offline historical-warning exercise over the
 project's frozen 2025 Saudi dataset. It is the primary product entrypoint and
-has absorbed the former `warning_demo` static pages as in-app routes
+has absorbed the former static research pages as in-app routes
 (`/overview`, `/knowledge-graph`, and an `/assistant` historical-examples tab)
-and keeps `warning_demo` only as the source of adapter-loaded scientific assets.
+and reads frozen scientific assets from `research/historical_warning/`.
 The repository-wide lifecycle map is maintained in
 [`APPLICATIONS.md`](../APPLICATIONS.md); the MCR research prototype is not a
 second competition application and its former demo service has been removed.
@@ -20,7 +20,7 @@ The public application has five routes:
 - `/reports`: fixed reports plus generated HTML/PDF, JSON and CAP Exercise artifacts.
 
 Two auxiliary reference routes, `/overview` and `/knowledge-graph`, plus a
-historical-examples tab under `/assistant`, present the former `warning_demo`
+historical-examples tab under `/assistant`, present the former static research
 showcase content without altering the five core workflow routes above.
 
 Every page states that this is a historical exercise, uses 2025 data and is not
@@ -40,8 +40,8 @@ Open `http://127.0.0.1:8765`. The script builds the React application, runs the
 data/model preflight and starts the FastAPI service. Set `MAZU_APP_PORT` to use a
 different local port.
 
-The default dataset is `warning_demo/data/mazu_dataset.nc`. To keep the dataset
-elsewhere, set `WARNING_DEMO_DATA_DIR` to the directory containing
+The default dataset is `research/historical_warning/data/mazu_dataset.nc`. To
+keep the dataset elsewhere, set `MAZU_HISTORICAL_DATA_DIR` to the directory containing
 `mazu_dataset.nc`.
 
 DeepSeek is optional:
@@ -73,8 +73,9 @@ The FastAPI contract is under `/api/v1` and exposes health/configuration,
 scenarios, audited runs, three derived grid layers, event evidence, deterministic
 or optional-LLM analysis, CAP Exercise and report artifacts.
 
-The backend calls the existing verified tools in `warning_demo/agent/tools.py`.
-The city result is therefore numerically identical to the legacy tool output.
+The backend calls the existing verified tools in
+`research/historical_warning/agent/tools.py`.
+The city result is therefore numerically identical to the frozen tool output.
 The map field is evaluated directly from the same saved model, feature order,
 stride and prior-day input date.
 

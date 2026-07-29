@@ -291,3 +291,16 @@
 - 新增删除边界防回归检查；首次聚焦测试因扫描到测试自身断言产生1个误报，收紧到真实
   Python导入语句后通过。最终聚焦测试 `30 passed`，前端 `6 passed`，生产构建成功，
   全仓测试 `113 passed`，仅保留1个既有Starlette TestClient弃用提示。
+- 用户要求改掉 `warning_demo` 并从根本上消除重复应用；启动阶段33。
+- 已确认旧目录的三个HTML页面不再由后端挂载，33张图片与比赛前端媒体完全重复；仍在
+  使用的是模型、数据、Agent工具、证据图和报告等科学资产。
+- 架构决策收敛为将科学资产归入 `research/historical_warning/`，删除旧页面、页面生成器
+  和重复图片，比赛产品仍唯一保留在 `competition_app/` + `mazu_saudi.competition`。
+- 首轮聚焦测试 `17 passed, 1 failed`；失败仅因科学资产 README 中 “has no web entry
+  point” 跨行，已将合同测试改为规范化空白后验证语义。
+- 修正后架构、比赛后端和证据图聚焦测试 `18 passed`；前端 Vitest `6 passed`，Vite
+  生产构建成功。
+- 完成所有迁移后 Python 编译检查通过；conda `ml` 全仓测试 `119 passed`，仅保留1个
+  既有 Starlette TestClient 弃用提示。
+- 阶段33完成：唯一应用保留为 `competition_app/` + `mazu_saudi.competition`；历史预警
+  能力收拢为无网页入口的 `research/historical_warning/` 科学资产。

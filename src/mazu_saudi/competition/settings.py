@@ -16,21 +16,25 @@ class AppSettings:
     runtime_root: Path = REPOSITORY_ROOT / "runtime" / "competition_app"
 
     @property
-    def warning_root(self) -> Path:
-        return self.repository_root / "warning_demo"
+    def research_assets_root(self) -> Path:
+        return self.repository_root / "research" / "historical_warning"
 
     @property
     def data_file(self) -> Path:
-        configured = os.environ.get("WARNING_DEMO_DATA_DIR")
-        return Path(configured) / "mazu_dataset.nc" if configured else self.warning_root / "data" / "mazu_dataset.nc"
+        configured = os.environ.get("MAZU_HISTORICAL_DATA_DIR")
+        return (
+            Path(configured) / "mazu_dataset.nc"
+            if configured
+            else self.research_assets_root / "data" / "mazu_dataset.nc"
+        )
 
     @property
     def model_root(self) -> Path:
-        return self.warning_root / "agent" / "saved_models"
+        return self.research_assets_root / "agent" / "saved_models"
 
     @property
     def graph_file(self) -> Path:
-        return self.warning_root / "kg" / "kg_data.json"
+        return self.research_assets_root / "kg" / "kg_data.json"
 
     @property
     def database_file(self) -> Path:

@@ -219,7 +219,7 @@ def test_legacy_mount_is_removed_and_reports_static_is_narrowly_scoped(tmp_path)
     legacy_response = client.get("/legacy/index.html")
     assert "MAZU-FENGYUN" not in legacy_response.text
 
-    reports_dir = settings.warning_root / "reports"
+    reports_dir = settings.research_assets_root / "reports"
     if reports_dir.is_dir():
         known_pdfs = list(reports_dir.glob("*.pdf"))
         if known_pdfs:

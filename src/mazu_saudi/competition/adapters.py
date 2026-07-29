@@ -35,7 +35,7 @@ class HistoricalToolAdapter:
 
     def _load_tools(self):
         if self._tools is None:
-            path = self.settings.warning_root / "agent" / "tools.py"
+            path = self.settings.research_assets_root / "agent" / "tools.py"
             spec = importlib.util.spec_from_file_location("mazu_historical_tools", path)
             if spec is None or spec.loader is None:
                 raise RuntimeError("Unable to load historical warning tools")

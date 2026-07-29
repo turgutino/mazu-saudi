@@ -600,3 +600,20 @@
   `warning_demo` 科学资产均未删除；此次删除的是未被比赛链路消费的产品外壳。
 - 删除后的聚焦后端测试、前端测试、生产构建和全仓测试均通过，说明当前 8765 应用、
   文档合同和研究资产边界仍完整。
+
+## 历史预警资产收拢（阶段 33）
+
+- 用户指出 `warning_demo` 与 `competition_app` 在命名和概念上混淆，本质诉求是仓库中
+  不要存在多个重复应用。
+- 代码核对确认 `competition_app/` + `src/mazu_saudi/competition/` 是唯一当前产品。
+- 旧目录中仍被主应用读取的是数据、已训练模型、Agent 工具、知识证据和报告；三个 HTML
+  页面已不再挂载。
+- `warning_demo/img/` 的 33 个文件与 `competition_app/public/media/` 中对应文件逐字节
+  一致，是可删除的重复副本。
+- 领域术语收敛为“比赛应用”和“历史预警研究资产”；后者应迁移到
+  `research/historical_warning/`，不得继续拥有可启动页面或页面生成器。
+- 重命名后本地 `mazu_dataset.nc` 仍位于研究资产的 `data/` 中并被 Git 忽略；主应用
+  预检、动态工具导入、证据图和报告目录均解析到新路径。
+- 根目录应用面扫描只发现 `competition_app/index.html`、`package.json` 和
+  `vite.config.ts`；研究资产目录不再包含 HTML、图片目录或页面生成脚本。
+- 聚焦架构/后端/证据测试、前端测试、生产构建和 119 项全仓测试全部通过。

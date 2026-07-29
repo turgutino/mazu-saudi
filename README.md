@@ -18,9 +18,9 @@
 ```
 
 仓库中其他可视化界面的状态、入口和依赖关系见
-[应用与运行入口](APPLICATIONS.md)。比赛功能只进入上述主应用；`warning_demo` 的静态展示
-内容已并入主应用（项目总览、知识图谱、助手历史示例），该目录继续保留被主应用通过适配器
-复用的科学资产；MCR-Precip 仅保留科研内核与实验资产。
+[应用与运行入口](APPLICATIONS.md)。比赛功能只进入上述主应用；历史模型、数据、工具和
+证据统一放在 `research/historical_warning/`，作为非应用的只读科学资产由后端适配器复用；
+MCR-Precip 仅保留科研内核与实验资产。
 
 ## Framework Design
 
@@ -93,7 +93,7 @@
 |-- README.md                    # Project overview and usage
 |-- AGENTS.md                    # Repository development guidelines
 |-- CONTEXT.md                   # Domain vocabulary (forecast origin, valid time, labels...)
-|-- APPLICATIONS.md              # Current product, research prototype, and archive lifecycle
+|-- APPLICATIONS.md              # The single product entrypoint and its dependencies
 |-- VARIABLES.md                 # DS1 variables and Saudi extreme weather relevance
 |-- saudi_data_extract.py        # Saudi region extraction script (DS1-DS4, DS10, DS11)
 |-- compute_indicators.py        # Extreme-event indicator computation from clipped data
@@ -106,21 +106,23 @@
 |-- src/mazu_saudi/              # Installable package
 |   |-- competition/             # FastAPI backend for the competition product
 |   `-- mcr_precip/              # MCR-Precip model, losses, training, evaluation
+|-- research/
+|   `-- historical_warning/      # Models, data, tools and evidence; not an application
 |-- tests/                       # Unit and contract tests
-|-- warning_demo/                # Legacy pages plus models/data/tools reused by the competition adapter
 `-- reference_code/               # Untracked, read-only reference projects (design input only)
 ```
 
 ## Data Pipeline Stages
 
-`saudi_data_extract.py`、`compute_indicators.py` 与 `warning_demo/pipeline/01_build_dataset.py`
+`saudi_data_extract.py`、`compute_indicators.py` 与
+`research/historical_warning/pipeline/01_build_dataset.py`
 是三个衔接而非重复的流水线阶段：
 
 | Stage | Script | Input | Output | 职责 |
 |-------|--------|-------|--------|------|
 | 1. 区域提取 | `saudi_data_extract.py` | 全球气象产品原始文件 | `output_saudi/`（按数据集/日期分区的原始变量 GRIB2/NetCDF） | 从全球产品中裁剪沙特及周边区域 |
 | 2. 指标计算 | `compute_indicators.py` | `output_saudi/` | `output_indicators/saudi_indicators_YYYYMMDD.nc`（逐日，90+ 变量） | 唯一的科学计算层：CAPE/CIN、IVT 水汽输送、850hPa 风切变/涡度、DS8 气候态距平、热浪判定、`flash_flood_risk` 等 |
-| 3. 建模数据集整合 | `warning_demo/pipeline/01_build_dataset.py` | `output_indicators/*.nc`（365 个逐日文件） | `warning_demo/data/mazu_dataset.nc`（单一 `time x lat x lon` 数据集） | 挑选 16 个核心特征子集、合并 365 个文件为一个数据集，供下游 GBDT/STGNN 建模使用；不重新计算任何指标 |
+| 3. 建模数据集整合 | `research/historical_warning/pipeline/01_build_dataset.py` | `output_indicators/*.nc`（365 个逐日文件） | `research/historical_warning/data/mazu_dataset.nc`（单一 `time x lat x lon` 数据集） | 挑选 16 个核心特征子集、合并 365 个文件为一个数据集，供下游 GBDT/STGNN 建模使用；不重新计算任何指标 |
 
 第 3 步用 `netCDF4` 选择性读取代替 `xarray`（约 0.05s/文件 vs 13s/文件），仅做子集抽取和合并，性能优化用途。
 

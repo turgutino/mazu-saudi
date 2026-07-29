@@ -20,21 +20,17 @@
 
 默认访问 `http://127.0.0.1:8765`。比赛演示、截图、视频和功能开发都应从这里开始。
 
-## 2. 历史科学资产（原 Legacy Archive）
+## 2. 历史预警研究资产
 
-**状态：科学资产来源 + 已迁移的展示内容**
+**状态：非应用 / 主应用的只读科学依赖**
 
-`warning_demo/` 同时包含两类内容：
+`research/historical_warning/` 保存经过核验的模型、工具、数据、证据、实验和报告。
+比赛后端通过适配器读取 `agent/tools.py`，并仅把 `reports/` 挂载到
+`/reports-static`。
 
-- `index.html`、`kg_view.html`、`agent_view.html`：旧版静态研究展示。这些页面的内容已
-  迁移进 `competition_app`（`/overview`、`/knowledge-graph`、`/assistant` 的历史示例标
-  签），不再通过 `/legacy` 挂载访问；文件本身作为历史构建产物保留在仓库中，作为 Legacy
-  Archive 的原始来源，不再对外提供 HTTP 访问。
-- `agent/tools.py`、`agent/saved_models/`、`data/`、`kg/`、`model/`、`reports/`：经过核验
-  的模型、工具、数据、证据资产和报告 PDF，比赛后端通过适配器（`agent/tools.py`）或窄
-  作用域静态挂载（`/reports-static`，仅 `reports/`）读取。
-
-因此 `warning_demo/` 不能整体删除，但新的产品页面也不应继续写入这里。
+旧静态页面、页面生成器和重复图片已经删除；有用的展示内容和媒体由
+`competition_app/` 统一维护。该研究目录没有 HTML 入口、服务启动脚本或独立端口，
+不得在其中新增产品页面。
 
 ## 不是应用的目录
 
@@ -51,8 +47,8 @@
 competition_app
   → /api/v1
   → mazu_saudi.competition
-  → warning_demo/agent/tools.py
-  → warning_demo/{data, saved_models, kg}
+  → research/historical_warning/agent/tools.py
+  → research/historical_warning/{data, agent/saved_models, kg}
 
 mazu_saudi.competition
   → runtime/competition_app

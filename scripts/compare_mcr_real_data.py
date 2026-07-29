@@ -189,7 +189,10 @@ def render_report(result):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", default=str(ROOT / "warning_demo" / "data" / "mazu_dataset.nc"))
+    parser.add_argument(
+        "--dataset",
+        default=str(ROOT / "research" / "historical_warning" / "data" / "mazu_dataset.nc"),
+    )
     parser.add_argument("--orography-source")
     parser.add_argument("--output-dir", default=str(ROOT / "experiments" / "mcr_precip_2025_proxy"))
     parser.add_argument("--stride", type=int, default=4)
