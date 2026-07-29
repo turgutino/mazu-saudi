@@ -212,3 +212,28 @@ def test_optional_llm_reads_frozen_result_and_falls_back_safely(tmp_path, monkey
     )
     assert fallback.json()["mode"] == "deterministic_fallback"
     assert "historical exercise" in fallback.json()["content"]
+
+
+def test_legacy_mount_is_removed_and_reports_static_is_narrowly_scoped(tmp_path):
+    client, settings = make_client(tmp_path)
+    legacy_response = client.get("/legacy/index.html")
+    assert "MAZU-FENGYUN" not in legacy_response.text
+
+    reports_dir = settings.warning_root / "reports"
+    if reports_dir.is_dir():
+        known_pdfs = list(reports_dir.glob("*.pdf"))
+        if known_pdfs:
+            response = client.get(f"/reports-static/{known_pdfs[0].name}")
+            assert response.status_code == 200
+    unrelated = client.get("/reports-static/does-not-exist.pdf")
+    assert unrelated.status_code == 404
+
+
+def test_report_library_urls_use_reports_static_mount_only():
+    from mazu_saudi.competition.reports import REPORT_LIBRARY
+
+    ids = [report["id"] for report in REPORT_LIBRARY]
+    assert "legacy-story" not in ids
+    for report in REPORT_LIBRARY:
+        assert report["url"].startswith("/reports-static/")
+        assert "/legacy/" not in report["url"]
