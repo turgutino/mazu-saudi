@@ -88,7 +88,7 @@
   },
   "@id": "urn:mazu-saudi:ontology",
   "@type": "owl:Ontology",
-  "versionInfo": "1.0.0",
+  "versionInfo": "1.1.0",
   "labelEn": "MAZU Global Observational Mechanism Applicability Ontology",
   "labelZh": "MAZU 全球观测机制适用性本体",
   "claimBoundary": "The ontology separates observations, derived indicator states, observational assertions, expert or literature evidence, and forecast constraints. Data-derived associations are never causal by default and cannot be treated as observed hazard events.",
@@ -539,6 +539,42 @@
       "range": "xsd:decimal"
     },
     {
+      "@id": "concept:NAFPMonthlyAtmosphericProduct",
+      "@type": "mazu:DataSource",
+      "module": "observation",
+      "labelEn": "NAFP monthly atmospheric product",
+      "labelZh": "NAFP月尺度大气产品",
+      "definitionEn": "The monthly global atmospheric product used only as background context in the first multi-source graph.",
+      "definitionZh": "在第一阶段多源图谱中只作为背景环境使用的全球月尺度大气产品。"
+    },
+    {
+      "@id": "concept:NAFPDailyAtmosphericProduct",
+      "@type": "mazu:DataSource",
+      "module": "observation",
+      "labelEn": "NAFP daily atmospheric product",
+      "labelZh": "NAFP日尺度大气产品",
+      "definitionEn": "The daily global analysis, accumulation, maximum, and surface products used to derive primary weather states.",
+      "definitionZh": "用于派生主要天气状态的全球逐日分析、累计、最高值和地面产品。"
+    },
+    {
+      "@id": "concept:CODASSeaSurfaceTemperatureProduct",
+      "@type": "mazu:DataSource",
+      "module": "observation",
+      "labelEn": "CODAS sea-surface-temperature product",
+      "labelZh": "CODAS海表温度产品",
+      "definitionEn": "The six-hourly global analysed sea-surface-temperature product used as ocean background context.",
+      "definitionZh": "作为海洋背景环境使用的全球六小时分析海表温度产品。"
+    },
+    {
+      "@id": "concept:FYMERGSatellitePrecipitationProduct",
+      "@type": "mazu:DataSource",
+      "module": "observation",
+      "labelEn": "FYMERG satellite precipitation product",
+      "labelZh": "FYMERG卫星降水产品",
+      "definitionEn": "The half-hourly multi-source merged satellite precipitation product used for independent cross-source consistency evidence.",
+      "definitionZh": "用于形成独立跨源一致性证据的半小时多源融合卫星降水产品。"
+    },
+    {
       "@id": "concept:DailyPrecipitation",
       "@type": "mazu:DerivedIndicator",
       "module": "indicator",
@@ -549,6 +585,52 @@
       "cfStandardName": "precipitation_amount",
       "quantityKind": "quantitykind:Length",
       "unit": "uom:MilliM"
+    },
+    {
+      "@id": "concept:SatelliteDailyPrecipitation",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Satellite daily precipitation",
+      "labelZh": "卫星逐日降水量",
+      "definitionEn": "Daily precipitation accumulated from available half-hourly FYMERG precipitation-rate observations.",
+      "definitionZh": "由可用FYMERG半小时降水率观测累计得到的逐日降水量。",
+      "cfStandardName": "precipitation_amount",
+      "quantityKind": "quantitykind:Length",
+      "unit": "uom:MilliM"
+    },
+    {
+      "@id": "concept:SeaSurfaceTemperature",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Sea surface temperature",
+      "labelZh": "海表温度",
+      "definitionEn": "Daily mean analysed sea-surface temperature used as environmental context.",
+      "definitionZh": "作为环境上下文使用的逐日平均分析海表温度。",
+      "cfStandardName": "sea_surface_temperature",
+      "quantityKind": "quantitykind:Temperature",
+      "unit": "uom:DEG_C"
+    },
+    {
+      "@id": "concept:MonthlyPrecipitationBackground",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Monthly precipitation background",
+      "labelZh": "月降水背景",
+      "definitionEn": "Monthly accumulated precipitation used to describe background wetness without becoming a daily event state.",
+      "definitionZh": "用于描述背景湿润程度、但不作为逐日事件状态的月累计降水。",
+      "quantityKind": "quantitykind:Length",
+      "unit": "uom:MilliM"
+    },
+    {
+      "@id": "concept:MonthlyMaximumTemperatureBackground",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Monthly maximum temperature background",
+      "labelZh": "月最高温背景",
+      "definitionEn": "Monthly maximum near-surface temperature used as thermal background without becoming a daily event state.",
+      "definitionZh": "用于描述热力背景、但不作为逐日事件状态的月最高近地面气温。",
+      "quantityKind": "quantitykind:Temperature",
+      "unit": "uom:DEG_C"
     },
     {
       "@id": "concept:IntegratedVaporTransport",

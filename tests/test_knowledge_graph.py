@@ -38,6 +38,26 @@ def write_indicator_days(root: Path, count: int = 36) -> None:
                 "tmax_c": (("latitude", "longitude"), np.full(shape, 30.0)),
                 "wind10_speed": (("latitude", "longitude"), np.full(shape, 5.0)),
                 "vpd_kpa": (("latitude", "longitude"), np.full(shape, 1.0)),
+                "satellite_precip_total": (
+                    ("latitude", "longitude"),
+                    rain * 1.1,
+                ),
+                "satellite_precip_coverage": (
+                    ("latitude", "longitude"),
+                    np.ones(shape),
+                ),
+                "sst_c": (
+                    ("latitude", "longitude"),
+                    np.full(shape, 25.0 + phase / 10.0),
+                ),
+                "monthly_precip_total": (
+                    ("latitude", "longitude"),
+                    np.full(shape, 60.0),
+                ),
+                "monthly_tmax_c": (
+                    ("latitude", "longitude"),
+                    np.full(shape, 35.0),
+                ),
             },
             coords={"latitude": latitudes, "longitude": longitudes},
         )
@@ -87,7 +107,7 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
     store = KnowledgeGraphStore(database)
     latest = store.latest_build()
     assert latest["build_id"] == result.build_id
-    assert latest["ontology_version"] == "1.0.0"
+    assert latest["ontology_version"] == "1.1.0"
     assert latest["scope_label"] == "synthetic-2025"
     view = store.graph_view()
     assert view["build"]["build_id"] == result.build_id
@@ -99,6 +119,19 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
     assert any(
         edge["predicate_iri"] == "urn:mazu-saudi:ontology:sourceState"
         for edge in view["edges"]
+    )
+    assert any(
+        edge["predicate_iri"] == "http://www.w3.org/ns/prov#used"
+        and edge["target_id"]
+        == "urn:mazu-saudi:concept:FYMERGSatellitePrecipitationProduct"
+        for edge in view["edges"]
+    )
+    assert any(
+        "sst_c" in node["properties"].get("multi_source_context", {})
+        and "data_availability"
+        in node["properties"].get("multi_source_context", {})
+        for node in view["nodes"]
+        if node["ontology_class_iri"] == "urn:mazu-saudi:ontology:WeatherEpisode"
     )
 
     with sqlite3.connect(database) as connection:

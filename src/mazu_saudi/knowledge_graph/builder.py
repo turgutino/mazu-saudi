@@ -20,6 +20,35 @@ from .store import KnowledgeGraphStore, PROV_WAS_GENERATED_BY
 
 MAZU = "urn:mazu-saudi:ontology:"
 CONCEPT = "urn:mazu-saudi:concept:"
+PROV_USED = "http://www.w3.org/ns/prov#used"
+PROV_WAS_DERIVED_FROM = "http://www.w3.org/ns/prov#wasDerivedFrom"
+
+AUXILIARY_INDICATORS = (
+    "satellite_precip_total",
+    "satellite_precip_coverage",
+    "sst_c",
+    "monthly_precip_total",
+    "monthly_tmax_c",
+)
+DATA_SOURCE_IRIS = {
+    "ds1": f"{CONCEPT}NAFPMonthlyAtmosphericProduct",
+    "ds2": f"{CONCEPT}NAFPDailyAtmosphericProduct",
+    "ds4": f"{CONCEPT}CODASSeaSurfaceTemperatureProduct",
+    "ds10": f"{CONCEPT}FYMERGSatellitePrecipitationProduct",
+}
+INDICATOR_SOURCE_KEYS = {
+    "ivt": ("ds2",),
+    "cape": ("ds2",),
+    "pwat": ("ds2",),
+    "daily_precip_total": ("ds2",),
+    "tmax_c": ("ds2",),
+    "wind10_speed": ("ds2",),
+    "vpd_kpa": ("ds2",),
+    "satellite_precip_total": ("ds10",),
+    "sst_c": ("ds4",),
+    "monthly_precip_total": ("ds1",),
+    "monthly_tmax_c": ("ds1",),
+}
 
 
 @dataclass(frozen=True)
@@ -247,8 +276,11 @@ def aggregate_daily_indicators(
     except ImportError as exc:  # pragma: no cover - environment error
         raise RuntimeError("xarray is required to read indicator NetCDF files") from exc
 
-    indicator_names = tuple(
+    required_indicator_names = tuple(
         dict.fromkeys(indicator for spec in state_specs for indicator in spec.indicators)
+    )
+    indicator_names = tuple(
+        dict.fromkeys((*required_indicator_names, *AUXILIARY_INDICATORS))
     )
     nlat, nlon = _tile_layout(tile_degrees)
     tile_count = nlat * nlon
@@ -278,7 +310,6 @@ def aggregate_daily_indicators(
             for indicator in indicator_names:
                 if indicator not in dataset:
                     continue
-                indicator_file_counts[indicator] += 1
                 array = dataset[indicator]
                 extra_dims = set(array.dims) - {lat_name, lon_name}
                 if extra_dims:
@@ -288,6 +319,8 @@ def aggregate_daily_indicators(
                     )
                 raw = np.asarray(array.transpose(lat_name, lon_name).values, dtype=np.float64).ravel()
                 valid = np.isfinite(raw) & (np.abs(raw) < 1.0e20)
+                if np.any(valid):
+                    indicator_file_counts[indicator] += 1
                 sums = np.bincount(
                     tile_ids[valid],
                     weights=raw[valid],
@@ -306,8 +339,8 @@ def aggregate_daily_indicators(
     active_ids = np.flatnonzero(active)
     absent = [
         indicator
-        for indicator, count in indicator_file_counts.items()
-        if count == 0
+        for indicator in required_indicator_names
+        if indicator_file_counts[indicator] == 0
     ]
     if absent:
         raise ValueError(f"Required indicators are absent from every input file: {absent}")
@@ -586,6 +619,87 @@ def _edge(
     }
 
 
+def _episode_multisource_context(
+    aggregated: AggregatedIndicators,
+    episode: Episode,
+) -> dict[str, Any]:
+    day_slice = slice(episode.start_index, episode.end_index + 1)
+    tile_index = episode.tile_index
+    summaries: dict[str, Any] = {}
+    duration_days = episode.end_index - episode.start_index + 1
+    for indicator in AUXILIARY_INDICATORS:
+        if indicator not in aggregated.values:
+            continue
+        sample = aggregated.values[indicator][day_slice, tile_index]
+        finite = sample[np.isfinite(sample)]
+        if finite.size == 0:
+            continue
+        summaries[indicator] = {
+            "mean": float(np.mean(finite)),
+            "min": float(np.min(finite)),
+            "max": float(np.max(finite)),
+            "sample_days": int(finite.size),
+            "source_products": [
+                DATA_SOURCE_IRIS[key]
+                for key in INDICATOR_SOURCE_KEYS.get(indicator, ())
+            ],
+            }
+
+    def available_days(indicator: str) -> int:
+        values = aggregated.values.get(indicator)
+        if values is None:
+            return 0
+        return int(np.isfinite(values[day_slice, tile_index]).sum())
+
+    summaries["data_availability"] = {
+        "episode_days": duration_days,
+        "ds1_monthly_background_days": available_days("monthly_precip_total"),
+        "ds2_daily_precipitation_days": available_days("daily_precip_total"),
+        "ds4_sst_days": available_days("sst_c"),
+        "ds10_satellite_precipitation_days": available_days(
+            "satellite_precip_total"
+        ),
+    }
+
+    if (
+        "daily_precip_total" in aggregated.values
+        and "satellite_precip_total" in aggregated.values
+        and "satellite_precip_coverage" in aggregated.values
+    ):
+        analysis = aggregated.values["daily_precip_total"][day_slice, tile_index]
+        satellite = aggregated.values["satellite_precip_total"][day_slice, tile_index]
+        coverage = aggregated.values["satellite_precip_coverage"][day_slice, tile_index]
+        paired = (
+            np.isfinite(analysis)
+            & np.isfinite(satellite)
+            & np.isfinite(coverage)
+            & (coverage >= 0.95)
+        )
+        if np.any(paired):
+            difference = satellite[paired] - analysis[paired]
+            ratio = np.divide(
+                satellite[paired],
+                analysis[paired],
+                out=np.full(int(paired.sum()), np.nan, dtype=np.float32),
+                where=np.abs(analysis[paired]) > 1e-6,
+            )
+            summaries["precipitation_source_agreement"] = {
+                "paired_days": int(paired.sum()),
+                "mean_satellite_minus_analysis_mm": float(np.mean(difference)),
+                "mean_absolute_difference_mm": float(np.mean(np.abs(difference))),
+                "mean_satellite_to_analysis_ratio": (
+                    float(np.nanmean(ratio))
+                    if np.any(np.isfinite(ratio))
+                    else None
+                ),
+                "claim_boundary": (
+                    "Cross-source consistency diagnostic; neither source is treated "
+                    "as an independently verified hazard event."
+                ),
+            }
+    return summaries
+
+
 def _materialize_records(
     *,
     build_id: str,
@@ -612,13 +726,44 @@ def _materialize_records(
             "spatial_key": config.scope_label,
             "start_time": aggregated.dates[0].isoformat(),
             "end_time": aggregated.dates[-1].isoformat(),
-        "properties": {"config": asdict(config)},
+            "properties": {
+                "config": asdict(config),
+                "source_file_coverage": aggregated.file_coverage,
+            },
         }
     ]
     edges: list[dict[str, Any]] = []
     evidence_rows: list[dict[str, Any]] = []
     threshold_rows: list[dict[str, Any]] = []
     edge_sequence = 0
+
+    used_source_keys = {"ds2"}
+    for indicator in AUXILIARY_INDICATORS:
+        if aggregated.file_coverage.get(indicator, 0.0) <= 0:
+            continue
+        used_source_keys.update(INDICATOR_SOURCE_KEYS.get(indicator, ()))
+    for source_key in sorted(used_source_keys):
+        edge_sequence += 1
+        edges.append(
+            _edge(
+                build_id,
+                edge_sequence,
+                run_id,
+                PROV_USED,
+                DATA_SOURCE_IRIS[source_key],
+                {
+                    "role": source_key,
+                    "file_coverage": max(
+                        (
+                            aggregated.file_coverage.get(indicator, 0.0)
+                            for indicator, keys in INDICATOR_SOURCE_KEYS.items()
+                            if source_key in keys
+                        ),
+                        default=0.0,
+                    ),
+                },
+            )
+        )
 
     context_ids: dict[str, str] = {}
     for season in ("DJF", "MAM", "JJA", "SON"):
@@ -690,6 +835,7 @@ def _materialize_records(
         )
         state_id = f"{episode_id}:state"
         episode_node_ids[episode_index] = episode_id
+        multisource_context = _episode_multisource_context(aggregated, episode)
         indicator_summary = {
             indicator: {
                 "mean": float(
@@ -735,6 +881,7 @@ def _materialize_records(
                             float(aggregated.tile_longitudes[episode.tile_index]),
                         ],
                         "duration_days": episode.end_index - episode.start_index + 1,
+                        "multi_source_context": multisource_context,
                     },
                 },
                 {
@@ -747,6 +894,7 @@ def _materialize_records(
                         "season": episode.season,
                         "indicators": indicator_summary,
                         "threshold_rule": f"tile-season quantile {spec.quantile:.2f}",
+                        "multi_source_context": multisource_context,
                     },
                 },
             ]
@@ -776,6 +924,27 @@ def _materialize_records(
                         indicator_iri,
                     )
                 )
+        source_keys = {
+            source_key
+            for indicator in spec.indicators
+            for source_key in INDICATOR_SOURCE_KEYS.get(indicator, ())
+        }
+        if (
+            "daily_precip_total" in spec.indicators
+            and "satellite_precip_total" in multisource_context
+        ):
+            source_keys.add("ds10")
+        for source_key in sorted(source_keys):
+            edge_sequence += 1
+            edges.append(
+                _edge(
+                    build_id,
+                    edge_sequence,
+                    state_id,
+                    PROV_WAS_DERIVED_FROM,
+                    DATA_SOURCE_IRIS[source_key],
+                )
+            )
 
     for association_index, association in enumerate(associations):
         source = state_specs[association.source_state_index]
@@ -901,6 +1070,7 @@ def build_statistical_knowledge_graph(
         f"{MAZU}supportedByEpisode",
         f"{MAZU}contradictedByEpisode",
         f"{MAZU}derivedFromIndicator",
+        *DATA_SOURCE_IRIS.values(),
     }
     for spec in state_specs:
         required_ontology_resources.update(
@@ -917,9 +1087,15 @@ def build_statistical_knowledge_graph(
         state_specs,
         tile_degrees=config.tile_degrees,
     )
+    required_indicators = {
+        indicator
+        for spec in state_specs
+        for indicator in spec.indicators
+    }
     insufficient_coverage = {
         indicator: coverage
         for indicator, coverage in aggregated.file_coverage.items()
+        if indicator in required_indicators
         if coverage < config.min_indicator_file_coverage
     }
     if insufficient_coverage:

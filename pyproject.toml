@@ -16,6 +16,7 @@ dependencies = [
   "xarray>=2024.1",
   "netCDF4>=1.6",
   "eccodes>=2.37",
+  "h5py>=3.10",
 ]
 
 [tool.setuptools.packages.find]

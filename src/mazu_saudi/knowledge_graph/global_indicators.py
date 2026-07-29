@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import date, timedelta
 import json
 import math
@@ -13,7 +13,7 @@ import numpy as np
 
 
 GRAVITY = 9.80665
-PIPELINE_VERSION = "1"
+PIPELINE_VERSION = "2"
 REQUIRED_OUTPUT_VARIABLES = (
     "ivt",
     "cape",
@@ -23,6 +23,14 @@ REQUIRED_OUTPUT_VARIABLES = (
     "wind10_speed",
     "vpd_kpa",
 )
+MULTISOURCE_OUTPUT_VARIABLES = (
+    "satellite_precip_total",
+    "satellite_precip_coverage",
+    "sst_c",
+    "monthly_precip_total",
+    "monthly_tmax_c",
+)
+ALL_OUTPUT_VARIABLES = REQUIRED_OUTPUT_VARIABLES + MULTISOURCE_OUTPUT_VARIABLES
 SOURCE_PATTERNS = {
     "analysis": "ART_ATM_GLB_0P10_DAY_ANAL_{day}.grib2",
     "accumulation": "ART_SINGLE_GLB_0P10_DAY_ACC_{day}.grib2",
@@ -54,6 +62,9 @@ class GlobalIndicatorConfig:
 class DailySource:
     day: str
     files: dict[str, Path | None]
+    sst_files: tuple[Path, ...] = ()
+    satellite_files: tuple[Path, ...] = ()
+    monthly_files: dict[str, Path | None] = field(default_factory=dict)
 
     @property
     def missing_products(self) -> tuple[str, ...]:
@@ -66,6 +77,7 @@ class SourceAudit:
     day_count: int
     complete_day_count: int
     missing_source_days: dict[str, tuple[str, ...]]
+    source_coverage_days: dict[str, int]
 
 
 @dataclass
@@ -185,7 +197,11 @@ def discover_daily_sources(
     data_root: Path,
     config: GlobalIndicatorConfig,
 ) -> list[DailySource]:
-    daily_root = Path(data_root) / "2_NAFP_ART_SFC_GLB_DAY_PROD"
+    root = Path(data_root)
+    daily_root = root / "2_NAFP_ART_SFC_GLB_DAY_PROD"
+    sst_root = root / "4_OCEA_FUS_DAY_PRO"
+    satellite_root = root / "10_SATE_PRECIPITATION_PRODUCT_2025"
+    monthly_root = root / "1_NAFP_ART_ATM_GLB_MONTH_PROD"
     sources: list[DailySource] = []
     for day in iter_year_days(config.year):
         day_root = daily_root / day
@@ -193,7 +209,37 @@ def discover_daily_sources(
         for product, template in SOURCE_PATTERNS.items():
             candidate = day_root / template.format(day=day)
             files[product] = candidate if candidate.is_file() else None
-        sources.append(DailySource(day=day, files=files))
+        sst_files = tuple(
+            sorted(
+                path
+                for path in (sst_root / day).glob("*.nc")
+                if path.is_file() and not path.name.startswith("._")
+            )
+        )
+        satellite_files = tuple(
+            sorted(
+                path
+                for path in (satellite_root / day[:6]).glob(f"*_S_{day}????_E*.h5")
+                if path.is_file() and not path.name.startswith("._")
+            )
+        )
+        month_root = monthly_root / day[:6]
+        monthly_files = {}
+        for product, pattern in {
+            "monthly_accumulation": f"ART_SINGLE_GLB_0P10_MONTH_ACC_{day[:6]}.grib2",
+            "monthly_maximum": f"ART_SINGLE_GLB_0P10_MONTH_MAX_{day[:6]}.grib2",
+        }.items():
+            candidate = month_root / pattern
+            monthly_files[product] = candidate if candidate.is_file() else None
+        sources.append(
+            DailySource(
+                day=day,
+                files=files,
+                sst_files=sst_files,
+                satellite_files=satellite_files,
+                monthly_files=monthly_files,
+            )
+        )
     return sources
 
 
@@ -217,6 +263,21 @@ def audit_sources(
         day_count=len(records),
         complete_day_count=len(records) - len(missing),
         missing_source_days=missing,
+        source_coverage_days={
+            "ds1_monthly_background": sum(
+                1
+                for source in records
+                if source.monthly_files
+                and all(source.monthly_files.values())
+            ),
+            "ds2_daily_atmosphere": len(records) - len(missing),
+            "ds4_sea_surface_temperature": sum(
+                1 for source in records if len(source.sst_files) == 4
+            ),
+            "ds10_satellite_precipitation": sum(
+                1 for source in records if len(source.satellite_files) == 48
+            ),
+        },
     )
 
 
@@ -225,18 +286,27 @@ def output_path(output_dir: Path, day: str) -> Path:
 
 
 def _source_manifest(source: DailySource) -> str:
+    def describe(path: Path | None) -> dict[str, Any] | None:
+        if path is None:
+            return None
+        return {
+            "path": str(path),
+            "size": path.stat().st_size,
+            "mtime_ns": path.stat().st_mtime_ns,
+        }
+
     return json.dumps(
         {
-            name: (
-                {
-                    "path": str(source_path),
-                    "size": source_path.stat().st_size,
-                    "mtime_ns": source_path.stat().st_mtime_ns,
-                }
-                if source_path is not None
-                else None
-            )
-            for name, source_path in source.files.items()
+            "ds2": {
+                name: describe(source_path)
+                for name, source_path in source.files.items()
+            },
+            "ds1": {
+                name: describe(source_path)
+                for name, source_path in source.monthly_files.items()
+            },
+            "ds4": [describe(path) for path in source.sst_files],
+            "ds10": [describe(path) for path in source.satellite_files],
         },
         sort_keys=True,
     )
@@ -262,7 +332,7 @@ def output_is_complete(
                 == json.dumps(asdict(config.exclusion), sort_keys=True)
                 and dataset.attrs.get("saudi_cells_excluded_before_aggregation")
                 == "true"
-                and all(name in dataset for name in REQUIRED_OUTPUT_VARIABLES)
+                and all(name in dataset for name in ALL_OUTPUT_VARIABLES)
             )
             if source is not None:
                 complete = (
@@ -476,6 +546,167 @@ def derive_surface_indicators(fields: dict[str, np.ndarray]) -> dict[str, np.nda
     return result
 
 
+def read_sst_tiles(
+    paths: tuple[Path, ...],
+    config: GlobalIndicatorConfig,
+) -> tuple[np.ndarray, np.ndarray]:
+    output_grid = TileGrid.regular(config)
+    if not paths:
+        return _nan_tiles(output_grid), np.zeros(output_grid.shape, dtype=np.int32)
+    import xarray as xr
+
+    total = np.zeros(output_grid.shape, dtype=np.float64)
+    time_count = np.zeros(output_grid.shape, dtype=np.int16)
+    cell_count = np.zeros(output_grid.shape, dtype=np.int32)
+    for path in paths:
+        with xr.open_dataset(path) as dataset:
+            lat = np.asarray(dataset["lat"].values)
+            lon = np.asarray(dataset["lon"].values)
+            lat_grid, lon_grid = np.meshgrid(lat, lon, indexing="ij")
+            grid = TileGrid.from_points(
+                lat_grid.reshape(-1),
+                lon_grid.reshape(-1),
+                tile_degrees=config.tile_degrees,
+                exclusion=config.exclusion,
+            )
+            raw = np.asarray(dataset["analysed_sst"].values, dtype=np.float32)
+        raw = np.where(raw > 200.0, raw - 273.15, raw)
+        raw = _clean(raw, -5.0, 50.0)
+        tiled, counts = grid.aggregate(raw)
+        valid = np.isfinite(tiled)
+        total[valid] += tiled[valid]
+        time_count[valid] += 1
+        cell_count = np.maximum(cell_count, counts)
+    mean = np.full(output_grid.shape, np.nan, dtype=np.float32)
+    np.divide(total, time_count, out=mean, where=time_count > 0)
+    return mean, cell_count
+
+
+def _satellite_grid(
+    latitudes: np.ndarray,
+    longitudes: np.ndarray,
+    config: GlobalIndicatorConfig,
+) -> TileGrid:
+    lat = np.asarray(latitudes).reshape(-1)
+    lon = np.asarray(longitudes).reshape(-1)
+    lat_grid, lon_grid = np.meshgrid(lat, lon, indexing="ij")
+    return TileGrid.from_points(
+        lat_grid.reshape(-1),
+        lon_grid.reshape(-1),
+        tile_degrees=config.tile_degrees,
+        exclusion=config.exclusion,
+    )
+
+
+def read_satellite_precip_tiles(
+    paths: tuple[Path, ...],
+    config: GlobalIndicatorConfig,
+) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    output_grid = TileGrid.regular(config)
+    empty_count = np.zeros(output_grid.shape, dtype=np.int32)
+    if not paths:
+        return (
+            {
+                "satellite_precip_total": _nan_tiles(output_grid),
+                "satellite_precip_coverage": _nan_tiles(output_grid),
+            },
+            {
+                "satellite_precip_total": empty_count,
+                "satellite_precip_coverage": empty_count.copy(),
+            },
+        )
+    try:
+        import h5py
+    except ImportError as exc:  # pragma: no cover - environment setup
+        raise RuntimeError("h5py is required to read FYMERG precipitation") from exc
+
+    total = np.zeros(output_grid.shape, dtype=np.float64)
+    frame_count = np.zeros(output_grid.shape, dtype=np.int16)
+    cell_count = np.zeros(output_grid.shape, dtype=np.int32)
+    grid: TileGrid | None = None
+    expected_shape: tuple[int, int] | None = None
+    for path in paths:
+        with h5py.File(path, "r") as handle:
+            lat = np.asarray(handle["lat"][...]).reshape(-1)
+            lon = np.asarray(handle["lon"][...]).reshape(-1)
+            rate = np.asarray(handle["Pre_cal"][...], dtype=np.float32).squeeze()
+        if grid is None:
+            grid = _satellite_grid(lat, lon, config)
+            expected_shape = (lat.size, lon.size)
+        if rate.shape == (lon.size, lat.size):
+            rate = rate.T
+        elif rate.shape != (lat.size, lon.size):
+            raise ValueError(f"Unexpected FYMERG shape {rate.shape}: {path}")
+        if rate.shape != expected_shape:
+            raise ValueError(f"FYMERG grid changed within {paths[0].parent}")
+        rate = _clean(rate, 0.0, 1_000.0)
+        tiled, counts = grid.aggregate(rate)
+        valid = np.isfinite(tiled)
+        # Pre_cal is a precipitation rate in mm/h; each file spans 30 minutes.
+        total[valid] += tiled[valid] * 0.5
+        frame_count[valid] += 1
+        cell_count = np.maximum(cell_count, counts)
+    daily_total = np.full(output_grid.shape, np.nan, dtype=np.float32)
+    daily_total[frame_count > 0] = total[frame_count > 0]
+    coverage = (frame_count.astype(np.float32) / 48.0).astype(np.float32)
+    coverage[frame_count == 0] = np.nan
+    return (
+        {
+            "satellite_precip_total": daily_total,
+            "satellite_precip_coverage": coverage,
+        },
+        {
+            "satellite_precip_total": cell_count,
+            "satellite_precip_coverage": frame_count.astype(np.int32),
+        },
+    )
+
+
+def read_monthly_context_tiles(
+    files: dict[str, Path | None],
+    config: GlobalIndicatorConfig,
+) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    output_grid = TileGrid.regular(config)
+    raw: dict[str, np.ndarray] = {}
+    grid: TileGrid | None = None
+    accumulation = files.get("monthly_accumulation")
+    if accumulation is not None:
+        fields, grid = read_single_level_fields(
+            accumulation,
+            {
+                "monthly_precip_total": (
+                    "tp", "surface", 0.0, 0.0, 100_000.0
+                )
+            },
+            config=config,
+            grid=grid,
+        )
+        raw.update(fields)
+    maximum = files.get("monthly_maximum")
+    if maximum is not None:
+        fields, grid = read_single_level_fields(
+            maximum,
+            {
+                "monthly_tmax_k": (
+                    "tmax", "heightAboveGround", 2.0, 180.0, 370.0
+                ),
+            },
+            config=config,
+            grid=grid,
+        )
+        if "monthly_tmax_k" in fields:
+            raw["monthly_tmax_c"] = fields["monthly_tmax_k"] - 273.15
+    values: dict[str, np.ndarray] = {}
+    counts: dict[str, np.ndarray] = {}
+    for name in ("monthly_precip_total", "monthly_tmax_c"):
+        if grid is None or name not in raw:
+            values[name] = _nan_tiles(output_grid)
+            counts[name] = np.zeros(output_grid.shape, dtype=np.int32)
+        else:
+            values[name], counts[name] = grid.aggregate(raw[name])
+    return values, counts
+
+
 def _nan_tiles(grid: TileGrid) -> np.ndarray:
     return np.full(grid.shape, np.nan, dtype=np.float32)
 
@@ -498,6 +729,8 @@ def _aggregate_fields(
 def read_daily_raw_indicators(
     source: DailySource,
     config: GlobalIndicatorConfig,
+    *,
+    monthly_cache: dict[str, tuple[dict[str, np.ndarray], dict[str, np.ndarray]]] | None = None,
 ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray], TileGrid]:
     grid: TileGrid | None = None
     raw: dict[str, np.ndarray] = {}
@@ -549,6 +782,27 @@ def read_daily_raw_indicators(
     if grid is None:
         grid = TileGrid.regular(config)
     values, counts = _aggregate_fields(raw, grid)
+    sst, sst_counts = read_sst_tiles(source.sst_files, config)
+    values["sst_c"] = sst
+    counts["sst_c"] = sst_counts
+    satellite_values, satellite_counts = read_satellite_precip_tiles(
+        source.satellite_files,
+        config,
+    )
+    values.update(satellite_values)
+    counts.update(satellite_counts)
+    month = source.day[:6]
+    if monthly_cache is not None and month in monthly_cache:
+        monthly_values, monthly_counts = monthly_cache[month]
+    else:
+        monthly_values, monthly_counts = read_monthly_context_tiles(
+            source.monthly_files,
+            config,
+        )
+        if monthly_cache is not None:
+            monthly_cache[month] = (monthly_values, monthly_counts)
+    values.update(monthly_values)
+    counts.update(monthly_counts)
     return values, counts, grid
 
 
@@ -558,6 +812,7 @@ def write_daily_indicators(
     config: GlobalIndicatorConfig,
     *,
     overwrite: bool = False,
+    monthly_cache: dict[str, tuple[dict[str, np.ndarray], dict[str, np.ndarray]]] | None = None,
 ) -> dict[str, Any]:
     path = output_path(output_dir, source.day)
     if not overwrite and output_is_complete(path, config, source):
@@ -567,7 +822,11 @@ def write_daily_indicators(
             "output": str(path),
             "missing_products": list(source.missing_products),
         }
-    values, counts, grid = read_daily_raw_indicators(source, config)
+    values, counts, grid = read_daily_raw_indicators(
+        source,
+        config,
+        monthly_cache=monthly_cache,
+    )
     import xarray as xr
 
     coordinates = {
@@ -583,6 +842,11 @@ def write_daily_indicators(
         "tmax_c": "degC",
         "wind10_speed": "m s-1",
         "vpd_kpa": "kPa",
+        "satellite_precip_total": "mm",
+        "satellite_precip_coverage": "1",
+        "sst_c": "degC",
+        "monthly_precip_total": "mm",
+        "monthly_tmax_c": "degC",
     }
     for name, array in values.items():
         variables[name] = (
@@ -601,14 +865,7 @@ def write_daily_indicators(
         attrs={
             "pipeline_version": PIPELINE_VERSION,
             "period": source.day,
-            "source_product": "2_NAFP_ART_SFC_GLB_DAY_PROD",
-            "source_files": json.dumps(
-                {
-                    name: str(path) if path is not None else None
-                    for name, path in source.files.items()
-                },
-                sort_keys=True,
-            ),
+            "source_product": "DS1+DS2+DS4+DS10 layered global indicators",
             "source_file_manifest": _source_manifest(source),
             "missing_source_products": ",".join(source.missing_products),
             "tile_degrees": config.tile_degrees,
@@ -631,7 +888,7 @@ def write_daily_indicators(
         "status": "computed",
         "output": str(path),
         "missing_products": list(source.missing_products),
-        "indicator_count": len(REQUIRED_OUTPUT_VARIABLES),
+        "indicator_count": len(ALL_OUTPUT_VARIABLES),
     }
 
 
@@ -662,6 +919,10 @@ def compute_global_indicator_year(
     if limit is not None:
         selected = selected[:limit]
     results: list[dict[str, Any]] = []
+    monthly_cache: dict[
+        str,
+        tuple[dict[str, np.ndarray], dict[str, np.ndarray]],
+    ] = {}
     for index, source in enumerate(selected, start=1):
         try:
             payload = write_daily_indicators(
@@ -669,6 +930,7 @@ def compute_global_indicator_year(
                 output_dir,
                 config,
                 overwrite=overwrite,
+                monthly_cache=monthly_cache,
             )
         except Exception as exc:
             payload = {

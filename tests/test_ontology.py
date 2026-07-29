@@ -31,7 +31,7 @@ def test_ontology_declares_standards_version_and_claim_boundary():
     context = payload["@context"]
 
     assert payload["@type"] == "owl:Ontology"
-    assert payload["versionInfo"] == "1.0.0"
+    assert payload["versionInfo"] == "1.1.0"
     assert "never causal by default" in payload["claimBoundary"]
     assert context["@vocab"] == MAZU
     for prefix in ("sosa", "geo", "time", "prov", "qudt", "uom"):
@@ -95,6 +95,25 @@ def test_seed_indicator_states_link_to_versioned_indicators_and_mechanisms():
         assert nodes[mechanism]["@type"] == "mazu:WeatherMechanism"
 
 
+def test_multisource_products_and_context_indicators_are_explicit():
+    nodes = graph_by_id()
+
+    for source in (
+        "concept:NAFPMonthlyAtmosphericProduct",
+        "concept:NAFPDailyAtmosphericProduct",
+        "concept:CODASSeaSurfaceTemperatureProduct",
+        "concept:FYMERGSatellitePrecipitationProduct",
+    ):
+        assert nodes[source]["@type"] == "mazu:DataSource"
+    for indicator in (
+        "concept:SatelliteDailyPrecipitation",
+        "concept:SeaSurfaceTemperature",
+        "concept:MonthlyPrecipitationBackground",
+        "concept:MonthlyMaximumTemperatureBackground",
+    ):
+        assert nodes[indicator]["@type"] == "mazu:DerivedIndicator"
+
+
 def test_shacl_shapes_require_scope_provenance_and_causal_flag():
     shapes = SHAPES.read_text(encoding="utf-8")
 
@@ -118,9 +137,9 @@ def test_materializer_builds_queryable_idempotent_database(tmp_path):
     first = materialize_ontology(SOURCE, database)
     second = materialize_ontology(SOURCE, database)
 
-    assert first["ontology"]["version"] == "1.0.0"
+    assert first["ontology"]["version"] == "1.1.0"
     assert first["ontology"]["source_sha256"] == second["ontology"]["source_sha256"]
-    assert first["resource_count"] == second["resource_count"] == 68
+    assert first["resource_count"] == second["resource_count"] == 76
     assert first["statement_count"] == second["statement_count"]
     assert first["statement_count"] >= 500
 

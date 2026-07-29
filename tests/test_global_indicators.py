@@ -6,9 +6,9 @@ import numpy as np
 import xarray as xr
 
 from mazu_saudi.knowledge_graph.global_indicators import (
+    ALL_OUTPUT_VARIABLES,
     DailySource,
     GlobalIndicatorConfig,
-    REQUIRED_OUTPUT_VARIABLES,
     SaudiExclusion,
     TileGrid,
     audit_sources,
@@ -16,6 +16,8 @@ from mazu_saudi.knowledge_graph.global_indicators import (
     discover_daily_sources,
     integrate_ivt,
     output_is_complete,
+    read_satellite_precip_tiles,
+    read_sst_tiles,
     write_daily_indicators,
 )
 
@@ -92,6 +94,55 @@ def test_source_audit_reports_known_product_gaps_without_inventing_files(tmp_pat
         "maximum",
         "surface",
     )
+    assert audit.source_coverage_days == {
+        "ds1_monthly_background": 0,
+        "ds2_daily_atmosphere": 1,
+        "ds4_sea_surface_temperature": 0,
+        "ds10_satellite_precipitation": 0,
+    }
+
+
+def test_sst_and_satellite_precipitation_are_aggregated_as_independent_sources(tmp_path):
+    config = GlobalIndicatorConfig(tile_degrees=10.0)
+    sst_paths = []
+    for index, kelvin in enumerate((300.0, 302.0)):
+        path = tmp_path / f"sst-{index}.nc"
+        xr.Dataset(
+            {
+                "analysed_sst": (
+                    ("lat", "lon"),
+                    np.full((2, 2), kelvin, dtype=np.float32),
+                )
+            },
+            coords={"lat": [-5.0, 5.0], "lon": [-5.0, 5.0]},
+        ).to_netcdf(path)
+        sst_paths.append(path)
+
+    import h5py
+
+    satellite_paths = []
+    for index in range(2):
+        path = tmp_path / f"satellite-{index}.h5"
+        with h5py.File(path, "w") as handle:
+            handle.create_dataset("lat", data=np.array([[-5.0, 5.0]]))
+            handle.create_dataset("lon", data=np.array([[-5.0, 5.0]]))
+            # Real FYMERG arrays are longitude × latitude.
+            handle.create_dataset(
+                "Pre_cal",
+                data=np.full((1, 2, 2), 2.0, dtype=np.float32),
+            )
+        satellite_paths.append(path)
+
+    sst, _ = read_sst_tiles(tuple(sst_paths), config)
+    satellite, _ = read_satellite_precip_tiles(tuple(satellite_paths), config)
+
+    assert np.isclose(float(np.nanmean(sst)), 27.85, atol=1e-4)
+    # Two half-hour frames at 2 mm/h produce 2 mm, not 4 mm.
+    assert np.isclose(float(np.nanmean(satellite["satellite_precip_total"])), 2.0)
+    assert np.isclose(
+        float(np.nanmean(satellite["satellite_precip_coverage"])),
+        2.0 / 48.0,
+    )
 
 
 def test_daily_output_is_atomic_resumable_and_records_missing_products(tmp_path):
@@ -113,11 +164,11 @@ def test_daily_output_is_atomic_resumable_and_records_missing_products(tmp_path)
     grid = TileGrid.regular(config)
     values = {
         name: np.full(grid.shape, float(index), dtype=np.float32)
-        for index, name in enumerate(REQUIRED_OUTPUT_VARIABLES, start=1)
+        for index, name in enumerate(ALL_OUTPUT_VARIABLES, start=1)
     }
     counts = {
         name: np.ones(grid.shape, dtype=np.int32)
-        for name in REQUIRED_OUTPUT_VARIABLES
+        for name in ALL_OUTPUT_VARIABLES
     }
 
     with patch(
@@ -147,4 +198,4 @@ def test_daily_output_is_atomic_resumable_and_records_missing_products(tmp_path)
     with xr.open_dataset(path) as dataset:
         assert dataset.attrs["missing_source_products"] == "accumulation"
         assert dataset.attrs["saudi_cells_excluded_before_aggregation"] == "true"
-        assert set(REQUIRED_OUTPUT_VARIABLES).issubset(dataset.data_vars)
+        assert set(ALL_OUTPUT_VARIABLES).issubset(dataset.data_vars)
