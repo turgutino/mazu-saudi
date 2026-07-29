@@ -20,16 +20,19 @@
 
 默认访问 `http://127.0.0.1:8765`。比赛演示、截图、视频和功能开发都应从这里开始。
 
-## 2. Legacy Archive 与科学资产
+## 2. 历史科学资产（原 Legacy Archive）
 
-**状态：只读展示归档 + 被主应用复用的科学资产**
+**状态：科学资产来源 + 已迁移的展示内容**
 
 `warning_demo/` 同时包含两类内容：
 
-- `index.html`、`kg_view.html`、`agent_view.html`：旧版静态研究展示，由比赛应用挂载在
-  `/legacy`，不再承担首页职责。
-- `agent/tools.py`、`agent/saved_models/`、`data/`、`kg/`、`model/`：经过核验的模型、
-  工具、数据和证据资产，比赛后端通过适配器读取。
+- `index.html`、`kg_view.html`、`agent_view.html`：旧版静态研究展示。这些页面的内容已
+  迁移进 `competition_app`（`/overview`、`/knowledge-graph`、`/assistant` 的历史示例标
+  签），不再通过 `/legacy` 挂载访问；文件本身作为历史构建产物保留在仓库中，作为 Legacy
+  Archive 的原始来源，不再对外提供 HTTP 访问。
+- `agent/tools.py`、`agent/saved_models/`、`data/`、`kg/`、`model/`、`reports/`：经过核验
+  的模型、工具、数据、证据资产和报告 PDF，比赛后端通过适配器（`agent/tools.py`）或窄
+  作用域静态挂载（`/reports-static`，仅 `reports/`）读取。
 
 因此 `warning_demo/` 不能整体删除，但新的产品页面也不应继续写入这里。
 

@@ -4,7 +4,9 @@
 
 The competition application is an offline historical-warning exercise over the
 project's frozen 2025 Saudi dataset. It is the primary product entrypoint and
-keeps the former `warning_demo` pages as a read-only evidence archive.
+has absorbed the former `warning_demo` static pages as in-app routes
+(`/overview`, `/knowledge-graph`, and an `/assistant` historical-examples tab)
+and keeps `warning_demo` only as the source of adapter-loaded scientific assets.
 The repository-wide lifecycle map is maintained in
 [`APPLICATIONS.md`](../APPLICATIONS.md); the MCR research prototype is not a
 second competition application and its former demo service has been removed.
@@ -16,6 +18,10 @@ The public application has five routes:
 - `/evidence`: event-specific mechanism, indicator and literature-evidence view.
 - `/assistant`: deterministic analysis with optional DeepSeek wording.
 - `/reports`: fixed reports plus generated HTML/PDF, JSON and CAP Exercise artifacts.
+
+Two auxiliary reference routes, `/overview` and `/knowledge-graph`, plus a
+historical-examples tab under `/assistant`, present the former `warning_demo`
+showcase content without altering the five core workflow routes above.
 
 Every page states that this is a historical exercise, uses 2025 data and is not
 an operational warning. Proxy labels are not described as independent disaster
@@ -58,8 +64,8 @@ Local state is written under `runtime/competition_app/`:
 
 The runtime directory, the 311 MB dataset, frontend dependencies and build
 output are not committed. Missing data or model artifacts place the application
-in Archive Mode: reports and legacy pages remain available, while new
-prediction runs are blocked.
+in Archive Mode: reports and the `/overview` and `/knowledge-graph` reference
+pages remain available, while new prediction runs are blocked.
 
 ## API boundary
 

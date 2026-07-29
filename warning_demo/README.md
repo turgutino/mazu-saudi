@@ -1,10 +1,12 @@
 # MAZU · Saudi Arabia — Multi-Hazard Extreme Weather Early Warning
 
-> **Lifecycle notice — Legacy Archive.** The static pages in this directory are
-> retained as read-only historical evidence and are mounted under `/legacy` by
-> the current competition application. Models, data, graph records and Agent
-> tools here remain scientific assets used through an adapter; this directory
-> is no longer the product homepage. See [`APPLICATIONS.md`](../APPLICATIONS.md).
+> **Lifecycle notice — Legacy Archive.** The static pages in this directory have
+> been migrated into `competition_app` (see `/overview`, `/knowledge-graph`, and
+> the `/assistant` historical-examples tab) and are no longer served over HTTP;
+> they remain here as historical source material. Models, data, graph records
+> and Agent tools here remain scientific assets used through an adapter, and
+> `reports/` is still served narrowly at `/reports-static`. See
+> [`APPLICATIONS.md`](../APPLICATIONS.md).
 
 沙特多灾种极端天气早期预警系统 — MAZU (Multi-hazard · Alert · Zero-gap · Universal).
 

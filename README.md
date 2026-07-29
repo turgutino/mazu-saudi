@@ -18,8 +18,9 @@
 ```
 
 仓库中其他可视化界面的状态、入口和依赖关系见
-[应用与运行入口](APPLICATIONS.md)。比赛功能只进入上述主应用；`warning_demo` 页面是
-Legacy Archive，MCR-Precip 仅保留科研内核与实验资产。
+[应用与运行入口](APPLICATIONS.md)。比赛功能只进入上述主应用；`warning_demo` 的静态展示
+内容已并入主应用（项目总览、知识图谱、助手历史示例），该目录继续保留被主应用通过适配器
+复用的科学资产；MCR-Precip 仅保留科研内核与实验资产。
 
 ## Framework Design
 
