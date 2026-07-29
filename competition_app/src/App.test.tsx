@@ -72,6 +72,50 @@ const run = {
     boundaries: ["Historical Exercise / 历史演练"],
   },
 };
+const ontologyGraph = {
+  ontology: {
+    ontology_iri: "urn:mazu-saudi:ontology",
+    version: "1.0.0",
+    source_sha256: "abc123",
+    loaded_at: "2026-07-29T00:00:00Z",
+  },
+  filters: { query: "", module: null },
+  nodes: [
+    {
+      iri: "urn:mazu-saudi:concept:HighIVTState",
+      local_name: "HighIVTState",
+      resource_type: "urn:mazu-saudi:ontology:IndicatorState",
+      module: "state",
+      status: null,
+      label: "高水汽输送状态",
+      label_en: "High IVT state",
+      label_zh: "高水汽输送状态",
+      definition_en: "A versioned high IVT state.",
+      definition_zh: "通过版本化阈值定义的高水汽输送状态。",
+    },
+    {
+      iri: "urn:mazu-saudi:concept:IntegratedVaporTransport",
+      local_name: "IntegratedVaporTransport",
+      resource_type: "urn:mazu-saudi:ontology:MeteorologicalIndicator",
+      module: "indicator",
+      status: null,
+      label: "整层水汽输送",
+      label_en: "Integrated vapor transport",
+      label_zh: "整层水汽输送",
+      definition_en: "Vertically integrated vapor transport.",
+      definition_zh: "垂直积分水汽输送指标。",
+    },
+  ],
+  edges: [{
+    id: 1,
+    source: "urn:mazu-saudi:concept:HighIVTState",
+    target: "urn:mazu-saudi:concept:IntegratedVaporTransport",
+    predicate: "urn:mazu-saudi:ontology:derivedFromIndicator",
+    predicate_label: "derivedFromIndicator",
+  }],
+  node_count: 2,
+  edge_count: 1,
+};
 
 function jsonResponse(payload: unknown, status = 200) {
   return Promise.resolve(new Response(JSON.stringify(payload), {
@@ -85,6 +129,7 @@ describe("historical warning application", () => {
   beforeEach(() => {
     created = false;
     localStorage.clear();
+    window.history.pushState({}, "", "/console");
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request, init?: RequestInit) => {
       const path = String(input);
       if (path === "/api/v1/health") return jsonResponse(health);
@@ -95,6 +140,7 @@ describe("historical warning application", () => {
         return jsonResponse(run, 201);
       }
       if (path === "/api/v1/runs") return jsonResponse(created ? [run] : []);
+      if (path.startsWith("/api/v1/ontology/graph")) return jsonResponse(ontologyGraph);
       throw new Error(`Unhandled request: ${path}`);
     }));
   });
@@ -129,5 +175,23 @@ describe("historical warning application", () => {
     expect(screen.getByText("Curated / audited")).toBeInTheDocument();
     expect(screen.queryByText("任务控制")).not.toBeInTheDocument();
     expect(screen.queryByText("精选 / 已核验")).not.toBeInTheDocument();
+  });
+
+  it("browses the live ontology service and inspects a node", async () => {
+    window.history.pushState({}, "", "/knowledge-graph");
+    render(<BrowserRouter><App /></BrowserRouter>);
+
+    expect(await screen.findByText("全球观测机制适用性本体")).toBeInTheDocument();
+    expect(await screen.findByText(/2 节点 · 1 关系/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "高水汽输送状态" }));
+    expect(screen.getByText("通过版本化阈值定义的高水汽输送状态。")).toBeInTheDocument();
+    expect(screen.getAllByText("derivedFromIndicator").length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /搜索中英文名称或定义/ }), {
+      target: { value: "IVT" },
+    });
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith("/api/v1/ontology/graph?query=IVT", expect.anything());
+    });
   });
 });

@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .adapters import CITIES, HAZARDS
+from .ontology_service import OntologyBrowserService
 from .reports import REPORT_LIBRARY, render_evidence_json, render_run_report
 from .service import HistoricalWarningService, SCENARIOS
 from .settings import AppSettings
@@ -44,6 +45,10 @@ def create_app(
     settings = settings or AppSettings()
     store = store or AuditStore(settings.database_file, settings.artifact_root)
     service = HistoricalWarningService(settings, store, adapter)
+    ontology_service = OntologyBrowserService(
+        settings.ontology_source_file,
+        settings.ontology_database_file,
+    )
     app = FastAPI(
         title="MAZU Saudi Historical Warning Console",
         version="1.0.0",
@@ -52,6 +57,7 @@ def create_app(
     app.state.settings = settings
     app.state.store = store
     app.state.service = service
+    app.state.ontology_service = ontology_service
 
     @app.get("/api/v1/health")
     def health():
@@ -86,6 +92,34 @@ def create_app(
     @app.get("/api/v1/scenarios")
     def scenarios():
         return SCENARIOS
+
+    @app.get("/api/v1/ontology")
+    def ontology_summary():
+        try:
+            return ontology_service.summary()
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+
+    @app.get("/api/v1/ontology/graph")
+    def ontology_graph(
+        query: Annotated[str | None, Query(max_length=120)] = None,
+        module: Annotated[str | None, Query(max_length=40)] = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 200,
+    ):
+        try:
+            return ontology_service.graph(query=query, module=module, limit=limit)
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+
+    @app.get("/api/v1/ontology/resource")
+    def ontology_resource(iri: Annotated[str, Query(min_length=1, max_length=500)]):
+        try:
+            resource = ontology_service.resource(iri)
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+        if resource is None:
+            raise HTTPException(404, "Ontology resource not found")
+        return resource
 
     @app.post("/api/v1/runs", status_code=201)
     def create_run(request: RunRequest):

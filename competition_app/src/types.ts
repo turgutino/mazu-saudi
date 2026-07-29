@@ -109,3 +109,38 @@ export interface ReportItem {
   kind: string;
   url: string;
 }
+
+export interface OntologyNode {
+  iri: string;
+  local_name: string;
+  resource_type: string;
+  module: string | null;
+  status: string | null;
+  label: string;
+  label_en: string | null;
+  label_zh: string | null;
+  definition_en: string | null;
+  definition_zh: string | null;
+}
+
+export interface OntologyEdge {
+  id: number;
+  source: string;
+  target: string;
+  predicate: string;
+  predicate_label: string;
+}
+
+export interface OntologyGraph {
+  ontology: {
+    ontology_iri: string;
+    version: string;
+    source_sha256: string;
+    loaded_at: string;
+  };
+  filters: { query: string; module: string | null };
+  nodes: OntologyNode[];
+  edges: OntologyEdge[];
+  node_count: number;
+  edge_count: number;
+}

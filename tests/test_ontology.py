@@ -157,6 +157,26 @@ def test_materializer_builds_queryable_idempotent_database(tmp_path):
     } <= tables
 
 
+def test_store_supports_bounded_text_search_and_relationship_queries(tmp_path):
+    database = tmp_path / "ontology.sqlite3"
+    materialize_ontology(SOURCE, database)
+    store = OntologyStore(database)
+
+    matches = store.list_resources(module="state", query="水汽输送", limit=5)
+    assert [item["local_name"] for item in matches] == ["HighIVTState"]
+
+    relationships = store.relationships_for([matches[0]["iri"]])
+    assert any(
+        item["predicate_iri"].endswith("derivedFromIndicator")
+        and item["object_value"].endswith("IntegratedVaporTransport")
+        for item in relationships
+    )
+    related = store.resources_by_iris(
+        item["object_value"] for item in relationships if item["object_kind"] == "iri"
+    )
+    assert any(item["local_name"] == "IntegratedVaporTransport" for item in related)
+
+
 def test_materializer_rejects_duplicate_resource_ids(tmp_path):
     payload = load_source()
     payload["@graph"].append(dict(payload["@graph"][0]))
@@ -183,5 +203,7 @@ def test_design_document_covers_database_extraction_and_saudi_usage():
         "HGB 图谱特征",
         "MCR 路由软先验",
         "防泄漏",
+        "GET /api/v1/ontology/graph",
+        "/knowledge-graph",
     ):
         assert required in design

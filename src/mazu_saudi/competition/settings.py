@@ -48,6 +48,14 @@ class AppSettings:
     def frontend_dist(self) -> Path:
         return self.repository_root / "competition_app" / "dist"
 
+    @property
+    def ontology_source_file(self) -> Path:
+        return self.repository_root / "ontology" / "mazu_weather_ontology.jsonld"
+
+    @property
+    def ontology_database_file(self) -> Path:
+        return self.runtime_root.parent / "ontology" / "mazu_weather.sqlite3"
+
     def preflight(self) -> dict:
         models = [
             self.model_root / f"{hazard}_model.joblib"
@@ -61,8 +69,16 @@ class AppSettings:
             "ensemble": ensemble_manifest.is_file(),
             "model_metadata": model_meta.is_file(),
             "evidence_graph": self.graph_file.is_file(),
+            "ontology_source": self.ontology_source_file.is_file(),
         }
-        missing = [name for name, available in checks.items() if not available]
+        inference_requirements = (
+            "dataset",
+            "models",
+            "ensemble",
+            "model_metadata",
+            "evidence_graph",
+        )
+        missing = [name for name in inference_requirements if not checks[name]]
         return {
             "mode": "historical_exercise" if not missing else "archive",
             "ready_for_inference": not missing,

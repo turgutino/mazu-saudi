@@ -1,4 +1,4 @@
-import type { Config, FieldData, FieldLayer, Health, Locale, ReportItem, Run, Scenario } from "./types";
+import type { Config, FieldData, FieldLayer, Health, Locale, OntologyGraph, ReportItem, Run, Scenario } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -27,6 +27,13 @@ export const api = {
       body: JSON.stringify({ run_id: id, message, locale }),
     }),
   reports: () => request<ReportItem[]>("/api/v1/reports"),
+  ontologyGraph: (query = "", module = "") => {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("query", query.trim());
+    if (module) params.set("module", module);
+    const suffix = params.size ? `?${params.toString()}` : "";
+    return request<OntologyGraph>(`/api/v1/ontology/graph${suffix}`);
+  },
   createReport: (id: string) =>
     request<{ report: { id: string }; evidence: { id: string } }>(`/api/v1/runs/${id}/report`, { method: "POST" }),
 };

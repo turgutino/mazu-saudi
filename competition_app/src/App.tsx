@@ -17,8 +17,7 @@ import {
   ruleNote,
   t,
 } from "./i18n";
-import type { Config, FieldData, FieldLayer, Health, Locale, ReportItem, Run, Scenario } from "./types";
-import kgData from "./data/kg_data.json";
+import type { Config, FieldData, FieldLayer, Health, Locale, OntologyEdge, OntologyGraph, OntologyNode, ReportItem, Run, Scenario } from "./types";
 import agentExamples from "./data/agentExamples.json";
 
 type AppState = {
@@ -135,12 +134,12 @@ function Layout({ children }: { children: ReactNode }) {
   );
 }
 
-function PageHeading({ eyebrow, title, lead, truth }: { eyebrow: string; title: string; lead: string; truth: string }) {
+function PageHeading({ eyebrow, title, lead, truth, archiveSensitive = true }: { eyebrow: string; title: string; lead: string; truth: string; archiveSensitive?: boolean }) {
   const { locale, health } = useApp();
   return <header className="page-heading">
     <span>{eyebrow}</span><h1>{title}</h1><p>{lead}</p>
     <div className="truth-strip" aria-label={locale === "zh" ? "真实性边界" : "Evidence boundary"}>
-      <span>{health?.ready_for_inference ? truth : (locale === "zh" ? "归档回放" : "Archive replay")}</span>
+      <span>{!archiveSensitive || health?.ready_for_inference ? truth : (locale === "zh" ? "归档回放" : "Archive replay")}</span>
       <span>{locale === "zh" ? "2025历史数据 · 代理标签" : "2025 historical data · proxy labels"}</span>
     </div>
   </header>;
@@ -594,43 +593,76 @@ function OverviewPage() {
   );
 }
 
-interface KgNode { id: string; ntype: string; label: string; [key: string]: unknown }
-interface KgLink { source: string; target: string; etype: string; [key: string]: unknown }
 interface KgPoint { id: string; x: number; y: number }
 
 const kgTypeColor: Record<string, string> = {
-  Indicator: "var(--cyan)",
-  Hazard: "var(--red)",
-  Mechanism: "var(--navy)",
-  Region: "var(--mint)",
-  ExtremeSample: "var(--amber)",
-  DataSource: "var(--muted)",
-  Citation: "var(--teal)",
+  observation: "#78889b",
+  indicator: "var(--cyan)",
+  state: "var(--teal)",
+  episode: "#8c6ed3",
+  context: "var(--mint)",
+  mechanism: "var(--navy)",
+  assertion: "var(--amber)",
+  provenance: "#6d7b58",
+  forecast: "var(--red)",
 };
 
 function KnowledgeGraphPage() {
   const { locale } = useApp();
-  const data = kgData as unknown as { nodes: KgNode[]; links: KgLink[] };
-  const nodeTypes = useMemo(() => Array.from(new Set(data.nodes.map((n) => n.ntype))), [data]);
-  const edgeTypes = useMemo(() => Array.from(new Set(data.links.map((l) => l.etype))), [data]);
+  const [data, setData] = useState<OntologyGraph | null>(null);
   const [search, setSearch] = useState("");
-  const [activeTypes, setActiveTypes] = useState<Set<string>>(() => new Set(nodeTypes));
-  const [activeEdgeTypes, setActiveEdgeTypes] = useState<Set<string>>(() => new Set(edgeTypes));
+  const [module, setModule] = useState("");
+  const [activeEdgeTypes, setActiveEdgeTypes] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string | null>(null);
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const modules = ["observation", "indicator", "state", "episode", "context", "mechanism", "assertion", "provenance", "forecast"];
+  const edgeTypes = useMemo(
+    () => Array.from(new Set((data?.edges || []).map((edge) => edge.predicate_label))),
+    [data],
+  );
 
   useEffect(() => {
-    const nodes = data.nodes.map((n) => ({ ...n }));
-    const links = data.links.map((l) => ({ ...l }));
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      setError("");
+      api.ontologyGraph(search, module)
+        .then((payload) => {
+          setData(payload);
+          setSelected((current) => payload.nodes.some((node) => node.iri === current) ? current : null);
+          setActiveEdgeTypes(new Set(payload.edges.map((edge) => edge.predicate_label)));
+        })
+        .catch(() => {
+          setData(null);
+          setError(t(locale, "kgLoadFailed"));
+        })
+        .finally(() => setLoading(false));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [search, module, locale]);
+
+  useEffect(() => {
+    if (!data) {
+      setPositions({});
+      return;
+    }
+    const nodes = data.nodes.map((node) => ({ ...node, id: node.iri }));
+    const links = data.edges.map((edge) => ({ ...edge }));
     const simulation = forceSimulation(nodes as never[])
-      .force("charge", forceManyBody().strength(-70))
-      .force("link", forceLink(links as never[]).id((d: unknown) => (d as KgNode).id).distance(58).strength(0.22))
+      .force("charge", forceManyBody().strength(-105))
+      .force("link", forceLink(links as never[]).id((node: unknown) => (node as { id: string }).id).distance(76).strength(0.28))
       .force("center", forceCenter(500, 300))
-      .force("collide", forceCollide(20))
+      .force("collide", forceCollide(25))
       .stop();
     for (let i = 0; i < 240; i += 1) simulation.tick();
     const next: Record<string, { x: number; y: number }> = {};
-    (nodes as unknown as Array<KgNode & { x: number; y: number }>).forEach((n) => { next[n.id] = { x: n.x, y: n.y }; });
+    (nodes as unknown as Array<{ id: string; x: number; y: number }>).forEach((node) => {
+      next[node.id] = {
+        x: Math.max(28, Math.min(972, node.x)),
+        y: Math.max(28, Math.min(572, node.y)),
+      };
+    });
     setPositions(next);
   }, [data]);
 
@@ -639,19 +671,26 @@ function KnowledgeGraphPage() {
     return quadtree<KgPoint>().x((p) => p.x).y((p) => p.y).addAll(points);
   }, [positions]);
 
-  const toggleType = (value: string) => setActiveTypes((prev) => {
-    const next = new Set(prev); if (next.has(value)) next.delete(value); else next.add(value); return next;
-  });
   const toggleEdgeType = (value: string) => setActiveEdgeTypes((prev) => {
     const next = new Set(prev); if (next.has(value)) next.delete(value); else next.add(value); return next;
   });
 
-  const query = search.trim().toLowerCase();
-  const visibleNodes = data.nodes.filter((n) => activeTypes.has(n.ntype) && (!query || n.label.toLowerCase().includes(query) || n.id.toLowerCase().includes(query)));
-  const visibleIds = new Set(visibleNodes.map((n) => n.id));
-  const visibleLinks = data.links.filter((l) => activeEdgeTypes.has(l.etype) && visibleIds.has(l.source) && visibleIds.has(l.target));
-  const selectedNode = selected ? data.nodes.find((n) => n.id === selected) : null;
-  const relatedLinks = selected ? data.links.filter((l) => l.source === selected || l.target === selected) : [];
+  const visibleNodes = data?.nodes || [];
+  const visibleIds = new Set(visibleNodes.map((node) => node.iri));
+  const visibleLinks = (data?.edges || []).filter((edge) =>
+    activeEdgeTypes.has(edge.predicate_label)
+    && visibleIds.has(edge.source)
+    && visibleIds.has(edge.target)
+  );
+  const selectedNode = selected ? data?.nodes.find((node) => node.iri === selected) : null;
+  const relatedLinks = selected
+    ? (data?.edges || []).filter((edge) => edge.source === selected || edge.target === selected)
+    : [];
+  const nodeByIri = new Map((data?.nodes || []).map((node) => [node.iri, node]));
+  const nodeLabel = (node: OntologyNode) =>
+    (locale === "zh" ? node.label_zh : node.label_en) || node.label || node.local_name;
+  const edgePeer = (edge: OntologyEdge) =>
+    nodeByIri.get(edge.source === selected ? edge.target : edge.source);
 
   const handleCanvasClick = (event: MouseEvent<SVGSVGElement>) => {
     const svg = event.currentTarget;
@@ -664,64 +703,76 @@ function KnowledgeGraphPage() {
 
   return (
     <>
-      <PageHeading eyebrow={t(locale, "kgEyebrow")} title={t(locale, "kgTitle")} lead={t(locale, "kgLead")} truth={locale === "zh" ? "人工维护证据图谱" : "Human-curated evidence graph"} />
+      <PageHeading eyebrow={t(locale, "kgEyebrow")} title={t(locale, "kgTitle")} lead={t(locale, "kgLead")} truth={t(locale, "kgLiveDatabase")} archiveSensitive={false} />
       <section className="kg-page">
         <article className="kg-canvas-panel panel">
-          <div className="panel-label"><span>{data.nodes.length} {t(locale, "kgNodeCountLabel")} · {data.links.length} {t(locale, "kgEdgeCountLabel")}</span></div>
-          <input className="kg-search-bar" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t(locale, "kgSearchPlaceholder")} />
+          <div className="panel-label">
+            <span>{data?.node_count ?? 0} {t(locale, "kgNodeCountLabel")} · {data?.edge_count ?? 0} {t(locale, "kgEdgeCountLabel")}</span>
+            <b>{t(locale, "kgVersion")} {data?.ontology.version || "—"}</b>
+          </div>
+          <label className="kg-search-field">
+            <span className="sr-only">{t(locale, "kgSearchPlaceholder")}</span>
+            <input className="kg-search-bar" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t(locale, "kgSearchPlaceholder")} />
+            {search && <button type="button" onClick={() => setSearch("")} aria-label={locale === "zh" ? "清除搜索" : "Clear search"}>×</button>}
+          </label>
           <div className="kg-filter-chips" aria-label={t(locale, "kgFilterByType")}>
-            {nodeTypes.map((type) => (
-              <button key={type} className={activeTypes.has(type) ? "active" : ""} style={{ borderColor: kgTypeColor[type] }} onClick={() => toggleType(type)}>
-                <i style={{ background: kgTypeColor[type] }} />{type}
+            {["", ...modules].map((value) => (
+              <button key={value || "all"} className={module === value ? "active" : ""} style={{ borderColor: value ? kgTypeColor[value] : "var(--line)" }} onClick={() => setModule(value)}>
+                {value && <i style={{ background: kgTypeColor[value] }} />}{value || t(locale, "kgAllModules")}
               </button>
             ))}
           </div>
-          <div className="kg-filter-chips" aria-label={t(locale, "kgFilterByEdge")}>
+          {!!edgeTypes.length && <div className="kg-filter-chips kg-edge-filters" aria-label={t(locale, "kgFilterByEdge")}>
             {edgeTypes.map((type) => (
               <button key={type} className={activeEdgeTypes.has(type) ? "active" : ""} onClick={() => toggleEdgeType(type)}>{type}</button>
             ))}
-          </div>
+          </div>}
           <div className="kg-canvas">
-            <svg viewBox="0 0 1000 600" onClick={handleCanvasClick}>
+            {loading && <div className="kg-state-message"><i />{t(locale, "kgLoading")}</div>}
+            {!loading && error && <div className="kg-state-message error-message">{error}</div>}
+            {!loading && !error && !visibleNodes.length && <div className="kg-state-message">{t(locale, "kgEmpty")}</div>}
+            {!loading && !error && !!visibleNodes.length && <svg viewBox="0 0 1000 600" onClick={handleCanvasClick} aria-label={t(locale, "kgTitle")}>
               {visibleLinks.map((link, index) => {
                 const from = positions[link.source]; const to = positions[link.target];
                 if (!from || !to) return null;
-                return <line key={`${link.source}-${link.target}-${index}`} className="kg-edge" x1={from.x} y1={from.y} x2={to.x} y2={to.y} />;
+                return <line key={`${link.source}-${link.target}-${index}`} className={`kg-edge ${selected && (link.source === selected || link.target === selected) ? "related" : ""}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y}><title>{link.predicate_label}</title></line>;
               })}
               {visibleNodes.map((node) => {
-                const point = positions[node.id]; if (!point) return null;
+                const point = positions[node.iri]; if (!point) return null;
                 return (
-                  <g key={node.id} className={`kg-node ${selected === node.id ? "selected" : ""}`} transform={`translate(${point.x}, ${point.y})`} onClick={(event) => { event.stopPropagation(); setSelected(node.id); }}>
-                    <circle r={selected === node.id ? 9 : 6} fill={kgTypeColor[node.ntype] || "var(--muted)"} />
-                    <title>{node.label}</title>
+                  <g key={node.iri} className={`kg-node ${selected === node.iri ? "selected" : ""}`} transform={`translate(${point.x}, ${point.y})`} tabIndex={0} role="button" aria-label={nodeLabel(node)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelected(node.iri); }} onClick={(event) => { event.stopPropagation(); setSelected(node.iri); }}>
+                    <circle r={selected === node.iri ? 10 : 7} fill={kgTypeColor[node.module || ""] || "var(--muted)"} />
+                    <title>{nodeLabel(node)}</title>
                   </g>
                 );
               })}
-            </svg>
+            </svg>}
           </div>
         </article>
         <aside className="kg-node-inspector panel">
-          <div className="panel-label"><span>{selectedNode ? selectedNode.ntype : t(locale, "kgFilterByType")}</span></div>
+          <div className="panel-label"><span>{selectedNode?.module || t(locale, "kgFilterByType")}</span></div>
           {selectedNode ? (
             <>
-              <h3>{selectedNode.label}</h3>
+              <h3>{nodeLabel(selectedNode)}</h3>
+              <p className="kg-definition">{(locale === "zh" ? selectedNode.definition_zh : selectedNode.definition_en) || selectedNode.definition_zh || selectedNode.definition_en || "—"}</p>
               <dl>
-                {Object.entries(selectedNode)
-                  .filter(([key, value]) => !["id", "label", "ntype", "evidence"].includes(key) && typeof value !== "object")
-                  .map(([key, value]) => (
-                    <div key={key}><dt>{key}</dt><dd>{String(value)}</dd></div>
-                  ))}
+                <div><dt>{t(locale, "kgModule")}</dt><dd>{selectedNode.module || "—"}</dd></div>
+                <div><dt>{t(locale, "kgResourceType")}</dt><dd>{selectedNode.resource_type.split(/[/#:]/).pop()}</dd></div>
+                <div><dt>IRI</dt><dd title={selectedNode.iri}>{selectedNode.local_name}</dd></div>
               </dl>
               <table className="kg-edge-table">
-                <thead><tr><th>{t(locale, "kgEdgeCountLabel")}</th><th>etype</th></tr></thead>
+                <thead><tr><th>{t(locale, "kgEdgeCountLabel")}</th><th>predicate</th></tr></thead>
                 <tbody>
-                  {relatedLinks.map((link, index) => (
-                    <tr key={index}><td>{link.source === selectedNode.id ? link.target : link.source}</td><td>{link.etype}</td></tr>
+                  {relatedLinks.map((link) => (
+                    <tr key={link.id} onClick={() => { const peer = edgePeer(link); if (peer) setSelected(peer.iri); }} className={edgePeer(link) ? "clickable" : ""}>
+                      <td>{edgePeer(link) ? nodeLabel(edgePeer(link)!) : (link.source === selectedNode.iri ? link.target : link.source).split(":").pop()}</td>
+                      <td>{link.predicate_label}</td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
             </>
-          ) : <p className="empty-inline">{t(locale, "kgClaimBoundary")}</p>}
+          ) : <p className="empty-inline">{t(locale, "kgSelectNode")}</p>}
         </aside>
       </section>
       <p className="kg-claim-boundary">{t(locale, "kgClaimBoundary")}</p>

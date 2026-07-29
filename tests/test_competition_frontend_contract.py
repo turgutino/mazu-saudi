@@ -23,6 +23,19 @@ def test_competition_frontend_has_overview_and_knowledge_graph_routes():
         assert "/legacy" not in source
 
 
+def test_knowledge_graph_reads_the_versioned_ontology_service():
+    app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    api = (FRONTEND / "src" / "api.ts").read_text(encoding="utf-8")
+    types = (FRONTEND / "src" / "types.ts").read_text(encoding="utf-8")
+
+    assert "api.ontologyGraph(search, module)" in app
+    assert 'request<OntologyGraph>(`/api/v1/ontology/graph${suffix}`)' in api
+    assert "export interface OntologyGraph" in types
+    assert 'from "./data/kg_data.json"' not in app
+    for interaction in ("kg-search-field", "kg-filter-chips", "kg-node-inspector"):
+        assert interaction in app
+
+
 def test_competition_frontend_excludes_future_research_and_operational_claims():
     public_sources = "\n".join(
         path.read_text(encoding="utf-8")

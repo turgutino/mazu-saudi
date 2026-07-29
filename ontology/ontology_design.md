@@ -267,7 +267,33 @@ print(store.list_resources(module="mechanism"))
 print(store.statements_for("urn:mazu-saudi:concept:HighIVTState"))
 ```
 
-## 8. 当前版本和后续里程碑
+## 8. 后端服务与前端浏览
+
+本体复用现有 `competition_app`，不建立第二个应用。FastAPI 在首次查询以及 JSON-LD SHA
+变化时自动重新物化 SQLite，并提供以下只读接口：
+
+| 接口 | 用途 |
+|---|---|
+| `GET /api/v1/ontology` | 查询版本、SHA、资源数、陈述数和模块统计 |
+| `GET /api/v1/ontology/graph` | 按中英文文本和模块查询节点及其一阶关系 |
+| `GET /api/v1/ontology/resource?iri=...` | 查询单个资源及其出入陈述 |
+
+`graph` 接口支持 `query`、`module` 和 `limit` 参数。所有参数都有长度或数量上限，接口不
+提供写操作。JSON-LD 仍是规范真源，SQLite 只是可重建的服务索引。
+
+前端入口为 `/knowledge-graph`。页面直接调用 `graph` 接口，支持：
+
+- 中英文名称和定义搜索；
+- observation、indicator、state、episode、context、mechanism、assertion、
+  provenance、forecast 模块过滤；
+- 关系类型开关；
+- 鼠标或键盘选择节点；
+- 双语定义、资源类型、IRI 和相邻关系检查；
+- 桌面与移动端响应式布局。
+
+页面必须持续展示“观测断言不等于因果事实、也不等于沙特灾害真值”的边界。
+
+## 9. 当前版本和后续里程碑
 
 本体 `1.0.0` 完成语义骨架、标准映射、首批指标/状态/机制/环境概念、SHACL 约束和 SQLite
 物化。它尚未包含从全球 2025 数据自动提取的天气过程和统计断言。

@@ -132,20 +132,82 @@ class OntologyStore:
         *,
         module: str | None = None,
         resource_type: str | None = None,
+        query: str | None = None,
+        limit: int = 200,
     ) -> list[dict[str, Any]]:
         clauses: list[str] = []
-        parameters: list[str] = []
+        parameters: list[Any] = []
         if module is not None:
             clauses.append("module=?")
             parameters.append(module)
         if resource_type is not None:
             clauses.append("resource_type=?")
             parameters.append(resource_type)
+        if query:
+            clauses.append(
+                """
+                (
+                    LOWER(local_name) LIKE ?
+                    OR LOWER(COALESCE(label_en, '')) LIKE ?
+                    OR LOWER(COALESCE(label_zh, '')) LIKE ?
+                    OR LOWER(COALESCE(definition_en, '')) LIKE ?
+                    OR LOWER(COALESCE(definition_zh, '')) LIKE ?
+                )
+                """
+            )
+            pattern = f"%{query.strip().lower()}%"
+            parameters.extend([pattern] * 5)
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        parameters.append(limit)
         with self._connect() as connection:
             rows = connection.execute(
-                f"SELECT * FROM resources{where} ORDER BY iri",
+                f"SELECT * FROM resources{where} ORDER BY module, local_name LIMIT ?",
                 parameters,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def relationships_for(
+        self,
+        iris: Iterable[str],
+        *,
+        limit: int = 1000,
+    ) -> list[dict[str, Any]]:
+        """Return IRI-to-IRI statements touching any of the supplied resources."""
+
+        resource_iris = list(dict.fromkeys(iris))
+        if not resource_iris:
+            return []
+        placeholders = ", ".join("?" for _ in resource_iris)
+        parameters: list[Any] = [*resource_iris, *resource_iris, limit]
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM statements
+                WHERE object_kind='iri'
+                  AND (
+                    subject_iri IN ({placeholders})
+                    OR object_value IN ({placeholders})
+                  )
+                ORDER BY subject_iri, predicate_iri, object_value
+                LIMIT ?
+                """,
+                parameters,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def resources_by_iris(self, iris: Iterable[str]) -> list[dict[str, Any]]:
+        resource_iris = list(dict.fromkeys(iris))
+        if not resource_iris:
+            return []
+        placeholders = ", ".join("?" for _ in resource_iris)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM resources
+                WHERE iri IN ({placeholders})
+                ORDER BY module, local_name
+                """,
+                resource_iris,
             ).fetchall()
         return [dict(row) for row in rows]
 

@@ -128,6 +128,39 @@ def test_full_historical_exercise_flow(tmp_path):
     assert history[0]["id"] == run["id"]
 
 
+def test_ontology_is_materialized_and_exposed_as_a_read_only_graph(tmp_path):
+    client, settings = make_client(tmp_path)
+
+    summary = client.get("/api/v1/ontology")
+    assert summary.status_code == 200
+    assert summary.json()["resource_count"] == 68
+    assert "not automatically discovered causality" in summary.json()["boundary"]
+    assert settings.ontology_database_file.is_file()
+
+    graph = client.get(
+        "/api/v1/ontology/graph",
+        params={"query": "IVT", "module": "state"},
+    )
+    assert graph.status_code == 200
+    payload = graph.json()
+    assert payload["filters"] == {"query": "IVT", "module": "state"}
+    assert any(node["local_name"] == "HighIVTState" for node in payload["nodes"])
+    high_ivt = next(node for node in payload["nodes"] if node["local_name"] == "HighIVTState")
+    assert high_ivt["label_zh"] == "高水汽输送状态"
+    assert any(edge["predicate_label"] == "derivedFromIndicator" for edge in payload["edges"])
+
+    detail = client.get("/api/v1/ontology/resource", params={"iri": high_ivt["iri"]})
+    assert detail.status_code == 200
+    assert detail.json()["resource"]["definition_en"].startswith("An IVT state")
+    assert detail.json()["statements"]
+
+    missing = client.get(
+        "/api/v1/ontology/resource",
+        params={"iri": "urn:mazu-saudi:concept:DoesNotExist"},
+    )
+    assert missing.status_code == 404
+
+
 def test_validation_archive_mode_and_safe_cap(tmp_path):
     client, _ = make_client(tmp_path)
     invalid_city = client.post(
@@ -154,6 +187,9 @@ def test_validation_archive_mode_and_safe_cap(tmp_path):
     )
     assert blocked.status_code == 503
     assert "Archive mode" in blocked.json()["detail"]
+    ontology = archive_client.get("/api/v1/ontology")
+    assert ontology.status_code == 503
+    assert "Ontology source not found" in ontology.json()["detail"]
 
 
 def test_public_contract_has_no_future_model_or_operational_claims(tmp_path):
