@@ -1,4 +1,4 @@
-"""MAZU Saudi historical warning competition application."""
+"""Primary competition application backend for MAZU Saudi historical exercises."""
 
 from .app import create_app
 

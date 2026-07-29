@@ -564,3 +564,24 @@
   原始数据或提示保留，CAP、JSON、XML、PDF、ROC-AUC、POD、FAR、CSI、HSS按标准缩写保留。
 - 真实浏览器逐页验收：中文五页未出现已知英文界面标签或原始风险代码；英文五页主内容区
   没有中文字符残留；两种语言下五页均无横向溢出。
+
+## 多应用代码架构（阶段 31）
+
+- 仓库中确有三个“看起来像应用”的界面，但生命周期不同：
+  1. `competition_app/` + `src/mazu_saudi/competition/` 是当前唯一比赛产品，React前端由
+     FastAPI统一托管，入口为 `scripts/start_competition_app.sh`。
+  2. `src/mazu_saudi/service/web/` + `service/server.py` 是阶段20的MCR-Precip研究产品原型，
+     使用演示后端，不应与比赛应用并列启动。
+  3. `warning_demo/*.html` 是旧静态研究展示，同时其 `agent/tools.py`、模型和数据仍被比赛
+     后端作为真实推理资产复用，因此它不能整体删除，也不能继续被称为主应用。
+- 当前README的Repository Structure只列出 `service/`，没有列出 `competition/` 和
+  `competition_app/`，会让开发者误以为MCR演示服务仍是当前产品入口。
+- 两个可启动服务默认端口都为8765，语义和端口冲突进一步放大了“多个应用”的认知问题。
+- `competition_app/dist/` 是前端生成物；FastAPI实际挂载路径和打包策略还需核对，以决定
+  它应保留为构建制品、忽略，还是继续跟踪。
+- 已确认 `competition_app/dist/`、`runtime/` 和 `node_modules/` 均被 `.gitignore` 排除；
+  FastAPI从本地dist托管SPA，启动脚本每次先构建，因此无需把构建产物当成第四个应用。
+- 架构决策采用“一个当前产品、一个冻结研究原型、一个Legacy Archive”，而不是立即物理
+  搬迁目录：比赛后端仍通过适配器依赖旧版科学资产，贸然移动会破坏模型导入和证据追溯。
+- MCR研究原型默认端口改为8766；比赛应用继续使用8765，避免两个生命周期不同的服务
+  在本机互相抢占端口。

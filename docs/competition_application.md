@@ -5,6 +5,9 @@
 The competition application is an offline historical-warning exercise over the
 project's frozen 2025 Saudi dataset. It is the primary product entrypoint and
 keeps the former `warning_demo` pages as a read-only evidence archive.
+The repository-wide lifecycle map is maintained in
+[`APPLICATIONS.md`](../APPLICATIONS.md); the MCR research prototype is not a
+second competition application.
 
 The public application has five routes:
 

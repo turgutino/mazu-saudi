@@ -12,6 +12,7 @@ from .forecast import DemoForecastService, ForecastRequest
 
 ASSET_ROOT = Path(__file__).with_name("web")
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8"}
+DEFAULT_PORT = 8766
 
 
 def resolve_asset(request_path: str) -> Path | None:
@@ -87,9 +88,9 @@ def make_handler(service: DemoForecastService | None = None):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Serve the local MCR-Precip interface")
+    parser = argparse.ArgumentParser(description="Serve the frozen MCR-Precip research prototype")
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     args = parser.parse_args()
     server = ThreadingHTTPServer((args.host, args.port), make_handler())
     print(f"MCR-Precip product available at http://{args.host}:{args.port}")

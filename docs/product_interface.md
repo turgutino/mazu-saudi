@@ -1,4 +1,7 @@
-# MAZU Atlas 产品界面与服务架构
+# MAZU Atlas 冻结研究原型
+
+> 生命周期：该界面是 demo-only 的 MCR-Precip 研究原型，不是当前比赛应用，也不再接收
+> 比赛功能。比赛入口和三个界面的完整关系见 [`APPLICATIONS.md`](../APPLICATIONS.md)。
 
 ## 产品定位
 
@@ -27,14 +30,15 @@ MAZU Atlas 是 MCR-Precip 的本地科研预报工作台。它借鉴参考工程
 
 核心合同实现在 `src/mazu_saudi/service/forecast.py`，与 HTTP 框架无关；以后迁移到 FastAPI 或业务网关时无需改变前端响应结构。
 
-## 本地启动
+## 独立研究启动
 
 ```bash
 PYTHONPATH=src conda run -n ml python -m mazu_saudi.service.server \
-  --host 127.0.0.1 --port 8765
+  --host 127.0.0.1 --port 8766
 ```
 
-浏览器访问 `http://127.0.0.1:8765`。页面不依赖外部 CDN、地图瓦片、LLM 或知识图谱，适合离线比赛演示。
+浏览器访问 `http://127.0.0.1:8766`。页面不依赖外部 CDN、地图瓦片、LLM 或知识图谱，
+只用于研究接口回归，不用于比赛演示。
 
 ## 参考工程中吸收与拒绝的内容
 
