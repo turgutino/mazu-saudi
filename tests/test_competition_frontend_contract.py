@@ -40,3 +40,20 @@ def test_competition_frontend_uses_light_service_workspace_visual_system():
     assert "--navy: #173f6b" in styles
     assert 'grid-template-areas: "controls brief" "scenarios brief"' in styles
     assert "background: #061712" not in styles
+
+
+def test_competition_frontend_explains_truth_layers_and_assistant_mode():
+    app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    translations = (FRONTEND / "src" / "i18n.ts").read_text(encoding="utf-8")
+    for boundary in (
+        "本地模型按次重算",
+        "模型与规则派生分析",
+        "人工维护证据库",
+        "确定性模板解读",
+        "运行结果动态生成",
+    ):
+        assert boundary in app
+    assert "代理标签验证" in app
+    assert "当前为确定性模板，不是大模型对话" in app
+    assert "只读且不可被本页修改" in app
+    assert 'assistant: "结果解读"' in translations

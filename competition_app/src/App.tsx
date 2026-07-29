@@ -110,8 +110,16 @@ function Layout({ children }: { children: ReactNode }) {
   );
 }
 
-function PageHeading({ eyebrow, title, lead }: { eyebrow: string; title: string; lead: string }) {
-  return <header className="page-heading"><span>{eyebrow}</span><h1>{title}</h1><p>{lead}</p></header>;
+function PageHeading({ eyebrow, title, lead, truth }: { eyebrow: string; title: string; lead: string; truth: string }) {
+  const { locale, health } = useApp();
+  return <header className="page-heading">
+    <span>{eyebrow}</span><h1>{title}</h1><p>{lead}</p>
+    <div className="truth-strip" aria-label={locale === "zh" ? "真实性边界" : "Evidence boundary"}>
+      <span>{health?.ready_for_inference ? truth : (locale === "zh" ? "归档回放" : "Archive replay")}</span>
+      <span>{locale === "zh" ? "2025历史数据" : "2025 historical data"}</span>
+      <span>{locale === "zh" ? "代理标签验证" : "Proxy-label validation"}</span>
+    </div>
+  </header>;
 }
 
 function ConsolePage() {
@@ -135,7 +143,7 @@ function ConsolePage() {
   };
   return (
     <>
-      <PageHeading eyebrow="WARNING WORKFLOW / 01" title={t(locale, "selectTask")} lead={t(locale, "selectTaskLead")} />
+      <PageHeading eyebrow="WARNING WORKFLOW / 01" title={t(locale, "selectTask")} lead={t(locale, "selectTaskLead")} truth={locale === "zh" ? "本地模型按次重算" : "Local model recomputation"} />
       <section className="console-grid">
         <div className="console-controls panel">
           <div className="panel-label"><span>A / TASK CONTROL</span><b>T−1 → T</b></div>
@@ -241,7 +249,7 @@ function AnalysisPage() {
   const indicators = conditions.indicators || conditions.conditions || {};
   return (
     <>
-      <PageHeading eyebrow="EVENT DIAGNOSTICS / 02" title={t(locale, "analysisTitle")} lead={t(locale, "analysisLead")} />
+      <PageHeading eyebrow="EVENT DIAGNOSTICS / 02" title={t(locale, "analysisTitle")} lead={t(locale, "analysisLead")} truth={locale === "zh" ? "模型与规则派生分析" : "Model- and rule-derived analysis"} />
       <section className="analysis-grid">
         <RiskMap run={selectedRun} />
         <article className="metrics-panel panel">
@@ -271,7 +279,7 @@ function EvidencePage() {
   const evidence = selectedRun.result.evidence;
   return (
     <>
-      <PageHeading eyebrow="EVIDENCE AUDIT / 03" title={t(locale, "evidenceTitle")} lead={evidence.claim_boundary} />
+      <PageHeading eyebrow="EVIDENCE AUDIT / 03" title={t(locale, "evidenceTitle")} lead={evidence.claim_boundary} truth={locale === "zh" ? "人工维护证据库" : "Human-curated evidence base"} />
       <section className="evidence-layout">
         <article className="graph-panel panel">
           <div className="panel-label"><span>A / EVENT SUBGRAPH</span><b>EXPLANATION ONLY</b></div>
@@ -292,22 +300,29 @@ function EvidencePage() {
 }
 
 function AssistantPage() {
-  const { locale, selectedRun } = useApp();
+  const { locale, selectedRun, health } = useApp();
   const [message, setMessage] = useState("");
-  const [answer, setAnswer] = useState("");
+  const [answer, setAnswer] = useState<{ content: string; mode: string } | null>(null);
   const [busy, setBusy] = useState(false);
   if (!selectedRun?.result) return <EmptyRun />;
   const submit = async (event: FormEvent) => {
     event.preventDefault(); if (!message.trim()) return; setBusy(true);
-    try { setAnswer((await api.message(selectedRun.id, message, locale)).content); } finally { setBusy(false); }
+    try {
+      const response = await api.message(selectedRun.id, message, locale);
+      setAnswer({ content: response.content, mode: response.mode });
+    } finally { setBusy(false); }
   };
   return (
     <>
-      <PageHeading eyebrow="BOUNDED ASSISTANT / 04" title={t(locale, "assistantTitle")} lead={locale === "zh" ? "核心分析由确定性工具生成；网络不可用也不会影响预测结果。" : "Core analysis is deterministic. Network availability never changes forecast values."} />
+      <PageHeading eyebrow="RESULT INTERPRETATION / 04" title={t(locale, "assistantTitle")} lead={locale === "zh" ? "默认由确定性模板解释已保存结果；配置 DeepSeek 后才启用受约束问答。任何模式都不能修改预测。" : "A deterministic template explains saved results by default. Bounded DeepSeek Q&A is optional. Neither mode can change the forecast."} truth={health?.llm_available ? (locale === "zh" ? "确定性解读 + 可选 AI" : "Deterministic guide + optional AI") : (locale === "zh" ? "确定性模板解读" : "Deterministic template guide")} />
       <section className="assistant-layout panel">
-        <div className="assistant-context"><span>ACTIVE EXERCISE</span><h2>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</h2><p>{selectedRun.target_date}</p><div><strong>{Math.round(selectedRun.result.forecast.probability * 100)}%</strong><small>{t(locale, "probability")}</small></div></div>
+        <div className="assistant-context"><span>SAVED EXERCISE</span><h2>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</h2><p>{selectedRun.target_date}</p><div><strong>{Math.round(selectedRun.result.forecast.probability * 100)}%</strong><small>{t(locale, "probability")}</small></div></div>
         <div className="conversation">
-          <div className="assistant-message"><span>MAZU / TOOL ANALYSIS</span><p>{answer || (locale === "zh" ? "我只分析当前冻结的预测、指标和证据，不会修改模型结果。你可以询问风险原因、可靠性或CAP含义。" : "I only analyze this frozen forecast, its indicators and evidence. Ask about drivers, reliability or CAP semantics.")}</p></div>
+          <div className={`assistant-mode ${health?.llm_available ? "llm" : "template"}`}>
+            <strong>{health?.llm_available ? (locale === "zh" ? "可选 AI 问答已启用" : "Optional AI Q&A enabled") : (locale === "zh" ? "当前为确定性模板，不是大模型对话" : "Deterministic template; not an LLM chat")}</strong>
+            <span>{locale === "zh" ? "“已保存结果”是写入本地审计库的预测 JSON，只读且不可被本页修改。" : "A saved result is forecast JSON recorded in the local audit store. This page can only read it."}</span>
+          </div>
+          <div className="assistant-message"><span>{answer?.mode === "deepseek" ? "DEEPSEEK / BOUNDED JSON" : "MAZU / DETERMINISTIC SUMMARY"}</span><p>{answer?.content || (locale === "zh" ? "我只解读当前已保存的预测、指标和证据，不会修改模型结果。你可以询问风险原因、可靠性或 CAP 含义。" : "I only interpret this saved forecast, its indicators and evidence. Ask about drivers, reliability or CAP semantics.")}</p></div>
           <form onSubmit={submit}><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t(locale, "ask")} /><button className="primary-button" disabled={busy}>{busy ? "…" : t(locale, "send")}<span>↗</span></button></form>
           <div className="prompt-chips">{[locale === "zh" ? "为什么模型和规则不一致？" : "Why do model and rules disagree?", locale === "zh" ? "这个概率可靠吗？" : "Is this probability reliable?", locale === "zh" ? "解释主要指标" : "Explain the main indicators"].map((item) => <button key={item} onClick={() => setMessage(item)}>{item}</button>)}</div>
         </div>
@@ -332,7 +347,7 @@ function ReportsPage() {
   };
   return (
     <>
-      <PageHeading eyebrow="ARTIFACT LIBRARY / 05" title={t(locale, "reportsTitle")} lead={locale === "zh" ? "固定研究材料与每次演练的可下载证据包统一归档。" : "Fixed research materials and run-specific evidence packages in one library."} />
+      <PageHeading eyebrow="ARTIFACT LIBRARY / 05" title={t(locale, "reportsTitle")} lead={locale === "zh" ? "固定研究材料与每次演练的可下载证据包统一归档。" : "Fixed research materials and run-specific evidence packages in one library."} truth={locale === "zh" ? "运行结果动态生成" : "Generated from run results"} />
       <section className="report-layout">
         <article className="generate-panel panel">
           <div className="panel-label"><span>A / CURRENT EXERCISE</span><b>{selectedRun ? "READY" : "NO RUN"}</b></div>
