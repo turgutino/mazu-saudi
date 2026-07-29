@@ -275,24 +275,88 @@ function AnalysisPage() {
 
 function EvidencePage() {
   const { locale, selectedRun } = useApp();
+  const [selectedNode, setSelectedNode] = useState("hazard");
   if (!selectedRun?.result) return <EmptyRun />;
   const evidence = selectedRun.result.evidence;
+  const indicators = evidence.contributing_indicators.slice(0, 6);
+  const mechanisms = evidence.mechanisms.slice(0, 5);
+  const citations = mechanisms.flatMap((item, mechanismIndex) =>
+    item.citations.slice(0, 1).map((citation, index) => ({
+      ...citation,
+      id: `citation-${mechanismIndex}-${index}`,
+      mechanismIndex,
+      mechanism: item.mechanism,
+    })),
+  ).slice(0, 5);
+  const indicatorY = (index: number) => indicators.length === 1 ? 280 : 80 + index * (400 / Math.max(1, indicators.length - 1));
+  const mechanismY = (index: number) => mechanisms.length === 1 ? 280 : 85 + index * (390 / Math.max(1, mechanisms.length - 1));
+  const citationY = (index: number) => citations.length === 1 ? 280 : 85 + index * (390 / Math.max(1, citations.length - 1));
+  const selected =
+    selectedNode === "hazard"
+      ? {
+          type: locale === "zh" ? "目标灾种" : "Target hazard",
+          title: hazardLabel(locale, evidence.hazard),
+          description: locale === "zh" ? "当前演练要解释的风险结果。所有连线都是解释和来源关系，不是自动发现的因果边。" : "The risk result being explained. Edges show explanation and provenance, not automatically discovered causality.",
+          status: "RUN RESULT",
+        }
+      : indicators.map((name) => ({
+          id: `indicator-${name}`,
+          type: locale === "zh" ? "观测指标" : "Observed indicator",
+          title: name.replaceAll("_", " "),
+          description: locale === "zh" ? `来自 ${selectedRun.result?.forecast.features_from_date} 的真实输入指标，作为本次演练的观测依据。` : `A real model input observed on ${selectedRun.result?.forecast.features_from_date}.`,
+          status: "OBSERVED",
+        })).find((item) => item.id === selectedNode)
+        || mechanisms.map((item) => ({
+          id: `mechanism-${item.mechanism}`,
+          type: locale === "zh" ? "机制断言" : "Mechanism assertion",
+          title: item.mechanism.replaceAll("_", " "),
+          description: item.description,
+          status: item.literature_grounded ? "GROUNDED" : "REVIEW",
+        })).find((item) => item.id === selectedNode)
+        || citations.map((item) => ({
+          id: item.id,
+          type: locale === "zh" ? "文献记录" : "Literature record",
+          title: item.citation || (locale === "zh" ? "引文记录" : "Citation record"),
+          description: item.verification_scope || item.review_status || (locale === "zh" ? "适用范围仍需人工核验。" : "Applicability still requires human review."),
+          status: item.review_status || "SCOPE LIMITED",
+        })).find((item) => item.id === selectedNode);
   return (
     <>
-      <PageHeading eyebrow="EVIDENCE AUDIT / 03" title={t(locale, "evidenceTitle")} lead={evidence.claim_boundary} truth={locale === "zh" ? "人工维护证据库" : "Human-curated evidence base"} />
-      <section className="evidence-layout">
-        <article className="graph-panel panel">
-          <div className="panel-label"><span>A / EVENT SUBGRAPH</span><b>EXPLANATION ONLY</b></div>
-          <div className="evidence-graph">
-            <div className="graph-center"><span>HAZARD</span><strong>{hazardLabel(locale, evidence.hazard)}</strong></div>
-            <div className="graph-ring mechanisms">{evidence.mechanisms.slice(0, 5).map((item, index) => <div key={item.mechanism} style={{ "--i": index, "--n": Math.min(5, evidence.mechanisms.length) } as React.CSSProperties}><span>M</span><strong>{item.mechanism.replaceAll("_", " ")}</strong></div>)}</div>
-            <div className="graph-ring indicators">{evidence.contributing_indicators.slice(0, 7).map((item, index) => <div key={item} style={{ "--i": index, "--n": Math.min(7, evidence.contributing_indicators.length) } as React.CSSProperties}><span>I</span><strong>{item.replaceAll("_", " ")}</strong></div>)}</div>
+      <PageHeading eyebrow="EVIDENCE NETWORK / 03" title={t(locale, "evidenceTitle")} lead={locale === "zh" ? "沿着关系线检查本次演练用了哪些观测、机制断言和文献记录；点击任一节点查看来源与核验状态。" : "Trace the observations, mechanism assertions and literature records used for this exercise. Select any node to audit its source and status."} truth={locale === "zh" ? "人工维护证据网络" : "Human-curated evidence network"} />
+      <section className="evidence-workspace">
+        <article className="network-panel">
+          <div className="network-toolbar">
+            <div><span>EVENT SUBGRAPH</span><strong>{indicators.length + mechanisms.length + citations.length + 1} NODES · {indicators.length + mechanisms.length + citations.length} EDGES</strong></div>
+            <div className="network-legend"><span><i className="observation" />{locale === "zh" ? "观测" : "Observation"}</span><span><i className="assertion" />{locale === "zh" ? "机制" : "Mechanism"}</span><span><i className="hazard" />{locale === "zh" ? "灾种" : "Hazard"}</span><span><i className="citation" />{locale === "zh" ? "文献" : "Citation"}</span></div>
           </div>
-          <div className="graph-legend"><span><i className="mechanism-dot" />Mechanism assertion</span><span><i className="indicator-dot" />Observed indicator</span><span><i className="citation-dot" />Literature record</span></div>
+          <div className="network-scroll">
+            <div className="network-canvas">
+              <svg viewBox="0 0 1000 560" aria-hidden="true">
+                <defs><marker id="graph-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" /></marker></defs>
+                {indicators.map((item, index) => <path key={`indicator-edge-${item}`} className="edge observation-edge" d={`M 150 ${indicatorY(index)} C 330 ${indicatorY(index)}, 500 280, 665 280`} />)}
+                {mechanisms.map((item, index) => <path key={`mechanism-edge-${item.mechanism}`} className="edge mechanism-edge" d={`M 465 ${mechanismY(index)} C 555 ${mechanismY(index)}, 560 280, 665 280`} />)}
+                {citations.map((item, index) => <path key={`citation-edge-${item.id}`} className="edge citation-edge" d={`M 855 ${citationY(index)} C 725 ${citationY(index)}, 600 ${mechanismY(item.mechanismIndex)}, 465 ${mechanismY(item.mechanismIndex)}`} />)}
+                <text className="edge-label" x="255" y="265">{locale === "zh" ? "本次观测" : "observed for run"}</text>
+                <text className="edge-label" x="520" y="265">{locale === "zh" ? "解释断言" : "explains"}</text>
+                <text className="edge-label" x="745" y="265">{locale === "zh" ? "文献支持" : "grounded by"}</text>
+              </svg>
+              {indicators.map((item, index) => <button key={item} className={`network-node observation ${selectedNode === `indicator-${item}` ? "selected" : ""}`} style={{ left: "12%", top: `${indicatorY(index) / 5.6}%` }} onClick={() => setSelectedNode(`indicator-${item}`)}><small>INDICATOR</small><strong>{item.replaceAll("_", " ")}</strong></button>)}
+              {mechanisms.map((item, index) => <button key={item.mechanism} className={`network-node assertion ${selectedNode === `mechanism-${item.mechanism}` ? "selected" : ""}`} style={{ left: "42%", top: `${mechanismY(index) / 5.6}%` }} onClick={() => setSelectedNode(`mechanism-${item.mechanism}`)}><small>MECHANISM</small><strong>{item.mechanism.replaceAll("_", " ")}</strong></button>)}
+              <button className={`network-node hazard ${selectedNode === "hazard" ? "selected" : ""}`} style={{ left: "70%", top: "50%" }} onClick={() => setSelectedNode("hazard")}><small>HAZARD</small><strong>{hazardLabel(locale, evidence.hazard)}</strong><b>{Math.round(selectedRun.result.forecast.probability * 100)}%</b></button>
+              {citations.map((item, index) => <button key={item.id} className={`network-node citation ${selectedNode === item.id ? "selected" : ""}`} style={{ left: "89%", top: `${citationY(index) / 5.6}%` }} onClick={() => setSelectedNode(item.id)}><small>CITATION</small><strong>{locale === "zh" ? "文献记录" : "Literature"}</strong></button>)}
+            </div>
+          </div>
+          <div className="network-boundary"><strong>{locale === "zh" ? "关系边界" : "Edge boundary"}</strong><span>{evidence.claim_boundary}</span></div>
         </article>
-        <aside className="evidence-list panel">
-          <div className="panel-label"><span>B / EVIDENCE REGISTER</span><b>{evidence.mechanisms.length} MECHANISMS</b></div>
-          {evidence.mechanisms.map((item) => <details key={item.mechanism}><summary><span><i className={item.literature_grounded ? "grounded" : ""} /><strong>{item.mechanism.replaceAll("_", " ")}</strong></span><b>{item.literature_grounded ? "GROUNDED" : "REVIEW"}</b></summary><p>{item.description}</p>{item.citations.map((citation, index) => <a key={index} href={citation.url} target="_blank" rel="noreferrer">{citation.citation || "Citation record"}<small>{citation.review_status || "scope limited"}</small></a>)}</details>)}
+        <aside className="node-inspector">
+          <div className="inspector-heading"><span>NODE INSPECTOR</span><b>{selected?.status}</b></div>
+          <div className="inspector-content"><small>{selected?.type}</small><h2>{selected?.title}</h2><p>{selected?.description}</p></div>
+          <div className="relation-register">
+            <span>{locale === "zh" ? "图中关系" : "Relations in view"}</span>
+            <div><i className="observation" /><p><strong>{locale === "zh" ? "观测支持" : "Observed for run"}</strong><small>{indicators.length} {locale === "zh" ? "个前一日输入" : "previous-day inputs"}</small></p></div>
+            <div><i className="assertion" /><p><strong>{locale === "zh" ? "机制解释" : "Mechanism explains"}</strong><small>{mechanisms.length} {locale === "zh" ? "条人工断言" : "human assertions"}</small></p></div>
+            <div><i className="citation" /><p><strong>{locale === "zh" ? "文献支撑" : "Grounded by"}</strong><small>{citations.length} {locale === "zh" ? "条有限范围记录" : "scoped records"}</small></p></div>
+          </div>
         </aside>
       </section>
     </>
@@ -312,20 +376,41 @@ function AssistantPage() {
       setAnswer({ content: response.content, mode: response.mode });
     } finally { setBusy(false); }
   };
+  const forecast = selectedRun.result.forecast;
+  const decision = selectedRun.result.decision;
+  const rule = forecast.reflexive_check;
+  const topIndicators = Object.entries(selectedRun.result.conditions.indicators || selectedRun.result.conditions.conditions || {}).filter(([, value]) => value != null).slice(0, 4);
   return (
     <>
-      <PageHeading eyebrow="RESULT INTERPRETATION / 04" title={t(locale, "assistantTitle")} lead={locale === "zh" ? "默认由确定性模板解释已保存结果；配置 DeepSeek 后才启用受约束问答。任何模式都不能修改预测。" : "A deterministic template explains saved results by default. Bounded DeepSeek Q&A is optional. Neither mode can change the forecast."} truth={health?.llm_available ? (locale === "zh" ? "确定性解读 + 可选 AI" : "Deterministic guide + optional AI") : (locale === "zh" ? "确定性模板解读" : "Deterministic template guide")} />
-      <section className="assistant-layout panel">
-        <div className="assistant-context"><span>SAVED EXERCISE</span><h2>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</h2><p>{selectedRun.target_date}</p><div><strong>{Math.round(selectedRun.result.forecast.probability * 100)}%</strong><small>{t(locale, "probability")}</small></div></div>
-        <div className="conversation">
-          <div className={`assistant-mode ${health?.llm_available ? "llm" : "template"}`}>
-            <strong>{health?.llm_available ? (locale === "zh" ? "可选 AI 问答已启用" : "Optional AI Q&A enabled") : (locale === "zh" ? "当前为确定性模板，不是大模型对话" : "Deterministic template; not an LLM chat")}</strong>
-            <span>{locale === "zh" ? "“已保存结果”是写入本地审计库的预测 JSON，只读且不可被本页修改。" : "A saved result is forecast JSON recorded in the local audit store. This page can only read it."}</span>
+      <PageHeading eyebrow="DECISION BRIEF / 04" title={t(locale, "assistantTitle")} lead={locale === "zh" ? "它不是另一个聊天页面：系统把当前演练自动整理成结论、依据、分歧、限制和下一步，方便评委快速理解一次运行。" : "This is not another chat screen. It turns the current run into a conclusion, evidence, disagreement, limitations and next steps."} truth={health?.llm_available ? (locale === "zh" ? "自动简报 + 可选 AI 追问" : "Automatic brief + optional AI") : (locale === "zh" ? "确定性自动简报" : "Deterministic automatic brief")} />
+      <section className="brief-workflow">
+        <div><span>01</span><p><strong>{locale === "zh" ? "读取运行记录" : "Read run record"}</strong><small>{locale === "zh" ? "概率、指标、阈值" : "Probability, inputs, threshold"}</small></p></div>
+        <i>→</i>
+        <div><span>02</span><p><strong>{locale === "zh" ? "交叉复核" : "Cross-check"}</strong><small>{locale === "zh" ? "模型、规则、证据" : "Model, rules, evidence"}</small></p></div>
+        <i>→</i>
+        <div><span>03</span><p><strong>{locale === "zh" ? "形成决策简报" : "Produce brief"}</strong><small>{locale === "zh" ? "结论、限制、下一步" : "Finding, limits, next step"}</small></p></div>
+      </section>
+      <section className="decision-layout">
+        <article className="decision-hero">
+          <div className="decision-kicker"><span>HISTORICAL EXERCISE</span><b>{decision.level}</b></div>
+          <div className="decision-place"><small>{selectedRun.target_date}</small><h2>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</h2></div>
+          <div className="decision-probability"><strong>{Math.round(forecast.probability * 100)}</strong><span>%</span><p>{locale === "zh" ? "模型风险概率" : "model risk probability"}</p></div>
+          <div className="decision-statement">
+            <span>{locale === "zh" ? "一句话结论" : "Bottom line"}</span>
+            <p>{locale === "zh" ? `模型超过固定阈值 ${Math.round(decision.threshold * 100)}%，本次历史演练进入 ${decision.level} 等级；仍需结合规则分歧和代理标签边界人工复核。` : `The model exceeds the fixed ${Math.round(decision.threshold * 100)}% threshold and enters the ${decision.level} tier; rule disagreement and proxy-label limits still require review.`}</p>
           </div>
-          <div className="assistant-message"><span>{answer?.mode === "deepseek" ? "DEEPSEEK / BOUNDED JSON" : "MAZU / DETERMINISTIC SUMMARY"}</span><p>{answer?.content || (locale === "zh" ? "我只解读当前已保存的预测、指标和证据，不会修改模型结果。你可以询问风险原因、可靠性或 CAP 含义。" : "I only interpret this saved forecast, its indicators and evidence. Ask about drivers, reliability or CAP semantics.")}</p></div>
-          <form onSubmit={submit}><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t(locale, "ask")} /><button className="primary-button" disabled={busy}>{busy ? "…" : t(locale, "send")}<span>↗</span></button></form>
-          <div className="prompt-chips">{[locale === "zh" ? "为什么模型和规则不一致？" : "Why do model and rules disagree?", locale === "zh" ? "这个概率可靠吗？" : "Is this probability reliable?", locale === "zh" ? "解释主要指标" : "Explain the main indicators"].map((item) => <button key={item} onClick={() => setMessage(item)}>{item}</button>)}</div>
+        </article>
+        <div className="brief-cards">
+          <article><span>A / {locale === "zh" ? "主要依据" : "DRIVERS"}</span><h3>{locale === "zh" ? "前一日输入指标" : "Previous-day indicators"}</h3><div className="driver-list">{topIndicators.map(([name, value]) => <div key={name}><small>{name.replaceAll("_", " ")}</small><strong>{Number(value).toFixed(2)}</strong></div>)}</div><Link to="/analysis">{locale === "zh" ? "查看完整分析" : "Open full analysis"} →</Link></article>
+          <article><span>B / {locale === "zh" ? "交叉复核" : "CROSS-CHECK"}</span><h3>{locale === "zh" ? "模型与规则是否一致？" : "Do model and rules agree?"}</h3><div className="crosscheck-score"><div><small>MODEL</small><strong>{forecast.probability.toFixed(2)}</strong></div><i>↔</i><div><small>RULE</small><strong>{rule?.detection_engine_risk_score.toFixed(2) ?? "—"}</strong></div></div><p>{rule?.consistency.replaceAll("_", " ") || "unavailable"}</p><Link to="/evidence">{locale === "zh" ? "沿证据网络核验" : "Audit the evidence network"} →</Link></article>
+          <article className="limits-card"><span>C / {locale === "zh" ? "必须说明的限制" : "LIMITS"}</span><h3>{locale === "zh" ? "这个结果能说明什么？" : "What does this result mean?"}</h3><ul><li>{locale === "zh" ? "2025单年历史数据" : "2025 single-year historical data"}</li><li>{locale === "zh" ? "代理标签，不是独立灾情真值" : "Proxy labels, not independent disaster truth"}</li><li>{locale === "zh" ? "历史演练，不是业务预警" : "Historical exercise, not an operational warning"}</li></ul><Link to="/reports">{locale === "zh" ? "生成带边界的报告" : "Generate a bounded report"} →</Link></article>
         </div>
+      </section>
+      <section className="followup-panel">
+        <div className="followup-heading"><div><span>OPTIONAL FOLLOW-UP</span><h2>{locale === "zh" ? "对这份简报继续追问" : "Ask a follow-up about this brief"}</h2></div><b>{health?.llm_available ? "DEEPSEEK AVAILABLE" : (locale === "zh" ? "确定性模板" : "DETERMINISTIC TEMPLATE")}</b></div>
+        {answer && <div className="followup-answer"><span>{answer.mode === "deepseek" ? "DEEPSEEK / BOUNDED JSON" : "MAZU / DETERMINISTIC SUMMARY"}</span><p>{answer.content}</p></div>}
+        <form onSubmit={submit}><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={locale === "zh" ? "例如：为什么模型和规则不一致？" : "For example: Why do model and rules disagree?"} /><button className="primary-button" disabled={busy}>{busy ? "…" : t(locale, "send")}<span>↗</span></button></form>
+        <p className="followup-boundary">{locale === "zh" ? "追问只读取当前运行记录，不能修改概率、等级或 CAP。" : "Follow-up only reads the current run; it cannot modify probability, level or CAP."}</p>
       </section>
     </>
   );

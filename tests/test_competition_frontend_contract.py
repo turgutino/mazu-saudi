@@ -48,12 +48,27 @@ def test_competition_frontend_explains_truth_layers_and_assistant_mode():
     for boundary in (
         "本地模型按次重算",
         "模型与规则派生分析",
-        "人工维护证据库",
-        "确定性模板解读",
+        "人工维护证据网络",
+        "确定性自动简报",
         "运行结果动态生成",
     ):
         assert boundary in app
     assert "代理标签验证" in app
-    assert "当前为确定性模板，不是大模型对话" in app
-    assert "只读且不可被本页修改" in app
-    assert 'assistant: "结果解读"' in translations
+    assert "追问只读取当前运行记录" in app
+    assert "不能修改概率、等级或 CAP" in app
+    assert 'assistant: "决策简报"' in translations
+
+
+def test_evidence_page_renders_relationship_network_and_node_inspector():
+    app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    styles = (FRONTEND / "src" / "styles.css").read_text(encoding="utf-8")
+    for contract in ("observation-edge", "mechanism-edge", "citation-edge", "NODE INSPECTOR"):
+        assert contract in app
+    assert "network-canvas" in styles
+    assert "graph-ring" not in app
+
+
+def test_decision_brief_is_primary_and_follow_up_is_optional():
+    app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    for section in ("一句话结论", "主要依据", "交叉复核", "必须说明的限制", "OPTIONAL FOLLOW-UP"):
+        assert section in app
