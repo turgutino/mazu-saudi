@@ -1,7 +1,20 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { api } from "./api";
-import { cityLabel, hazardLabel, t } from "./i18n";
+import {
+  cityLabel,
+  consistencyLabel,
+  evidenceBoundary,
+  evidenceStatusLabel,
+  hazardLabel,
+  indicatorLabel,
+  mechanismDescription,
+  mechanismLabel,
+  reportKindLabel,
+  riskLevelLabel,
+  ruleNote,
+  t,
+} from "./i18n";
 import type { Config, FieldData, FieldLayer, Health, Locale, ReportItem, Run, Scenario } from "./types";
 
 type AppState = {
@@ -83,7 +96,7 @@ function Layout({ children }: { children: ReactNode }) {
         <div className="sidebar-bottom">
           <a href="/legacy/index.html"><span>↗</span>{t(locale, "archive")}</a>
           <div className={`service-state ${health?.ready_for_inference ? "ready" : "degraded"}`}>
-            <i />{health?.ready_for_inference ? "LOCAL DATA READY" : "ARCHIVE MODE"}
+            <i />{health?.ready_for_inference ? t(locale, "localDataReady") : t(locale, "archiveModeShort")}
           </div>
         </div>
       </aside>
@@ -93,9 +106,9 @@ function Layout({ children }: { children: ReactNode }) {
             <span>{t(locale, "historical")}</span>
             <small>{t(locale, "boundary")}</small>
           </div>
-          {selectedRun && <Link className="active-run-chip" to="/analysis"><i /><span><small>{locale === "zh" ? "当前演练" : "Current exercise"}</small><strong>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</strong></span><b>{selectedRun.target_date.slice(5)}</b></Link>}
+          {selectedRun && <Link className="active-run-chip" to="/analysis"><i /><span><small>{t(locale, "currentExercise")}</small><strong>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</strong></span><b>{selectedRun.target_date.slice(5)}</b></Link>}
           <div className="top-actions">
-            <span className="year-chip">DATASET / 2025</span>
+            <span className="year-chip">{t(locale, "datasetYear")}</span>
             <div className="language-switch" aria-label="Language">
               <button className={locale === "zh" ? "active" : ""} onClick={() => setLocale("zh")}>中</button>
               <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>EN</button>
@@ -138,17 +151,17 @@ function ConsolePage() {
     try {
       const run = await api.createRun({ city, target_date: targetDate, hazard, locale });
       setSelectedRun(run); await refreshRuns();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to run exercise"); }
+    } catch { setError(t(locale, "runFailed")); }
     finally { setBusy(false); }
   };
   return (
     <>
-      <PageHeading eyebrow="WARNING WORKFLOW / 01" title={t(locale, "selectTask")} lead={t(locale, "selectTaskLead")} truth={locale === "zh" ? "本地模型按次重算" : "Local model recomputation"} />
+      <PageHeading eyebrow={t(locale, "consoleEyebrow")} title={t(locale, "selectTask")} lead={t(locale, "selectTaskLead")} truth={locale === "zh" ? "本地模型按次重算" : "Local model recomputation"} />
       <section className="console-grid">
         <div className="console-controls panel">
-          <div className="panel-label"><span>A / TASK CONTROL</span><b>T−1 → T</b></div>
+          <div className="panel-label"><span>A / {t(locale, "taskControl")}</span><b>T−1 → T</b></div>
           <form onSubmit={submit}>
-            <label>{t(locale, "city")}<select value={city} onChange={(e) => setCity(e.target.value)}>{config?.cities.map((item) => <option key={item} value={item}>{cityLabel(locale, item)} / {item}</option>)}</select></label>
+            <label>{t(locale, "city")}<select value={city} onChange={(e) => setCity(e.target.value)}>{config?.cities.map((item) => <option key={item} value={item}>{cityLabel(locale, item)}</option>)}</select></label>
             <label>{t(locale, "targetDate")}<input type="date" min="2025-01-02" max="2025-12-31" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} /></label>
             <label>{t(locale, "hazard")}<select value={hazard} onChange={(e) => setHazard(e.target.value)}>{config?.hazards.map((item) => <option key={item} value={item}>{hazardLabel(locale, item)}</option>)}</select></label>
             <div className="causal-note"><span>T−1</span><p>{locale === "zh" ? "系统仅读取目标日前一天可获得的指标，不使用目标日观测。" : "Only indicators available one day before the target are read."}</p></div>
@@ -157,7 +170,7 @@ function ConsolePage() {
           </form>
         </div>
         <div className="scenario-column">
-          <div className="section-title"><span>{t(locale, "scenarios")}</span><small>CURATED / AUDITED</small></div>
+          <div className="section-title"><span>{t(locale, "scenarios")}</span><small>{t(locale, "curatedAudited")}</small></div>
           <div className="scenario-grid">
             {scenarios.map((scenario, index) => (
               <button key={scenario.id} className={`scenario-card ${scenario.kind}`} onClick={() => applyScenario(scenario)}>
@@ -170,7 +183,7 @@ function ConsolePage() {
             <div className="panel-label"><span>{t(locale, "recent")}</span><b>{runs.length.toString().padStart(2, "0")}</b></div>
             <div className="history-list">
               {runs.slice(0, 4).map((run) => <button key={run.id} className={run.id === selectedRun?.id ? "active" : ""} onClick={() => setSelectedRun(run)}><i /><span><strong>{cityLabel(locale, run.city)} · {hazardLabel(locale, run.hazard)}</strong><small>{run.target_date}</small></span><b>↗</b></button>)}
-              {!runs.length && <p className="empty-inline">{locale === "zh" ? "尚无本地演练记录" : "No local exercises yet"}</p>}
+              {!runs.length && <p className="empty-inline">{t(locale, "noLocalRuns")}</p>}
             </div>
           </div>
         </div>
@@ -187,7 +200,7 @@ function RiskBrief({ run, onOpen, locale }: { run: Run | null; onOpen: () => voi
   const pct = Math.round(forecast.probability * 100);
   return (
     <aside className="risk-brief panel">
-      <div className="panel-label"><span>B / {t(locale, "riskBrief").toUpperCase()}</span><b className={`risk-level ${decision.alert_candidate ? "elevated" : ""}`}>{decision.level}</b></div>
+      <div className="panel-label"><span>B / {t(locale, "riskBrief")}</span><b className={`risk-level ${decision.alert_candidate ? "elevated" : ""}`}>{riskLevelLabel(locale, decision.level)}</b></div>
       <div className="brief-location"><div><span>{cityLabel(locale, forecast.city)}</span><h2>{hazardLabel(locale, forecast.hazard)}</h2></div><div className="coordinate">{forecast.grid_cell.lat}°N<br />{forecast.grid_cell.lon}°E</div></div>
       <div className="probability-dial" style={{ "--risk": `${pct * 3.6}deg` } as React.CSSProperties}><div><strong>{pct}</strong><span>%</span><small>{t(locale, "probability")}</small></div></div>
       <div className="brief-metrics">
@@ -196,7 +209,7 @@ function RiskBrief({ run, onOpen, locale }: { run: Run | null; onOpen: () => voi
         <div><span>{t(locale, "inputDate")}</span><strong>{forecast.features_from_date.slice(5)}</strong></div>
         <div><span>ROC-AUC</span><strong>{forecast.model_verified_roc_auc.toFixed(3)}</strong></div>
       </div>
-      <div className={`consistency ${rule?.consistency.includes("consistent") ? "agree" : "review"}`}><i /><div><span>{t(locale, "consistency")}</span><strong>{rule?.consistency?.replaceAll("_", " ") || "unavailable"}</strong></div></div>
+      <div className={`consistency ${rule?.consistency.includes("consistent") ? "agree" : "review"}`}><i /><div><span>{t(locale, "consistency")}</span><strong>{consistencyLabel(locale, rule?.consistency)}</strong></div></div>
       <button className="secondary-button" onClick={onOpen}>{t(locale, "openAnalysis")}<span>→</span></button>
     </aside>
   );
@@ -204,7 +217,7 @@ function RiskBrief({ run, onOpen, locale }: { run: Run | null; onOpen: () => voi
 
 function EmptyRun() {
   const { locale } = useApp();
-  return <div className="empty-page panel"><span>NO ACTIVE EXERCISE</span><h2>{t(locale, "noSelectedRun")}</h2><Link className="primary-button" to="/console">{t(locale, "console")} →</Link></div>;
+  return <div className="empty-page panel"><span>{t(locale, "noActiveExercise")}</span><h2>{t(locale, "noSelectedRun")}</h2><Link className="primary-button" to="/console">{t(locale, "console")} →</Link></div>;
 }
 
 function RiskMap({ run }: { run: Run }) {
@@ -213,7 +226,7 @@ function RiskMap({ run }: { run: Run }) {
   const [layer, setLayer] = useState<FieldLayer>("probability");
   const [field, setField] = useState<FieldData | null>(null);
   const [error, setError] = useState("");
-  useEffect(() => { setField(null); setError(""); api.field(run.id, layer).then(setField).catch((reason) => setError(String(reason))); }, [run.id, layer]);
+  useEffect(() => { setField(null); setError(""); api.field(run.id, layer).then(setField).catch(() => setError(t(locale, "fieldFailed"))); }, [run.id, layer, locale]);
   useEffect(() => {
     if (!field || !canvas.current) return;
     const element = canvas.current;
@@ -231,12 +244,12 @@ function RiskMap({ run }: { run: Run }) {
   }, [field, layer]);
   return (
     <article className="map-panel panel">
-      <div className="panel-label"><span>A / SAUDI GRID FIELD</span><b>{field ? `${field.rows} × ${field.columns}` : "LOADING"}</b></div>
+      <div className="panel-label"><span>A / {t(locale, "saudiGridField")}</span><b>{field ? `${field.rows} × ${field.columns}` : t(locale, "loading")}</b></div>
       <div className="layer-switch">
         {(["probability", "rule_risk", "uncertainty"] as FieldLayer[]).map((item) => <button key={item} className={layer === item ? "active" : ""} onClick={() => setLayer(item)}>{item === "probability" ? t(locale, "layerProbability") : item === "rule_risk" ? t(locale, "layerRule") : t(locale, "layerUncertainty")}</button>)}
       </div>
-      <div className="map-stage"><canvas ref={canvas} /><div className="grid-lines" /><span className="north">32°N</span><span className="south">16°N</span><span className="west">34°E</span><span className="east">56°E</span>{!field && !error && <div className="map-loading">READING HISTORICAL FIELD</div>}{error && <div className="map-loading error-message">{error}</div>}</div>
-      <div className="map-legend"><span>{field?.minimum.toFixed(2) ?? "0.00"}</span><i /><span>{field?.maximum.toFixed(2) ?? "1.00"}</span><small>{field?.cache === "hit" ? "LOCAL CACHE" : "MODEL DERIVED"}</small></div>
+      <div className="map-stage"><canvas ref={canvas} /><div className="grid-lines" /><span className="north">32°N</span><span className="south">16°N</span><span className="west">34°E</span><span className="east">56°E</span>{!field && !error && <div className="map-loading">{t(locale, "readingField")}</div>}{error && <div className="map-loading error-message">{error}</div>}</div>
+      <div className="map-legend"><span>{field?.minimum.toFixed(2) ?? "0.00"}</span><i /><span>{field?.maximum.toFixed(2) ?? "1.00"}</span><small>{field?.cache === "hit" ? t(locale, "localCache") : t(locale, "modelDerived")}</small></div>
     </article>
   );
 }
@@ -249,31 +262,31 @@ function AnalysisPage() {
   const indicators = conditions.indicators || conditions.conditions || {};
   return (
     <>
-      <PageHeading eyebrow="EVENT DIAGNOSTICS / 02" title={t(locale, "analysisTitle")} lead={t(locale, "analysisLead")} truth={locale === "zh" ? "模型与规则派生分析" : "Model- and rule-derived analysis"} />
+      <PageHeading eyebrow={t(locale, "analysisEyebrow")} title={t(locale, "analysisTitle")} lead={t(locale, "analysisLead")} truth={locale === "zh" ? "模型与规则派生分析" : "Model- and rule-derived analysis"} />
       <section className="analysis-summary" aria-label={locale === "zh" ? "事件摘要" : "Event summary"}>
         <div className="summary-identity"><span>{cityLabel(locale, forecast.city)} · {hazardLabel(locale, forecast.hazard)}</span><strong>{forecast.target_date}</strong></div>
         <div><span>{locale === "zh" ? "模型概率" : "Model"}</span><strong>{Math.round(forecast.probability * 100)}%</strong></div>
         <div><span>{locale === "zh" ? "规则风险" : "Rule"}</span><strong>{forecast.reflexive_check?.detection_engine_risk_score.toFixed(2) ?? "—"}</strong></div>
         <div><span>{locale === "zh" ? "集合分歧" : "Spread"}</span><strong>±{forecast.uncertainty.std.toFixed(3)}</strong></div>
-        <div className={forecast.reflexive_check?.consistency.includes("consistent") ? "summary-status agree" : "summary-status review"}><span>{locale === "zh" ? "复核状态" : "Cross-check"}</span><strong>{forecast.reflexive_check?.consistency.replaceAll("_", " ")}</strong></div>
+        <div className={forecast.reflexive_check?.consistency.includes("consistent") ? "summary-status agree" : "summary-status review"}><span>{locale === "zh" ? "复核状态" : "Cross-check"}</span><strong>{consistencyLabel(locale, forecast.reflexive_check?.consistency)}</strong></div>
       </section>
       <section className="analysis-grid">
         <RiskMap run={selectedRun} />
         <article className="metrics-panel panel">
-          <div className="panel-label"><span>B / RELIABILITY</span><b>FIXED THRESHOLD</b></div>
+          <div className="panel-label"><span>B / {t(locale, "reliability")}</span><b>{t(locale, "fixedThreshold")}</b></div>
           <div className="metric-hero"><span>{cityLabel(locale, forecast.city)} / {hazardLabel(locale, forecast.hazard)}</span><strong>{Math.round(forecast.probability * 100)}<small>%</small></strong><p>{forecast.target_date}</p></div>
           <div className="score-grid">{["pod", "far", "csi", "hss"].map((key) => <div key={key}><span>{key.toUpperCase()}</span><strong>{metrics[key] == null ? "—" : Number(metrics[key]).toFixed(3)}</strong></div>)}</div>
-          <div className="boundary-card"><span>INTERPRETATION BOUNDARY</span><p>{locale === "zh" ? "代理标签上的单年时间外推结果，不等同于独立灾害真值或业务可靠性。" : "Single-year temporal holdout over proxy labels; not independent disaster truth or operational reliability."}</p></div>
+          <div className="boundary-card"><span>{t(locale, "interpretationBoundary")}</span><p>{locale === "zh" ? "代理标签上的单年时间外推结果，不等同于独立灾害真值或业务可靠性。" : "Single-year temporal holdout over proxy labels; not independent disaster truth or operational reliability."}</p></div>
         </article>
         <article className="indicator-panel panel">
-          <div className="panel-label"><span>C / INPUT INDICATORS</span><b>{forecast.features_from_date}</b></div>
-          <div className="indicator-table">{Object.entries(indicators).slice(0, 12).map(([name, value]) => <div key={name}><span>{name.replaceAll("_", " ")}</span><strong>{value == null ? "NA" : Number(value).toFixed(2)}</strong></div>)}</div>
+          <div className="panel-label"><span>C / {t(locale, "inputIndicators")}</span><b>{forecast.features_from_date}</b></div>
+          <div className="indicator-table">{Object.entries(indicators).slice(0, 12).map(([name, value]) => <div key={name}><span title={name}>{indicatorLabel(locale, name)}</span><strong>{value == null ? "NA" : Number(value).toFixed(2)}</strong></div>)}</div>
         </article>
         <article className="audit-panel panel">
-          <div className="panel-label"><span>D / CROSS-CHECK</span><b>{forecast.reflexive_check?.consistency.replaceAll("_", " ")}</b></div>
-          <div className="comparison-bars"><div><span>MODEL</span><i style={{ width: `${forecast.probability * 100}%` }} /><strong>{forecast.probability.toFixed(2)}</strong></div><div><span>RULE</span><i style={{ width: `${(forecast.reflexive_check?.detection_engine_risk_score || 0) * 100}%` }} /><strong>{forecast.reflexive_check?.detection_engine_risk_score.toFixed(2)}</strong></div></div>
-          <p>{forecast.reflexive_check?.note}</p>
-          <div className="fired-list">{forecast.reflexive_check?.detection_engine_conditions_fired.map((item) => <span key={item}>{item}</span>)}</div>
+          <div className="panel-label"><span>D / {t(locale, "crossCheck")}</span><b>{consistencyLabel(locale, forecast.reflexive_check?.consistency)}</b></div>
+          <div className="comparison-bars"><div><span>{t(locale, "model")}</span><i style={{ width: `${forecast.probability * 100}%` }} /><strong>{forecast.probability.toFixed(2)}</strong></div><div><span>{t(locale, "rule")}</span><i style={{ width: `${(forecast.reflexive_check?.detection_engine_risk_score || 0) * 100}%` }} /><strong>{forecast.reflexive_check?.detection_engine_risk_score.toFixed(2)}</strong></div></div>
+          <p>{ruleNote(locale, forecast.reflexive_check?.consistency)}</p>
+          <div className="fired-list">{forecast.reflexive_check?.detection_engine_conditions_fired.map((item) => <span key={item} title={item}>{indicatorLabel(locale, item)}</span>)}</div>
         </article>
       </section>
     </>
@@ -304,36 +317,38 @@ function EvidencePage() {
           type: locale === "zh" ? "目标灾种" : "Target hazard",
           title: hazardLabel(locale, evidence.hazard),
           description: locale === "zh" ? "当前演练要解释的风险结果。所有连线都是解释和来源关系，不是自动发现的因果边。" : "The risk result being explained. Edges show explanation and provenance, not automatically discovered causality.",
-          status: "RUN RESULT",
+          status: evidenceStatusLabel(locale, "RUN RESULT"),
         }
       : indicators.map((name) => ({
           id: `indicator-${name}`,
           type: locale === "zh" ? "观测指标" : "Observed indicator",
-          title: name.replaceAll("_", " "),
+          title: indicatorLabel(locale, name),
           description: locale === "zh" ? `来自 ${selectedRun.result?.forecast.features_from_date} 的真实输入指标，作为本次演练的观测依据。` : `A real model input observed on ${selectedRun.result?.forecast.features_from_date}.`,
-          status: "OBSERVED",
+          status: evidenceStatusLabel(locale, "OBSERVED"),
         })).find((item) => item.id === selectedNode)
         || mechanisms.map((item) => ({
           id: `mechanism-${item.mechanism}`,
           type: locale === "zh" ? "机制断言" : "Mechanism assertion",
-          title: item.mechanism.replaceAll("_", " "),
-          description: item.description,
-          status: item.literature_grounded ? "GROUNDED" : "REVIEW",
+          title: mechanismLabel(locale, item.mechanism),
+          description: mechanismDescription(locale, item.mechanism, item.description),
+          status: evidenceStatusLabel(locale, item.literature_grounded ? "GROUNDED" : "REVIEW"),
         })).find((item) => item.id === selectedNode)
         || citations.map((item) => ({
           id: item.id,
           type: locale === "zh" ? "文献记录" : "Literature record",
           title: item.citation || (locale === "zh" ? "引文记录" : "Citation record"),
-          description: item.verification_scope || item.review_status || (locale === "zh" ? "适用范围仍需人工核验。" : "Applicability still requires human review."),
-          status: item.review_status || "SCOPE LIMITED",
+          description: locale === "zh"
+            ? "该文献记录支持相应机制的有限范围说明，具体适用性仍需人工核对原始论文。"
+            : item.verification_scope || item.review_status || "Applicability still requires human review.",
+          status: evidenceStatusLabel(locale, item.review_status || "SCOPE LIMITED"),
         })).find((item) => item.id === selectedNode);
   return (
     <>
-      <PageHeading eyebrow="EVIDENCE NETWORK / 03" title={t(locale, "evidenceTitle")} lead={locale === "zh" ? "沿着关系线检查本次演练用了哪些观测、机制断言和文献记录；点击任一节点查看来源与核验状态。" : "Trace the observations, mechanism assertions and literature records used for this exercise. Select any node to audit its source and status."} truth={locale === "zh" ? "人工维护证据网络" : "Human-curated evidence network"} />
+      <PageHeading eyebrow={t(locale, "evidenceEyebrow")} title={t(locale, "evidenceTitle")} lead={locale === "zh" ? "沿着关系线检查本次演练用了哪些观测、机制断言和文献记录；点击任一节点查看来源与核验状态。" : "Trace the observations, mechanism assertions and literature records used for this exercise. Select any node to audit its source and status."} truth={locale === "zh" ? "人工维护证据网络" : "Human-curated evidence network"} />
       <section className="evidence-workspace">
         <article className="network-panel">
           <div className="network-toolbar">
-            <div><span>EVENT SUBGRAPH</span><strong>{indicators.length + mechanisms.length + citations.length + 1} NODES · {indicators.length + mechanisms.length + citations.length} EDGES</strong></div>
+            <div><span>{t(locale, "eventSubgraph")}</span><strong>{indicators.length + mechanisms.length + citations.length + 1} {t(locale, "nodes")} · {indicators.length + mechanisms.length + citations.length} {t(locale, "edges")}</strong></div>
             <div className="network-legend"><span><i className="observation" />{locale === "zh" ? "观测" : "Observation"}</span><span><i className="assertion" />{locale === "zh" ? "机制" : "Mechanism"}</span><span><i className="hazard" />{locale === "zh" ? "灾种" : "Hazard"}</span><span><i className="citation" />{locale === "zh" ? "文献" : "Citation"}</span></div>
           </div>
           <div className="network-scroll">
@@ -347,20 +362,20 @@ function EvidencePage() {
                 <text className="edge-label" x="520" y="265">{locale === "zh" ? "解释断言" : "explains"}</text>
                 <text className="edge-label" x="745" y="265">{locale === "zh" ? "文献支持" : "grounded by"}</text>
               </svg>
-              {indicators.map((item, index) => <button key={item} className={`network-node observation ${selectedNode === `indicator-${item}` ? "selected" : ""}`} style={{ left: "12%", top: `${indicatorY(index) / 5.6}%` }} onClick={() => setSelectedNode(`indicator-${item}`)}><small>INDICATOR</small><strong>{item.replaceAll("_", " ")}</strong></button>)}
-              {mechanisms.map((item, index) => <button key={item.mechanism} className={`network-node assertion ${selectedNode === `mechanism-${item.mechanism}` ? "selected" : ""}`} style={{ left: "42%", top: `${mechanismY(index) / 5.6}%` }} onClick={() => setSelectedNode(`mechanism-${item.mechanism}`)}><small>MECHANISM</small><strong>{item.mechanism.replaceAll("_", " ")}</strong></button>)}
-              <button className={`network-node hazard ${selectedNode === "hazard" ? "selected" : ""}`} style={{ left: "70%", top: "50%" }} onClick={() => setSelectedNode("hazard")}><small>HAZARD</small><strong>{hazardLabel(locale, evidence.hazard)}</strong><b>{Math.round(selectedRun.result.forecast.probability * 100)}%</b></button>
-              {citations.map((item, index) => <button key={item.id} className={`network-node citation ${selectedNode === item.id ? "selected" : ""}`} style={{ left: "89%", top: `${citationY(index) / 5.6}%` }} onClick={() => setSelectedNode(item.id)}><small>CITATION</small><strong>{locale === "zh" ? "文献记录" : "Literature"}</strong></button>)}
+              {indicators.map((item, index) => <button key={item} className={`network-node observation ${selectedNode === `indicator-${item}` ? "selected" : ""}`} style={{ left: "12%", top: `${indicatorY(index) / 5.6}%` }} onClick={() => setSelectedNode(`indicator-${item}`)} title={item}><small>{t(locale, "indicatorNode")}</small><strong>{indicatorLabel(locale, item)}</strong></button>)}
+              {mechanisms.map((item, index) => <button key={item.mechanism} className={`network-node assertion ${selectedNode === `mechanism-${item.mechanism}` ? "selected" : ""}`} style={{ left: "42%", top: `${mechanismY(index) / 5.6}%` }} onClick={() => setSelectedNode(`mechanism-${item.mechanism}`)} title={item.mechanism}><small>{t(locale, "mechanismNode")}</small><strong>{mechanismLabel(locale, item.mechanism)}</strong></button>)}
+              <button className={`network-node hazard ${selectedNode === "hazard" ? "selected" : ""}`} style={{ left: "70%", top: "50%" }} onClick={() => setSelectedNode("hazard")}><small>{t(locale, "hazardNode")}</small><strong>{hazardLabel(locale, evidence.hazard)}</strong><b>{Math.round(selectedRun.result.forecast.probability * 100)}%</b></button>
+              {citations.map((item, index) => <button key={item.id} className={`network-node citation ${selectedNode === item.id ? "selected" : ""}`} style={{ left: "89%", top: `${citationY(index) / 5.6}%` }} onClick={() => setSelectedNode(item.id)}><small>{t(locale, "citationNode")}</small><strong>{locale === "zh" ? "文献记录" : "Literature"}</strong></button>)}
               <div className="network-selection-card" aria-live="polite"><span>{selected?.type}</span><strong>{selected?.title}</strong><small>{selected?.status}</small></div>
             </div>
           </div>
-          <div className="network-boundary"><strong>{locale === "zh" ? "关系边界" : "Edge boundary"}</strong><span>{evidence.claim_boundary}</span></div>
+          <div className="network-boundary"><strong>{locale === "zh" ? "关系边界" : "Edge boundary"}</strong><span>{evidenceBoundary(locale, evidence.claim_boundary)}</span></div>
         </article>
         <aside className="node-inspector">
-          <div className="inspector-heading"><span>NODE INSPECTOR</span><b>{selected?.status}</b></div>
+          <div className="inspector-heading"><span>{t(locale, "nodeInspector")}</span><b>{selected?.status}</b></div>
           <div className="inspector-content"><small>{selected?.type}</small><h2>{selected?.title}</h2><p>{selected?.description}</p></div>
           <div className="relation-register">
-            <span>{locale === "zh" ? "图中关系" : "Relations in view"}</span>
+            <span>{t(locale, "relationsInView")}</span>
             <div><i className="observation" /><p><strong>{locale === "zh" ? "观测支持" : "Observed for run"}</strong><small>{indicators.length} {locale === "zh" ? "个前一日输入" : "previous-day inputs"}</small></p></div>
             <div><i className="assertion" /><p><strong>{locale === "zh" ? "机制解释" : "Mechanism explains"}</strong><small>{mechanisms.length} {locale === "zh" ? "条人工断言" : "human assertions"}</small></p></div>
             <div><i className="citation" /><p><strong>{locale === "zh" ? "文献支撑" : "Grounded by"}</strong><small>{citations.length} {locale === "zh" ? "条有限范围记录" : "scoped records"}</small></p></div>
@@ -395,7 +410,7 @@ function AssistantPage() {
     .slice(0, 4);
   return (
     <>
-      <PageHeading eyebrow="DECISION BRIEF / 04" title={t(locale, "assistantTitle")} lead={locale === "zh" ? "它不是另一个聊天页面：系统把当前演练自动整理成结论、依据、分歧、限制和下一步，方便评委快速理解一次运行。" : "This is not another chat screen. It turns the current run into a conclusion, evidence, disagreement, limitations and next steps."} truth={health?.llm_available ? (locale === "zh" ? "自动简报 + 可选 AI 追问" : "Automatic brief + optional AI") : (locale === "zh" ? "确定性自动简报" : "Deterministic automatic brief")} />
+      <PageHeading eyebrow={t(locale, "assistantEyebrow")} title={t(locale, "assistantTitle")} lead={locale === "zh" ? "它不是另一个聊天页面：系统把当前演练自动整理成结论、依据、分歧、限制和下一步，方便评委快速理解一次运行。" : "This is not another chat screen. It turns the current run into a conclusion, evidence, disagreement, limitations and next steps."} truth={health?.llm_available ? (locale === "zh" ? "自动简报 + 可选 AI 追问" : "Automatic brief + optional AI") : (locale === "zh" ? "确定性自动简报" : "Deterministic automatic brief")} />
       <section className="brief-workflow">
         <div><span>01</span><p><strong>{locale === "zh" ? "读取运行记录" : "Read run record"}</strong><small>{locale === "zh" ? "概率、指标、阈值" : "Probability, inputs, threshold"}</small></p></div>
         <i>→</i>
@@ -405,23 +420,23 @@ function AssistantPage() {
       </section>
       <section className="decision-layout">
         <article className="decision-hero">
-          <div className="decision-kicker"><span>HISTORICAL EXERCISE</span><b>{decision.level}</b></div>
+          <div className="decision-kicker"><span>{t(locale, "historicalExerciseLabel")}</span><b>{riskLevelLabel(locale, decision.level)}</b></div>
           <div className="decision-place"><small>{selectedRun.target_date}</small><h2>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</h2></div>
           <div className="decision-probability"><strong>{Math.round(forecast.probability * 100)}</strong><span>%</span><p>{locale === "zh" ? "模型风险概率" : "model risk probability"}</p></div>
           <div className="decision-statement">
             <span>{locale === "zh" ? "一句话结论" : "Bottom line"}</span>
-            <p>{locale === "zh" ? `模型超过固定阈值 ${Math.round(decision.threshold * 100)}%，本次历史演练进入 ${decision.level} 等级；仍需结合规则分歧和代理标签边界人工复核。` : `The model exceeds the fixed ${Math.round(decision.threshold * 100)}% threshold and enters the ${decision.level} tier; rule disagreement and proxy-label limits still require review.`}</p>
+            <p>{locale === "zh" ? `模型超过固定阈值 ${Math.round(decision.threshold * 100)}%，本次历史演练进入“${riskLevelLabel(locale, decision.level)}”等级；仍需结合规则分歧和代理标签边界人工复核。` : `The model exceeds the fixed ${Math.round(decision.threshold * 100)}% threshold and enters the ${riskLevelLabel(locale, decision.level)} tier; rule disagreement and proxy-label limits still require review.`}</p>
           </div>
         </article>
         <div className="brief-cards">
-          <article><span>A / {locale === "zh" ? "主要依据" : "DRIVERS"}</span><h3>{locale === "zh" ? "前一日输入指标" : "Previous-day indicators"}</h3><div className="driver-list">{topIndicators.map(([name, value]) => <div key={name}><small>{name.replaceAll("_", " ")}</small><strong>{Number(value).toFixed(2)}</strong></div>)}</div><Link to="/analysis">{locale === "zh" ? "查看完整分析" : "Open full analysis"} →</Link></article>
-          <article><span>B / {locale === "zh" ? "交叉复核" : "CROSS-CHECK"}</span><h3>{locale === "zh" ? "模型与规则是否一致？" : "Do model and rules agree?"}</h3><div className="crosscheck-score"><div><small>MODEL</small><strong>{forecast.probability.toFixed(2)}</strong></div><i>↔</i><div><small>RULE</small><strong>{rule?.detection_engine_risk_score.toFixed(2) ?? "—"}</strong></div></div><p>{rule?.consistency.replaceAll("_", " ") || "unavailable"}</p><Link to="/evidence">{locale === "zh" ? "沿证据网络核验" : "Audit the evidence network"} →</Link></article>
+          <article><span>A / {locale === "zh" ? "主要依据" : "DRIVERS"}</span><h3>{locale === "zh" ? "前一日输入指标" : "Previous-day indicators"}</h3><div className="driver-list">{topIndicators.map(([name, value]) => <div key={name}><small title={name}>{indicatorLabel(locale, name)}</small><strong>{Number(value).toFixed(2)}</strong></div>)}</div><Link to="/analysis">{locale === "zh" ? "查看完整分析" : "Open full analysis"} →</Link></article>
+          <article><span>B / {t(locale, "crossCheck")}</span><h3>{locale === "zh" ? "模型与规则是否一致？" : "Do model and rules agree?"}</h3><div className="crosscheck-score"><div><small>{t(locale, "model")}</small><strong>{forecast.probability.toFixed(2)}</strong></div><i>↔</i><div><small>{t(locale, "rule")}</small><strong>{rule?.detection_engine_risk_score.toFixed(2) ?? "—"}</strong></div></div><p>{consistencyLabel(locale, rule?.consistency)}</p><Link to="/evidence">{locale === "zh" ? "沿证据网络核验" : "Audit the evidence network"} →</Link></article>
           <article className="limits-card"><span>C / {locale === "zh" ? "必须说明的限制" : "LIMITS"}</span><h3>{locale === "zh" ? "这个结果能说明什么？" : "What does this result mean?"}</h3><ul><li>{locale === "zh" ? "2025单年历史数据" : "2025 single-year historical data"}</li><li>{locale === "zh" ? "代理标签，不是独立灾情真值" : "Proxy labels, not independent disaster truth"}</li><li>{locale === "zh" ? "历史演练，不是业务预警" : "Historical exercise, not an operational warning"}</li></ul><Link to="/reports">{locale === "zh" ? "生成带边界的报告" : "Generate a bounded report"} →</Link></article>
         </div>
       </section>
       <section className="followup-panel">
-        <div className="followup-heading"><div><span>OPTIONAL FOLLOW-UP</span><h2>{locale === "zh" ? "对这份简报继续追问" : "Ask a follow-up about this brief"}</h2></div><b>{health?.llm_available ? "DEEPSEEK AVAILABLE" : (locale === "zh" ? "确定性模板" : "DETERMINISTIC TEMPLATE")}</b></div>
-        {answer && <div className="followup-answer"><span>{answer.mode === "deepseek" ? "DEEPSEEK / BOUNDED JSON" : "MAZU / DETERMINISTIC SUMMARY"}</span><p>{answer.content}</p></div>}
+        <div className="followup-heading"><div><span>{t(locale, "optionalFollowup")}</span><h2>{locale === "zh" ? "对这份简报继续追问" : "Ask a follow-up about this brief"}</h2></div><b>{health?.llm_available ? t(locale, "deepseekAvailable") : t(locale, "deterministicTemplate")}</b></div>
+        {answer && <div className="followup-answer"><span>{answer.mode === "deepseek" ? (locale === "zh" ? "DeepSeek / 有边界 JSON" : "DeepSeek / bounded JSON") : (locale === "zh" ? "MAZU / 确定性摘要" : "MAZU / deterministic summary")}</span><p>{answer.content}</p></div>}
         <form onSubmit={submit}><textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder={locale === "zh" ? "例如：为什么模型和规则不一致？" : "For example: Why do model and rules disagree?"} /><button className="primary-button" disabled={busy}>{busy ? "…" : t(locale, "send")}<span>↗</span></button></form>
         <p className="followup-boundary">{locale === "zh" ? "追问只读取当前运行记录，不能修改概率、等级或 CAP。" : "Follow-up only reads the current run; it cannot modify probability, level or CAP."}</p>
       </section>
@@ -434,6 +449,7 @@ function ReportsPage() {
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [generated, setGenerated] = useState<{ report?: string; evidence?: string; cap?: string; note?: string }>({});
   useEffect(() => { api.reports().then(setReports).catch(() => setReports([])); }, []);
+  const visibleReports = reports.filter((report) => report.language === locale);
   const createReport = async () => {
     if (!selectedRun) return; const result = await api.createReport(selectedRun.id);
     setGenerated((value) => ({ ...value, report: `/api/v1/artifacts/${result.report.id}`, evidence: `/api/v1/artifacts/${result.evidence.id}` }));
@@ -441,16 +457,22 @@ function ReportsPage() {
   const createCap = async () => {
     if (!selectedRun) return; const result = await api.cap(selectedRun.id);
     const artifact = result.artifact as { id?: string } | undefined;
-    setGenerated((value) => ({ ...value, cap: artifact?.id ? `/api/v1/artifacts/${artifact.id}` : undefined, note: String(result.reason || "") }));
+    setGenerated((value) => ({
+      ...value,
+      cap: artifact?.id ? `/api/v1/artifacts/${artifact.id}` : undefined,
+      note: result.reason
+        ? (locale === "zh" ? "当前结果未达到既有阈值，因此不生成 CAP Exercise。" : String(result.reason))
+        : "",
+    }));
   };
   return (
     <>
-      <PageHeading eyebrow="ARTIFACT LIBRARY / 05" title={t(locale, "reportsTitle")} lead={locale === "zh" ? "固定研究材料与每次演练的可下载证据包统一归档。" : "Fixed research materials and run-specific evidence packages in one library."} truth={locale === "zh" ? "运行结果动态生成" : "Generated from run results"} />
+      <PageHeading eyebrow={t(locale, "reportsEyebrow")} title={t(locale, "reportsTitle")} lead={locale === "zh" ? "固定研究材料与每次演练的可下载证据包统一归档。" : "Fixed research materials and run-specific evidence packages in one library."} truth={locale === "zh" ? "运行结果动态生成" : "Generated from run results"} />
       <section className="report-layout">
         <article className="submission-panel panel">
-          <div className="panel-label"><span>A / {locale === "zh" ? "当前演练制品" : "CURRENT RUN ARTIFACTS"}</span><b>{selectedRun ? "READY" : "NO RUN"}</b></div>
+          <div className="panel-label"><span>A / {t(locale, "currentRunArtifacts")}</span><b>{selectedRun ? t(locale, "ready") : t(locale, "noRunShort")}</b></div>
           {selectedRun?.result ? <>
-            <div className="submission-runline"><div><span>{selectedRun.target_date}</span><h2>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</h2></div><p><strong>{Math.round(selectedRun.result.forecast.probability * 100)}%</strong><small>{selectedRun.result.decision.level}</small></p></div>
+            <div className="submission-runline"><div><span>{selectedRun.target_date}</span><h2>{cityLabel(locale, selectedRun.city)} · {hazardLabel(locale, selectedRun.hazard)}</h2></div><p><strong>{Math.round(selectedRun.result.forecast.probability * 100)}%</strong><small>{riskLevelLabel(locale, selectedRun.result.decision.level)}</small></p></div>
             <div className="artifact-grid">
               <article><span>01</span><h3>{locale === "zh" ? "双语演练报告" : "Bilingual run report"}</h3><p>{locale === "zh" ? "适合打印或保存为PDF，包含结论、指标和边界。" : "Print-ready findings, indicators and boundaries."}</p><button onClick={createReport}>{generated.report ? (locale === "zh" ? "重新生成" : "Regenerate") : t(locale, "generateReport")}<b>→</b></button></article>
               <article><span>02</span><h3>{locale === "zh" ? "JSON证据包" : "JSON evidence pack"}</h3><p>{locale === "zh" ? "保存模型、规则、证据版本和完整审计字段。" : "Model, rule, evidence versions and audit fields."}</p>{generated.evidence ? <a href={generated.evidence}>{locale === "zh" ? "下载证据包" : "Download evidence"}<b>↓</b></a> : <small>{locale === "zh" ? "随报告一同生成" : "Generated with the report"}</small>}</article>
@@ -460,8 +482,8 @@ function ReportsPage() {
           </> : <p className="submission-empty">{t(locale, "noSelectedRun")}</p>}
         </article>
         <article className="library-panel panel">
-          <div className="panel-label"><span>B / DOCUMENT LIBRARY</span><b>{reports.length} ITEMS</b></div>
-          <div className="report-list">{reports.map((report) => <a key={report.id} href={report.url} target="_blank" rel="noreferrer"><span>{report.kind.slice(0, 2).toUpperCase()}</span><div><strong>{report.title}</strong><small>{report.kind} · {report.language.toUpperCase()}</small></div><b>↗</b></a>)}</div>
+          <div className="panel-label"><span>B / {t(locale, "documentLibrary")}</span><b>{visibleReports.length} {t(locale, "items")}</b></div>
+          <div className="report-list">{visibleReports.map((report) => <a key={report.id} href={report.url} target="_blank" rel="noreferrer"><span>{locale === "zh" ? reportKindLabel(locale, report.kind).slice(0, 1) : report.kind.slice(0, 2).toUpperCase()}</span><div><strong>{report.title}</strong><small>{reportKindLabel(locale, report.kind)} · {report.language.toUpperCase()}</small></div><b>↗</b></a>)}</div>
         </article>
       </section>
     </>

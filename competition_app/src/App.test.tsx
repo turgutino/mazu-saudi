@@ -115,7 +115,8 @@ describe("historical warning application", () => {
     render(<BrowserRouter><App /></BrowserRouter>);
     fireEvent.click(await screen.findByRole("button", { name: /运行风险评估/ }));
     await waitFor(() => expect(screen.getByText("90")).toBeInTheDocument());
-    expect(screen.getByText("model higher than detection")).toBeInTheDocument();
+    expect(screen.getByText("模型高于规则")).toBeInTheDocument();
+    expect(screen.queryByText("model higher than detection")).not.toBeInTheDocument();
     expect(localStorage.getItem("mazu-run")).toBe("run-1");
   });
 
@@ -124,5 +125,9 @@ describe("historical warning application", () => {
     fireEvent.click(await screen.findByRole("button", { name: "EN" }));
     expect(screen.getByText("Historical warning exercise")).toBeInTheDocument();
     expect(screen.getByText("2025 historical data · Not an operational warning")).toBeInTheDocument();
+    expect(screen.getByText(/Task control/)).toBeInTheDocument();
+    expect(screen.getByText("Curated / audited")).toBeInTheDocument();
+    expect(screen.queryByText("任务控制")).not.toBeInTheDocument();
+    expect(screen.queryByText("精选 / 已核验")).not.toBeInTheDocument();
   });
 });

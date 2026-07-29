@@ -74,3 +74,20 @@ Before competition handoff:
 - node selection must provide visible feedback inside the graph;
 - reports, evidence and CAP Exercise must be visually distinct artifacts; and
 - the browser console must contain no warnings or errors.
+
+## Bilingual display contract
+
+- The language switch changes the complete visible task interface, not only
+  navigation and page titles.
+- Backend machine values such as risk levels, consistency codes, indicator IDs,
+  mechanism IDs and evidence review states are converted by the centralized
+  domain-localization helpers in `i18n.ts`.
+- The original machine identifier remains available through source data or a
+  tooltip where it is useful for audit, but it is not used as the primary label.
+- The report library shows only records matching the active locale. A bilingual
+  run report remains explicitly labelled as a bilingual export.
+- Standards and scientific abbreviations such as CAP, XML, JSON, PDF, ROC-AUC,
+  POD, FAR, CSI and HSS remain untranslated.
+- Original-language literature titles and the MAZU product mark may remain in
+  their source language; surrounding status and explanatory copy must follow
+  the selected locale.

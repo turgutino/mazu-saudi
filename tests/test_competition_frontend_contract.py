@@ -62,7 +62,7 @@ def test_competition_frontend_explains_truth_layers_and_assistant_mode():
 def test_evidence_page_renders_relationship_network_and_node_inspector():
     app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
     styles = (FRONTEND / "src" / "styles.css").read_text(encoding="utf-8")
-    for contract in ("observation-edge", "mechanism-edge", "citation-edge", "NODE INSPECTOR"):
+    for contract in ("observation-edge", "mechanism-edge", "citation-edge", "nodeInspector"):
         assert contract in app
     assert "network-canvas" in styles
     assert "graph-ring" not in app
@@ -70,8 +70,34 @@ def test_evidence_page_renders_relationship_network_and_node_inspector():
 
 def test_decision_brief_is_primary_and_follow_up_is_optional():
     app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
-    for section in ("一句话结论", "主要依据", "交叉复核", "必须说明的限制", "OPTIONAL FOLLOW-UP"):
+    for section in ("一句话结论", "主要依据", "交叉复核", "必须说明的限制", "optionalFollowup"):
         assert section in app
+
+
+def test_visible_domain_vocabulary_is_localized_and_reports_follow_locale():
+    app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    translations = (FRONTEND / "src" / "i18n.ts").read_text(encoding="utf-8")
+    for helper in (
+        "riskLevelLabel",
+        "consistencyLabel",
+        "indicatorLabel",
+        "mechanismLabel",
+        "evidenceStatusLabel",
+        "reportKindLabel",
+    ):
+        assert helper in app
+        assert f"export const {helper}" in translations
+    assert "report.language === locale" in app
+    for leaked_literal in (
+        "A / TASK CONTROL",
+        "CURATED / AUDITED",
+        "NO ACTIVE EXERCISE",
+        "A / SAUDI GRID FIELD",
+        "READING HISTORICAL FIELD",
+        "B / DOCUMENT LIBRARY",
+        "<span>NODE INSPECTOR</span>",
+    ):
+        assert leaked_literal not in app
 
 
 def test_ui_ux_system_keeps_context_and_task_outputs_visible():
