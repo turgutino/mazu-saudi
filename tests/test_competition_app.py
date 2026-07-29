@@ -152,6 +152,13 @@ def test_ontology_is_materialized_and_exposed_as_a_read_only_graph(tmp_path):
     assert high_ivt["label_zh"] == "高水汽输送状态"
     assert any(edge["predicate_label"] == "derivedFromIndicator" for edge in payload["edges"])
 
+    legacy_graph = client.get(
+        "/api/v1/ontology/graph",
+        params={"query": "IVT", "module": "state"},
+    )
+    assert legacy_graph.status_code == 200
+    assert legacy_graph.json()["nodes"] == payload["nodes"]
+
     detail = client.get("/api/v1/ontology/resource", params={"iri": high_ivt["iri"]})
     assert detail.status_code == 200
     assert detail.json()["resource"]["definition_en"].startswith("An IVT state")
@@ -162,6 +169,19 @@ def test_ontology_is_materialized_and_exposed_as_a_read_only_graph(tmp_path):
         params={"iri": "urn:mazu-saudi:concept:DoesNotExist"},
     )
     assert missing.status_code == 404
+
+
+def test_frontend_entrypoint_is_not_cached_and_unknown_api_routes_stay_json_404(tmp_path):
+    client, _ = make_client(tmp_path)
+
+    frontend = client.get("/knowledge-graph")
+    assert frontend.status_code == 200
+    assert frontend.headers["cache-control"] == "no-store"
+    assert "text/html" in frontend.headers["content-type"]
+
+    missing_api = client.get("/api/v1/does-not-exist")
+    assert missing_api.status_code == 404
+    assert missing_api.json() == {"detail": "API route not found"}
 
 
 def test_validation_archive_mode_and_safe_cap(tmp_path):

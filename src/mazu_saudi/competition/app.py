@@ -111,6 +111,18 @@ def create_app(
         except RuntimeError as exc:
             raise HTTPException(503, str(exc)) from exc
 
+    @app.get("/api/v1/ontology/graph", include_in_schema=False)
+    def legacy_ontology_graph(
+        query: Annotated[str | None, Query(max_length=120)] = None,
+        module: Annotated[str | None, Query(max_length=40)] = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 200,
+    ):
+        """Keep cached pre-rename clients working without advertising the old name."""
+        try:
+            return ontology_service.relation_view(query=query, module=module, limit=limit)
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+
     @app.get("/api/v1/ontology/resource")
     def ontology_resource(iri: Annotated[str, Query(min_length=1, max_length=500)]):
         try:
@@ -242,13 +254,18 @@ def create_app(
 
         @app.get("/{spa_path:path}", include_in_schema=False)
         def frontend(spa_path: str):
+            if spa_path.startswith("api/"):
+                raise HTTPException(404, "API route not found")
             candidate = (settings.frontend_dist / spa_path).resolve()
             if (
                 candidate.is_file()
                 and settings.frontend_dist.resolve() in candidate.parents
             ):
-                return FileResponse(candidate)
-            return FileResponse(settings.frontend_dist / "index.html")
+                return FileResponse(candidate, headers={"Cache-Control": "no-store"})
+            return FileResponse(
+                settings.frontend_dist / "index.html",
+                headers={"Cache-Control": "no-store"},
+            )
 
     return app
 
