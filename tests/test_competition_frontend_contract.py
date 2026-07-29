@@ -13,6 +13,16 @@ def test_competition_frontend_has_five_routes_and_required_boundaries():
         assert boundary in translations
 
 
+def test_competition_frontend_has_overview_and_knowledge_graph_routes():
+    app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    translations = (FRONTEND / "src" / "i18n.ts").read_text(encoding="utf-8")
+    vite_config = (FRONTEND / "vite.config.ts").read_text(encoding="utf-8")
+    assert "/overview" in app
+    assert "/knowledge-graph" in app
+    for source in (app, translations, vite_config):
+        assert "/legacy" not in source
+
+
 def test_competition_frontend_excludes_future_research_and_operational_claims():
     public_sources = "\n".join(
         path.read_text(encoding="utf-8")

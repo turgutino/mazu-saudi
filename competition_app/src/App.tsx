@@ -1,5 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation } from "d3-force";
+import { quadtree } from "d3-quadtree";
 import { api } from "./api";
 import {
   cityLabel,
@@ -16,6 +18,8 @@ import {
   t,
 } from "./i18n";
 import type { Config, FieldData, FieldLayer, Health, Locale, ReportItem, Run, Scenario } from "./types";
+import kgData from "./data/kg_data.json";
+import agentExamples from "./data/agentExamples.json";
 
 type AppState = {
   locale: Locale;
@@ -79,6 +83,11 @@ const nav = [
   ["/reports", "05", "reports"],
 ] as const;
 
+const auxNav = [
+  ["/overview", "↗", "overviewNav"],
+  ["/knowledge-graph", "◇", "kgNav"],
+] as const;
+
 function Layout({ children }: { children: ReactNode }) {
   const { locale, setLocale, health, selectedRun } = useApp();
   return (
@@ -94,7 +103,9 @@ function Layout({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <a href="/legacy/index.html"><span>↗</span>{t(locale, "archive")}</a>
+          {auxNav.map(([path, glyph, key]) => (
+            <Link key={path} to={path}><span>{glyph}</span>{t(locale, key)}</Link>
+          ))}
           <div className={`service-state ${health?.ready_for_inference ? "ready" : "degraded"}`}>
             <i />{health?.ready_for_inference ? t(locale, "localDataReady") : t(locale, "archiveModeShort")}
           </div>
@@ -388,17 +399,33 @@ function EvidencePage() {
 
 function AssistantPage() {
   const { locale, selectedRun, health } = useApp();
+  const [tab, setTab] = useState<"live" | "examples">("live");
   const [message, setMessage] = useState("");
   const [answer, setAnswer] = useState<{ content: string; mode: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  if (!selectedRun?.result) return <EmptyRun />;
   const submit = async (event: FormEvent) => {
-    event.preventDefault(); if (!message.trim()) return; setBusy(true);
+    event.preventDefault(); if (!message.trim() || !selectedRun) return; setBusy(true);
     try {
       const response = await api.message(selectedRun.id, message, locale);
       setAnswer({ content: response.content, mode: response.mode });
     } finally { setBusy(false); }
   };
+  const tabs = (
+    <div className="example-tabs">
+      <button className={tab === "live" ? "active" : ""} onClick={() => setTab("live")}>{t(locale, "liveAssistantTab")}</button>
+      <button className={tab === "examples" ? "active" : ""} onClick={() => setTab("examples")}>{t(locale, "historicalExamplesTab")}</button>
+    </div>
+  );
+  if (tab === "examples") {
+    return (
+      <>
+        <PageHeading eyebrow={t(locale, "assistantEyebrow")} title={t(locale, "assistantTitle")} lead={locale === "zh" ? "它不是另一个聊天页面：系统把当前演练自动整理成结论、依据、分歧、限制和下一步，方便评委快速理解一次运行。" : "This is not another chat screen. It turns the current run into a conclusion, evidence, disagreement, limitations and next steps."} truth={health?.llm_available ? (locale === "zh" ? "自动简报 + 可选 AI 追问" : "Automatic brief + optional AI") : (locale === "zh" ? "确定性自动简报" : "Deterministic automatic brief")} />
+        {tabs}
+        <HistoricalExamplesPanel />
+      </>
+    );
+  }
+  if (!selectedRun?.result) return <><PageHeading eyebrow={t(locale, "assistantEyebrow")} title={t(locale, "assistantTitle")} lead={locale === "zh" ? "它不是另一个聊天页面：系统把当前演练自动整理成结论、依据、分歧、限制和下一步，方便评委快速理解一次运行。" : "This is not another chat screen. It turns the current run into a conclusion, evidence, disagreement, limitations and next steps."} truth={health?.llm_available ? (locale === "zh" ? "自动简报 + 可选 AI 追问" : "Automatic brief + optional AI") : (locale === "zh" ? "确定性自动简报" : "Deterministic automatic brief")} />{tabs}<EmptyRun /></>;
   const forecast = selectedRun.result.forecast;
   const decision = selectedRun.result.decision;
   const rule = forecast.reflexive_check;
@@ -411,6 +438,7 @@ function AssistantPage() {
   return (
     <>
       <PageHeading eyebrow={t(locale, "assistantEyebrow")} title={t(locale, "assistantTitle")} lead={locale === "zh" ? "它不是另一个聊天页面：系统把当前演练自动整理成结论、依据、分歧、限制和下一步，方便评委快速理解一次运行。" : "This is not another chat screen. It turns the current run into a conclusion, evidence, disagreement, limitations and next steps."} truth={health?.llm_available ? (locale === "zh" ? "自动简报 + 可选 AI 追问" : "Automatic brief + optional AI") : (locale === "zh" ? "确定性自动简报" : "Deterministic automatic brief")} />
+      {tabs}
       <section className="brief-workflow">
         <div><span>01</span><p><strong>{locale === "zh" ? "读取运行记录" : "Read run record"}</strong><small>{locale === "zh" ? "概率、指标、阈值" : "Probability, inputs, threshold"}</small></p></div>
         <i>→</i>
@@ -441,6 +469,37 @@ function AssistantPage() {
         <p className="followup-boundary">{locale === "zh" ? "追问只读取当前运行记录，不能修改概率、等级或 CAP。" : "Follow-up only reads the current run; it cannot modify probability, level or CAP."}</p>
       </section>
     </>
+  );
+}
+
+interface AgentExampleToolCall { call: string; output: Record<string, unknown> | null }
+interface AgentExample { id: string; question: string; toolCalls: AgentExampleToolCall[]; answerHtml: string }
+
+function HistoricalExamplesPanel() {
+  const { locale } = useApp();
+  const examples = agentExamples as AgentExample[];
+  return (
+    <section className="example-list">
+      {examples.map((example) => (
+        <article key={example.id} className="example-card panel">
+          <div className="panel-label"><span>{t(locale, "exampleQuestionLabel")}</span></div>
+          <p className="example-question">{example.question}</p>
+          <div className="example-toolcalls">
+            <span className="example-subhead">{t(locale, "exampleToolCallLabel")}</span>
+            {example.toolCalls.map((tool, index) => (
+              <details key={`${example.id}-${index}`} className="example-toolcall">
+                <summary>{tool.call}</summary>
+                <pre>{JSON.stringify(tool.output, null, 2)}</pre>
+              </details>
+            ))}
+          </div>
+          <div className="example-answer">
+            <span className="example-subhead">{t(locale, "exampleAnswerLabel")}</span>
+            <div dangerouslySetInnerHTML={{ __html: example.answerHtml }} />
+          </div>
+        </article>
+      ))}
+    </section>
   );
 }
 
@@ -490,6 +549,186 @@ function ReportsPage() {
   );
 }
 
+const overviewStats = [
+  ["365", "overviewStatDays"],
+  ["10 km", "overviewStatResolution"],
+  ["22", "overviewStatIndicators"],
+  ["60 / 145", "overviewStatEvidence"],
+  ["6", "overviewStatCitations"],
+  ["3", "overviewStatHazards"],
+] as const;
+
+const overviewSections = [
+  { titleKey: "overviewSection01Title", leadKey: "overviewSection01Lead", image: "risk_annual_hotspots.png" },
+  { titleKey: "overviewSection02Title", leadKey: "overviewSection02Lead", image: undefined },
+  { titleKey: "overviewSection03Title", leadKey: "overviewSection03Lead", image: "forecast_vs_actual.png" },
+  { titleKey: "overviewSection04Title", leadKey: "overviewSection04Lead", image: "map_junjul_dust.png" },
+  { titleKey: "overviewSection05Title", leadKey: "overviewSection05Lead", image: "agent_view_preview.png" },
+  { titleKey: "overviewSection06Title", leadKey: "overviewSection06Lead", image: "architecture_diagram.png" },
+] as const;
+
+function OverviewPage() {
+  const { locale } = useApp();
+  return (
+    <>
+      <PageHeading eyebrow={t(locale, "overviewEyebrow")} title={t(locale, "overviewTitle")} lead={t(locale, "overviewLead")} truth={locale === "zh" ? "历史数据 · 参考资料" : "Historical data · reference material"} />
+      <section className="overview-hero panel">
+        <div className="overview-stats">
+          {overviewStats.map(([value, key]) => (
+            <div key={key}><strong>{value}</strong><span>{t(locale, key)}</span></div>
+          ))}
+        </div>
+      </section>
+      {overviewSections.map((section) => (
+        <section key={section.titleKey} className="overview-section panel">
+          <div className="panel-label"><span>{t(locale, section.titleKey)}</span></div>
+          <p>{t(locale, section.leadKey)}</p>
+          {section.image && (
+            <figure className="overview-figure">
+              <img src={`/media/${section.image}`} alt={t(locale, section.titleKey)} loading="lazy" />
+            </figure>
+          )}
+        </section>
+      ))}
+    </>
+  );
+}
+
+interface KgNode { id: string; ntype: string; label: string; [key: string]: unknown }
+interface KgLink { source: string; target: string; etype: string; [key: string]: unknown }
+interface KgPoint { id: string; x: number; y: number }
+
+const kgTypeColor: Record<string, string> = {
+  Indicator: "var(--cyan)",
+  Hazard: "var(--red)",
+  Mechanism: "var(--navy)",
+  Region: "var(--mint)",
+  ExtremeSample: "var(--amber)",
+  DataSource: "var(--muted)",
+  Citation: "var(--teal)",
+};
+
+function KnowledgeGraphPage() {
+  const { locale } = useApp();
+  const data = kgData as unknown as { nodes: KgNode[]; links: KgLink[] };
+  const nodeTypes = useMemo(() => Array.from(new Set(data.nodes.map((n) => n.ntype))), [data]);
+  const edgeTypes = useMemo(() => Array.from(new Set(data.links.map((l) => l.etype))), [data]);
+  const [search, setSearch] = useState("");
+  const [activeTypes, setActiveTypes] = useState<Set<string>>(() => new Set(nodeTypes));
+  const [activeEdgeTypes, setActiveEdgeTypes] = useState<Set<string>>(() => new Set(edgeTypes));
+  const [selected, setSelected] = useState<string | null>(null);
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+
+  useEffect(() => {
+    const nodes = data.nodes.map((n) => ({ ...n }));
+    const links = data.links.map((l) => ({ ...l }));
+    const simulation = forceSimulation(nodes as never[])
+      .force("charge", forceManyBody().strength(-70))
+      .force("link", forceLink(links as never[]).id((d: unknown) => (d as KgNode).id).distance(58).strength(0.22))
+      .force("center", forceCenter(500, 300))
+      .force("collide", forceCollide(20))
+      .stop();
+    for (let i = 0; i < 240; i += 1) simulation.tick();
+    const next: Record<string, { x: number; y: number }> = {};
+    (nodes as unknown as Array<KgNode & { x: number; y: number }>).forEach((n) => { next[n.id] = { x: n.x, y: n.y }; });
+    setPositions(next);
+  }, [data]);
+
+  const tree = useMemo(() => {
+    const points: KgPoint[] = Object.entries(positions).map(([id, p]) => ({ id, x: p.x, y: p.y }));
+    return quadtree<KgPoint>().x((p) => p.x).y((p) => p.y).addAll(points);
+  }, [positions]);
+
+  const toggleType = (value: string) => setActiveTypes((prev) => {
+    const next = new Set(prev); if (next.has(value)) next.delete(value); else next.add(value); return next;
+  });
+  const toggleEdgeType = (value: string) => setActiveEdgeTypes((prev) => {
+    const next = new Set(prev); if (next.has(value)) next.delete(value); else next.add(value); return next;
+  });
+
+  const query = search.trim().toLowerCase();
+  const visibleNodes = data.nodes.filter((n) => activeTypes.has(n.ntype) && (!query || n.label.toLowerCase().includes(query) || n.id.toLowerCase().includes(query)));
+  const visibleIds = new Set(visibleNodes.map((n) => n.id));
+  const visibleLinks = data.links.filter((l) => activeEdgeTypes.has(l.etype) && visibleIds.has(l.source) && visibleIds.has(l.target));
+  const selectedNode = selected ? data.nodes.find((n) => n.id === selected) : null;
+  const relatedLinks = selected ? data.links.filter((l) => l.source === selected || l.target === selected) : [];
+
+  const handleCanvasClick = (event: MouseEvent<SVGSVGElement>) => {
+    const svg = event.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 1000;
+    const y = ((event.clientY - rect.top) / rect.height) * 600;
+    const found = tree.find(x, y, 40);
+    if (found) setSelected(found.id);
+  };
+
+  return (
+    <>
+      <PageHeading eyebrow={t(locale, "kgEyebrow")} title={t(locale, "kgTitle")} lead={t(locale, "kgLead")} truth={locale === "zh" ? "人工维护证据图谱" : "Human-curated evidence graph"} />
+      <section className="kg-page">
+        <article className="kg-canvas-panel panel">
+          <div className="panel-label"><span>{data.nodes.length} {t(locale, "kgNodeCountLabel")} · {data.links.length} {t(locale, "kgEdgeCountLabel")}</span></div>
+          <input className="kg-search-bar" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t(locale, "kgSearchPlaceholder")} />
+          <div className="kg-filter-chips" aria-label={t(locale, "kgFilterByType")}>
+            {nodeTypes.map((type) => (
+              <button key={type} className={activeTypes.has(type) ? "active" : ""} style={{ borderColor: kgTypeColor[type] }} onClick={() => toggleType(type)}>
+                <i style={{ background: kgTypeColor[type] }} />{type}
+              </button>
+            ))}
+          </div>
+          <div className="kg-filter-chips" aria-label={t(locale, "kgFilterByEdge")}>
+            {edgeTypes.map((type) => (
+              <button key={type} className={activeEdgeTypes.has(type) ? "active" : ""} onClick={() => toggleEdgeType(type)}>{type}</button>
+            ))}
+          </div>
+          <div className="kg-canvas">
+            <svg viewBox="0 0 1000 600" onClick={handleCanvasClick}>
+              {visibleLinks.map((link, index) => {
+                const from = positions[link.source]; const to = positions[link.target];
+                if (!from || !to) return null;
+                return <line key={`${link.source}-${link.target}-${index}`} className="kg-edge" x1={from.x} y1={from.y} x2={to.x} y2={to.y} />;
+              })}
+              {visibleNodes.map((node) => {
+                const point = positions[node.id]; if (!point) return null;
+                return (
+                  <g key={node.id} className={`kg-node ${selected === node.id ? "selected" : ""}`} transform={`translate(${point.x}, ${point.y})`} onClick={(event) => { event.stopPropagation(); setSelected(node.id); }}>
+                    <circle r={selected === node.id ? 9 : 6} fill={kgTypeColor[node.ntype] || "var(--muted)"} />
+                    <title>{node.label}</title>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        </article>
+        <aside className="kg-node-inspector panel">
+          <div className="panel-label"><span>{selectedNode ? selectedNode.ntype : t(locale, "kgFilterByType")}</span></div>
+          {selectedNode ? (
+            <>
+              <h3>{selectedNode.label}</h3>
+              <dl>
+                {Object.entries(selectedNode)
+                  .filter(([key, value]) => !["id", "label", "ntype", "evidence"].includes(key) && typeof value !== "object")
+                  .map(([key, value]) => (
+                    <div key={key}><dt>{key}</dt><dd>{String(value)}</dd></div>
+                  ))}
+              </dl>
+              <table className="kg-edge-table">
+                <thead><tr><th>{t(locale, "kgEdgeCountLabel")}</th><th>etype</th></tr></thead>
+                <tbody>
+                  {relatedLinks.map((link, index) => (
+                    <tr key={index}><td>{link.source === selectedNode.id ? link.target : link.source}</td><td>{link.etype}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : <p className="empty-inline">{t(locale, "kgClaimBoundary")}</p>}
+        </aside>
+      </section>
+      <p className="kg-claim-boundary">{t(locale, "kgClaimBoundary")}</p>
+    </>
+  );
+}
+
 export default function App() {
-  return <AppProvider><Layout><Routes><Route path="/" element={<Navigate to="/console" replace />} /><Route path="/console" element={<ConsolePage />} /><Route path="/analysis" element={<AnalysisPage />} /><Route path="/evidence" element={<EvidencePage />} /><Route path="/assistant" element={<AssistantPage />} /><Route path="/reports" element={<ReportsPage />} /><Route path="*" element={<Navigate to="/console" replace />} /></Routes></Layout></AppProvider>;
+  return <AppProvider><Layout><Routes><Route path="/" element={<Navigate to="/console" replace />} /><Route path="/console" element={<ConsolePage />} /><Route path="/analysis" element={<AnalysisPage />} /><Route path="/evidence" element={<EvidencePage />} /><Route path="/assistant" element={<AssistantPage />} /><Route path="/reports" element={<ReportsPage />} /><Route path="/overview" element={<OverviewPage />} /><Route path="/knowledge-graph" element={<KnowledgeGraphPage />} /><Route path="*" element={<Navigate to="/console" replace />} /></Routes></Layout></AppProvider>;
 }

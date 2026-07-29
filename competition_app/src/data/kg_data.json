@@ -1,0 +1,2267 @@
+{
+ "directed": true,
+ "multigraph": false,
+ "graph": {
+  "name": "MAZU Hazard Mechanism & Evidence Graph",
+  "schema_version": "2.0",
+  "purpose": "auditable provenance and mechanism evidence for warning explanations",
+  "causal_claim_boundary": "The graph organises hand-authored assertions, rule mappings, dataset observations, and literature support; it does not discover causality or improve forecast-model skill.",
+  "observational_associations_artifact": "kg_observational_associations.json"
+ },
+ "nodes": [
+  {
+   "ntype": "DataSource",
+   "label": "DS1",
+   "desc": "Global Atmospheric Reanalysis V1.5",
+   "id": "DS1"
+  },
+  {
+   "ntype": "DataSource",
+   "label": "DS2",
+   "desc": "Global Surface Daily Analysis",
+   "id": "DS2"
+  },
+  {
+   "ntype": "DataSource",
+   "label": "DS4",
+   "desc": "Global SST Fusion Analysis",
+   "id": "DS4"
+  },
+  {
+   "ntype": "DataSource",
+   "label": "DS8",
+   "desc": "Global Climate Normals (1991-2020)",
+   "id": "DS8"
+  },
+  {
+   "ntype": "DataSource",
+   "label": "DS10",
+   "desc": "Satellite Precipitation Retrieval",
+   "id": "DS10"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "daily_precip_total",
+   "desc": "Total daily precipitation",
+   "unit": "mm",
+   "source": "DS2",
+   "id": "daily_precip_total"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "daily_convective_precip",
+   "desc": "Convective precipitation",
+   "unit": "mm",
+   "source": "DS2",
+   "id": "daily_convective_precip"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "daily_large_scale_precip",
+   "desc": "Large-scale precipitation",
+   "unit": "mm",
+   "source": "DS2",
+   "id": "daily_large_scale_precip"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "t2m_c",
+   "desc": "2 m air temperature",
+   "unit": "degC",
+   "source": "DS2",
+   "id": "t2m_c"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "tmax_c",
+   "desc": "Daily maximum temperature",
+   "unit": "degC",
+   "source": "DS2",
+   "id": "tmax_c"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "tmin_c",
+   "desc": "Daily minimum temperature",
+   "unit": "degC",
+   "source": "DS2",
+   "id": "tmin_c"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "heat_index_c",
+   "desc": "Heat index (apparent temp)",
+   "unit": "degC",
+   "source": "DS2",
+   "id": "heat_index_c"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "vpd_kpa",
+   "desc": "Vapour pressure deficit",
+   "unit": "kPa",
+   "source": "DS2",
+   "id": "vpd_kpa"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "cape",
+   "desc": "Convective available potential energy",
+   "unit": "J/kg",
+   "source": "DS1",
+   "id": "cape"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "pwat",
+   "desc": "Precipitable water",
+   "unit": "kg/m2",
+   "source": "DS1",
+   "id": "pwat"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "ivt",
+   "desc": "Integrated vapour transport",
+   "unit": "kg/m/s",
+   "source": "DS1",
+   "id": "ivt"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "wind850_speed",
+   "desc": "850 hPa wind speed",
+   "unit": "m/s",
+   "source": "DS1",
+   "id": "wind850_speed"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "wind_shear_850_200",
+   "desc": "850-200 hPa wind shear",
+   "unit": "m/s",
+   "source": "DS1",
+   "id": "wind_shear_850_200"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "daily_precip_anomaly",
+   "desc": "Daily precipitation anomaly",
+   "unit": "mm",
+   "source": "DS8",
+   "id": "daily_precip_anomaly"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "t2m_anomaly_c",
+   "desc": "2 m temperature anomaly",
+   "unit": "degC",
+   "source": "DS8",
+   "id": "t2m_anomaly_c"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "tmax_anomaly_c",
+   "desc": "Max temperature anomaly",
+   "unit": "degC",
+   "source": "DS8",
+   "id": "tmax_anomaly_c"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "sst_celsius",
+   "desc": "Sea surface temperature",
+   "unit": "degC",
+   "source": "DS4",
+   "id": "sst_celsius"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "flash_flood_risk",
+   "desc": "Flash-flood risk score",
+   "unit": "score",
+   "source": "derived",
+   "id": "flash_flood_risk"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "heatwave_day_flag",
+   "desc": "Heatwave day flag",
+   "unit": "flag",
+   "source": "DS8",
+   "id": "heatwave_day_flag"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "heatwave_duration_days",
+   "desc": "Heatwave duration",
+   "unit": "days",
+   "source": "DS8",
+   "id": "heatwave_duration_days"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "wind10_speed",
+   "desc": "10 m wind speed",
+   "unit": "m/s",
+   "source": "DS1",
+   "id": "wind10_speed"
+  },
+  {
+   "ntype": "Indicator",
+   "label": "dewpoint_depression_c",
+   "desc": "Dewpoint depression (dryness of air)",
+   "unit": "degC",
+   "source": "DS2",
+   "id": "dewpoint_depression_c"
+  },
+  {
+   "ntype": "Hazard",
+   "label": "Flash Flood / Wadi Flooding",
+   "desc": "Flash Flood / Wadi Flooding",
+   "id": "flash_flood"
+  },
+  {
+   "ntype": "Hazard",
+   "label": "Extreme Heat / Heatwave",
+   "desc": "Extreme Heat / Heatwave",
+   "id": "heatwave"
+  },
+  {
+   "ntype": "Hazard",
+   "label": "Dust Storm / Strong Wind",
+   "desc": "Dust Storm / Strong Wind",
+   "id": "dust_storm"
+  },
+  {
+   "ntype": "Hazard",
+   "label": "Coastal / Marine Risk",
+   "desc": "Coastal / Marine Risk",
+   "id": "coastal"
+  },
+  {
+   "ntype": "Region",
+   "label": "Jeddah",
+   "lat": 21.5,
+   "lon": 39.2,
+   "kind": "city",
+   "id": "Jeddah"
+  },
+  {
+   "ntype": "Region",
+   "label": "Mecca",
+   "lat": 21.4,
+   "lon": 39.8,
+   "kind": "city",
+   "id": "Mecca"
+  },
+  {
+   "ntype": "Region",
+   "label": "Riyadh",
+   "lat": 24.7,
+   "lon": 46.7,
+   "kind": "city",
+   "id": "Riyadh"
+  },
+  {
+   "ntype": "Region",
+   "label": "Jizan",
+   "lat": 16.9,
+   "lon": 42.6,
+   "kind": "city",
+   "id": "Jizan"
+  },
+  {
+   "ntype": "Region",
+   "label": "Dammam",
+   "lat": 26.4,
+   "lon": 50.1,
+   "kind": "city",
+   "id": "Dammam"
+  },
+  {
+   "ntype": "Region",
+   "label": "Taif",
+   "lat": 21.3,
+   "lon": 40.4,
+   "kind": "city",
+   "id": "Taif"
+  },
+  {
+   "ntype": "Region",
+   "label": "Medina",
+   "lat": 24.5,
+   "lon": 39.6,
+   "kind": "city",
+   "id": "Medina"
+  },
+  {
+   "ntype": "Region",
+   "label": "Abha",
+   "lat": 18.2,
+   "lon": 42.5,
+   "kind": "city",
+   "id": "Abha"
+  },
+  {
+   "ntype": "Region",
+   "label": "Red Sea",
+   "lat": 20.0,
+   "lon": 38.5,
+   "kind": "sea",
+   "id": "Red Sea"
+  },
+  {
+   "ntype": "Region",
+   "label": "Persian Gulf",
+   "lat": 26.5,
+   "lon": 51.5,
+   "kind": "sea",
+   "id": "Persian Gulf"
+  },
+  {
+   "ntype": "Region",
+   "label": "Arabian Sea",
+   "lat": 15.5,
+   "lon": 55.0,
+   "kind": "sea",
+   "id": "Arabian Sea"
+  },
+  {
+   "ntype": "Region",
+   "label": "Empty Quarter",
+   "lat": 19.5,
+   "lon": 52.0,
+   "kind": "desert",
+   "id": "Empty Quarter"
+  },
+  {
+   "ntype": "Mechanism",
+   "label": "ARST",
+   "desc": "Active Red Sea Trough - low-level convergence over the Red Sea",
+   "id": "ARST"
+  },
+  {
+   "ntype": "Mechanism",
+   "label": "moisture transport",
+   "desc": "Red Sea / Arabian Sea moisture transport",
+   "id": "moisture_transport"
+  },
+  {
+   "ntype": "Mechanism",
+   "label": "subtropical high",
+   "desc": "Subtropical / continental high (heat dome)",
+   "id": "subtropical_high"
+  },
+  {
+   "ntype": "Mechanism",
+   "label": "thermal low",
+   "desc": "Arabian thermal low (desert heat low)",
+   "id": "thermal_low"
+  },
+  {
+   "ntype": "Mechanism",
+   "label": "orographic lift",
+   "desc": "Orographic lifting over Hejaz / Asir mountains",
+   "id": "orographic_lift"
+  },
+  {
+   "ntype": "ExtremeSample",
+   "label": "08-23 extreme rain",
+   "date": "2025-08-23",
+   "hazard": "flash_flood",
+   "value": "daily_precip_total 254.9 mm",
+   "location": "Jizan (17.5N,42.9E)",
+   "construction_method": "annual_global_grid_maximum",
+   "verification_status": "dataset_derived_not_independently_verified_event",
+   "geographic_assignment": "nearest_named_region",
+   "id": "E_20250823_daily_precip_total"
+  },
+  {
+   "ntype": "ExtremeSample",
+   "label": "08-31 convective instability",
+   "date": "2025-08-31",
+   "hazard": "flash_flood",
+   "value": "cape 5196.0 J/kg",
+   "location": "Abha (18.9N,41.7E)",
+   "construction_method": "annual_global_grid_maximum",
+   "verification_status": "dataset_derived_not_independently_verified_event",
+   "geographic_assignment": "nearest_named_region",
+   "id": "E_20250831_cape"
+  },
+  {
+   "ntype": "ExtremeSample",
+   "label": "08-19 vapour surge",
+   "date": "2025-08-19",
+   "hazard": "flash_flood",
+   "value": "ivt 728.4 kg/m/s",
+   "location": "Arabian Sea (16.0N,55.9E)",
+   "construction_method": "annual_global_grid_maximum",
+   "verification_status": "dataset_derived_not_independently_verified_event",
+   "geographic_assignment": "nearest_named_region",
+   "id": "E_20250819_ivt"
+  },
+  {
+   "ntype": "ExtremeSample",
+   "label": "07-25 extreme heat",
+   "date": "2025-07-25",
+   "hazard": "heatwave",
+   "value": "tmax_c 53.7 C",
+   "location": "Empty Quarter (18.7N,54.5E)",
+   "construction_method": "annual_global_grid_maximum",
+   "verification_status": "dataset_derived_not_independently_verified_event",
+   "geographic_assignment": "nearest_named_region",
+   "id": "E_20250725_tmax_c"
+  },
+  {
+   "ntype": "ExtremeSample",
+   "label": "08-16 heat stress",
+   "date": "2025-08-16",
+   "hazard": "heatwave",
+   "value": "heat_index_c 54.7 C",
+   "location": "Persian Gulf (25.0N,51.9E)",
+   "construction_method": "annual_global_grid_maximum",
+   "verification_status": "dataset_derived_not_independently_verified_event",
+   "geographic_assignment": "nearest_named_region",
+   "id": "E_20250816_heat_index_c"
+  },
+  {
+   "ntype": "ExtremeSample",
+   "label": "07-26 extreme wind",
+   "date": "2025-07-26",
+   "hazard": "dust_storm",
+   "value": "wind10_speed 20.7 m/s",
+   "location": "Arabian Sea (17.4N,55.8E)",
+   "construction_method": "annual_global_grid_maximum",
+   "verification_status": "dataset_derived_not_independently_verified_event",
+   "geographic_assignment": "nearest_named_region",
+   "id": "E_20250726_wind10_speed"
+  },
+  {
+   "id": "cite_ref_devries2013",
+   "ntype": "Citation",
+   "label": "de Vries et al. (2013), J. Geophys. Res. Atmos.",
+   "desc": "Extreme precipitation events in the Middle East: Dynamics of the Active Red Sea Trough",
+   "url": "https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/jgrd.50569",
+   "evidence": [
+    {
+     "subject": "eastward-migrating Mediterranean cyclone",
+     "relation": "joins",
+     "object": "extension of the Sudan low-pressure zone (the Red Sea Trough)",
+     "quote": "an eastward-migrating Mediterranean cyclone joined an extension of the Sudan low-pressure zone (the Red Sea Trough)"
+    },
+    {
+     "subject": "stationary anticyclone over the southeastern Arabian Peninsula (the Arabian Anticyclone)",
+     "relation": "produces",
+     "object": "clockwise flow that supplied moisture from the Arabian Sea and the Red Sea",
+     "quote": "a stationary anticyclone over the southeastern Arabian Peninsula (the Arabian Anticyclone) produced a clockwise flow that supplied moisture from the Arabian Sea and the Red Sea"
+    },
+    {
+     "subject": "upper-level tropospheric instability combined with this moisture supply",
+     "relation": "produces",
+     "object": "deep moist convection",
+     "quote": "upper-level tropospheric instability combined with this moisture supply to produce deep moist convection"
+    },
+    {
+     "subject": "deep moist convection",
+     "relation": "results in",
+     "object": "a quasi-stationary mesoscale convective system and heavy rainfall over Jeddah",
+     "quote": "resulting in a quasi-stationary mesoscale convective system and heavy rainfall over Jeddah"
+    },
+    {
+     "subject": "The Red Sea Trough",
+     "relation": "enhances",
+     "object": "low-level moisture transport and convergence",
+     "quote": "The Red Sea Trough enhances low-level moisture transport and convergence"
+    },
+    {
+     "subject": "The Red Sea Trough",
+     "relation": "precedes",
+     "object": "deep convection and mesoscale convective system development",
+     "quote": "often acting as a precursor to deep convection and mesoscale convective system development"
+    }
+   ],
+   "n_triples": 6,
+   "source_text_kind": "curated_local_paraphrase",
+   "verification_scope": "substring_matched_in_curated_passage_not_original_publication",
+   "review_status": "automatic_substring_check_plus_manual_quality_screen"
+  },
+  {
+   "id": "cite_ref_redsea_topo",
+   "ntype": "Citation",
+   "label": "ResearchGate case study",
+   "desc": "On the Effect of Red Sea and Topography on Rainfall over Saudi Arabia",
+   "url": "https://www.researchgate.net/publication/336928573",
+   "evidence": [
+    {
+     "subject": "Surface fluxes over the Red Sea",
+     "relation": "regulates",
+     "object": "low-level moist-air convergence prior to convection initiation and development",
+     "quote": "Surface fluxes over the Red Sea play an important role in regulating low-level moist-air convergence prior to convection initiation and development"
+    },
+    {
+     "subject": "Red Sea water",
+     "relation": "affects",
+     "object": "regional rainfall",
+     "quote": "Red Sea water is estimated to affect regional rainfall by about 30 to 40 percent"
+    },
+    {
+     "subject": "strong convergence areas over the Red Sea",
+     "relation": "enhances",
+     "object": "uplift motion",
+     "quote": "strong convergence areas form over the Red Sea that enhance uplift motion"
+    },
+    {
+     "subject": "strong convergence areas over the Red Sea",
+     "relation": "strengthens",
+     "object": "low-level jets",
+     "quote": "strengthen low-level jets"
+    },
+    {
+     "subject": "strong convergence areas over the Red Sea",
+     "relation": "creates",
+     "object": "a conditionally unstable atmosphere that favours cyclonic system development",
+     "quote": "create a conditionally unstable atmosphere that favours cyclonic system development"
+    }
+   ],
+   "n_triples": 5,
+   "source_text_kind": "curated_local_paraphrase",
+   "verification_scope": "substring_matched_in_curated_passage_not_original_publication",
+   "review_status": "automatic_substring_check_plus_manual_quality_screen"
+  },
+  {
+   "id": "cite_ref_heatflux_era5",
+   "ntype": "Citation",
+   "label": "MDPI Atmosphere (2019)",
+   "desc": "Surface Heat Fluxes over the Northern Arabian Gulf and Red Sea (ERA5/MERRA2)",
+   "url": "https://www.mdpi.com/2073-4433/10/9/504",
+   "evidence": [
+    {
+     "subject": "stronger winds combined with drier air",
+     "relation": "produces",
+     "object": "latent heat losses of up to 410 watts per square metre",
+     "quote": "stronger winds combined with drier air produce latent heat losses of up to 410 watts per square metre"
+    }
+   ],
+   "n_triples": 1,
+   "source_text_kind": "curated_local_paraphrase",
+   "verification_scope": "substring_matched_in_curated_passage_not_original_publication",
+   "review_status": "automatic_substring_check_plus_manual_quality_screen"
+  },
+  {
+   "id": "cite_ref_heatwave_circulation",
+   "ntype": "Citation",
+   "label": "ScienceDirect, Atmospheric Research",
+   "desc": "Extreme summer temperatures in Saudi Arabia and large-scale circulation",
+   "url": "https://www.sciencedirect.com/science/article/abs/pii/S0169809519301747",
+   "evidence": [
+    {
+     "subject": "powerful solar radiation and persistent high-pressure systems",
+     "relation": "causes",
+     "object": "intense surface heating",
+     "quote": "Saudi Arabia experiences powerful solar radiation and persistent high-pressure systems that contribute to intense surface heating"
+    },
+    {
+     "subject": "subtropical high-pressure system over the Arabian Peninsula",
+     "relation": "causes",
+     "object": "extreme summer temperature variation",
+     "quote": "The influence of a subtropical high-pressure system over the Arabian Peninsula is associated with extreme summer temperature variation"
+    },
+    {
+     "subject": "subtropical high-pressure system, combined with the region's geographic location and solar radiation exposure",
+     "relation": "drives",
+     "object": "extreme summer heat in Saudi Arabia",
+     "quote": "This subtropical high-pressure system, combined with the region's geographic location and solar radiation exposure, is identified as a primary driver of extreme summer heat in Saudi Arabia"
+    }
+   ],
+   "n_triples": 3,
+   "source_text_kind": "curated_local_paraphrase",
+   "verification_scope": "substring_matched_in_curated_passage_not_original_publication",
+   "review_status": "automatic_substring_check_plus_manual_quality_screen"
+  },
+  {
+   "id": "cite_ref_heatwave_variability",
+   "ntype": "Citation",
+   "label": "Springer, Meteorology and Atmospheric Physics (2024)",
+   "desc": "Observed heatwaves characteristics and variability over Saudi Arabia",
+   "url": "https://link.springer.com/article/10.1007/s00703-024-01010-6",
+   "evidence": [
+    {
+     "subject": "the adjacent sea",
+     "relation": "moderates",
+     "object": "temperature extremes",
+     "quote": "the adjacent sea moderates temperature extremes compared to the interior"
+    }
+   ],
+   "n_triples": 1,
+   "source_text_kind": "curated_local_paraphrase",
+   "verification_scope": "substring_matched_in_curated_passage_not_original_publication",
+   "review_status": "automatic_substring_check_plus_manual_quality_screen"
+  },
+  {
+   "id": "cite_ref_shamal_yu2016",
+   "ntype": "Citation",
+   "label": "Yu et al. (2016), J. Geophys. Res. Atmos.",
+   "desc": "Climatology of summer Shamal wind in the Middle East",
+   "url": "https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015jd024063",
+   "evidence": [
+    {
+     "subject": "high pressure over eastern Africa and thermal low-pressure centres over Iran and Pakistan",
+     "relation": "drives",
+     "object": "summer Shamal",
+     "quote": "The summer Shamal, occurring from May to August, is a persistent north-northwesterly wind regime driven by high pressure over eastern Africa and thermal low-pressure centres over Iran and Pakistan."
+    },
+    {
+     "subject": "steep pressure gradient between the heat low over Pakistan, Afghanistan and Iran and the high-pressure system over the eastern Mediterranean and northern Saudi Arabia",
+     "relation": "causes",
+     "object": "summer Shamal",
+     "quote": "It forms due to the steep pressure gradient between the heat low over Pakistan, Afghanistan and Iran and the high-pressure system over the eastern Mediterranean and northern Saudi Arabia."
+    },
+    {
+     "subject": "summer Shamal",
+     "relation": "causes",
+     "object": "dust storm activity across the Arabian Peninsula",
+     "quote": "The summer Shamal is the major driver of dust storm activity across the Arabian Peninsula"
+    },
+    {
+     "subject": "summer Shamal",
+     "relation": "produces",
+     "object": "lifting dust and transporting it to the Persian Gulf and the Arabian Peninsula",
+     "quote": "capable of lifting dust and transporting it to the Persian Gulf and the Arabian Peninsula"
+    }
+   ],
+   "n_triples": 4,
+   "source_text_kind": "curated_local_paraphrase",
+   "verification_scope": "substring_matched_in_curated_passage_not_original_publication",
+   "review_status": "automatic_substring_check_plus_manual_quality_screen"
+  }
+ ],
+ "links": [
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "daily_precip_total",
+   "target": "DS2"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "daily_precip_total",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "daily_convective_precip",
+   "target": "DS2"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "daily_convective_precip",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "daily_large_scale_precip",
+   "target": "DS2"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "t2m_c",
+   "target": "DS2"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "t2m_c",
+   "target": "heatwave"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "tmax_c",
+   "target": "DS2"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "tmax_c",
+   "target": "heatwave"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "tmin_c",
+   "target": "DS2"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "heat_index_c",
+   "target": "DS2"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "heat_index_c",
+   "target": "heatwave"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "vpd_kpa",
+   "target": "DS2"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "vpd_kpa",
+   "target": "heatwave"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "vpd_kpa",
+   "target": "dust_storm"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "cape",
+   "target": "DS1"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "cape",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "pwat",
+   "target": "DS1"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "pwat",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "ivt",
+   "target": "DS1"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "ivt",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "ivt",
+   "target": "coastal"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "wind850_speed",
+   "target": "DS1"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "wind850_speed",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "wind850_speed",
+   "target": "dust_storm"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "wind850_speed",
+   "target": "coastal"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "wind_shear_850_200",
+   "target": "DS1"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "wind_shear_850_200",
+   "target": "dust_storm"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "daily_precip_anomaly",
+   "target": "DS8"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "daily_precip_anomaly",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "t2m_anomaly_c",
+   "target": "DS8"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "t2m_anomaly_c",
+   "target": "heatwave"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "tmax_anomaly_c",
+   "target": "DS8"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "tmax_anomaly_c",
+   "target": "heatwave"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "sst_celsius",
+   "target": "DS4"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "sst_celsius",
+   "target": "coastal"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "flash_flood_risk",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "heatwave_day_flag",
+   "target": "DS8"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "heatwave_day_flag",
+   "target": "heatwave"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "heatwave_duration_days",
+   "target": "DS8"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "heatwave_duration_days",
+   "target": "heatwave"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "wind10_speed",
+   "target": "DS1"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "wind10_speed",
+   "target": "dust_storm"
+  },
+  {
+   "etype": "sourced_from",
+   "evidence_class": "metadata_lineage",
+   "construction_method": "hand_authored_indicator_metadata",
+   "source_ref": "INDICATORS",
+   "confidence": "medium",
+   "review_status": "metadata_not_independently_audited",
+   "eligible_for_causal_explanation": false,
+   "source": "dewpoint_depression_c",
+   "target": "DS2"
+  },
+  {
+   "etype": "contributes_to",
+   "evidence_class": "rule_or_feature_mapping",
+   "construction_method": "hand_authored_detection_and_feature_mapping",
+   "source_ref": "CONTRIBUTES_TO",
+   "confidence": "medium",
+   "review_status": "code_traceable_not_edge_level_literature_reviewed",
+   "eligible_for_causal_explanation": false,
+   "source": "dewpoint_depression_c",
+   "target": "dust_storm"
+  },
+  {
+   "etype": "driven_by",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "HAZARD_MECH",
+   "confidence": "medium",
+   "review_status": "mechanism_level_literature_partial_edge_review_pending",
+   "eligible_for_causal_explanation": true,
+   "source": "flash_flood",
+   "target": "ARST"
+  },
+  {
+   "etype": "driven_by",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "HAZARD_MECH",
+   "confidence": "medium",
+   "review_status": "mechanism_level_literature_partial_edge_review_pending",
+   "eligible_for_causal_explanation": true,
+   "source": "flash_flood",
+   "target": "moisture_transport"
+  },
+  {
+   "etype": "driven_by",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "HAZARD_MECH",
+   "confidence": "medium",
+   "review_status": "mechanism_level_literature_partial_edge_review_pending",
+   "eligible_for_causal_explanation": true,
+   "source": "flash_flood",
+   "target": "orographic_lift"
+  },
+  {
+   "etype": "driven_by",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "HAZARD_MECH",
+   "confidence": "medium",
+   "review_status": "mechanism_level_literature_partial_edge_review_pending",
+   "eligible_for_causal_explanation": true,
+   "source": "heatwave",
+   "target": "subtropical_high"
+  },
+  {
+   "etype": "driven_by",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "HAZARD_MECH",
+   "confidence": "medium",
+   "review_status": "mechanism_level_literature_partial_edge_review_pending",
+   "eligible_for_causal_explanation": true,
+   "source": "heatwave",
+   "target": "thermal_low"
+  },
+  {
+   "etype": "driven_by",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "HAZARD_MECH",
+   "confidence": "medium",
+   "review_status": "mechanism_level_literature_partial_edge_review_pending",
+   "eligible_for_causal_explanation": true,
+   "source": "dust_storm",
+   "target": "thermal_low"
+  },
+  {
+   "etype": "driven_by",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "HAZARD_MECH",
+   "confidence": "medium",
+   "review_status": "mechanism_level_literature_partial_edge_review_pending",
+   "eligible_for_causal_explanation": true,
+   "source": "coastal",
+   "target": "moisture_transport"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Jeddah",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Jeddah",
+   "target": "coastal"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Jeddah",
+   "target": "heatwave"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Jeddah",
+   "target": "moisture_transport"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Jeddah",
+   "target": "ARST"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Mecca",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Mecca",
+   "target": "heatwave"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Mecca",
+   "target": "orographic_lift"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Mecca",
+   "target": "ARST"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Riyadh",
+   "target": "heatwave"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Riyadh",
+   "target": "dust_storm"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Riyadh",
+   "target": "subtropical_high"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Riyadh",
+   "target": "thermal_low"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Jizan",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Jizan",
+   "target": "coastal"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Jizan",
+   "target": "moisture_transport"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Jizan",
+   "target": "orographic_lift"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Dammam",
+   "target": "heatwave"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Dammam",
+   "target": "coastal"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Dammam",
+   "target": "moisture_transport"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Taif",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Taif",
+   "target": "orographic_lift"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Medina",
+   "target": "heatwave"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Medina",
+   "target": "dust_storm"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Medina",
+   "target": "thermal_low"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Abha",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Abha",
+   "target": "orographic_lift"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Red Sea",
+   "target": "coastal"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Red Sea",
+   "target": "moisture_transport"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Persian Gulf",
+   "target": "coastal"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Persian Gulf",
+   "target": "moisture_transport"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Arabian Sea",
+   "target": "coastal"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Arabian Sea",
+   "target": "moisture_transport"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Empty Quarter",
+   "target": "heatwave"
+  },
+  {
+   "etype": "at_risk_of",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_exposure_mapping",
+   "source_ref": "REGION_HAZARD",
+   "confidence": "low",
+   "review_status": "needs_region_hazard_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Empty Quarter",
+   "target": "dust_storm"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Empty Quarter",
+   "target": "subtropical_high"
+  },
+  {
+   "etype": "exposed_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_regional_mechanism_mapping",
+   "source_ref": "REGION_MECH",
+   "confidence": "low",
+   "review_status": "needs_region_mechanism_source_review",
+   "eligible_for_causal_explanation": false,
+   "source": "Empty Quarter",
+   "target": "thermal_low"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "ARST",
+   "target": "ivt"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "ARST",
+   "target": "pwat"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "ARST",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "moisture_transport",
+   "target": "pwat"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "moisture_transport",
+   "target": "ivt"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "moisture_transport",
+   "target": "sst_celsius"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "subtropical_high",
+   "target": "tmax_c"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "subtropical_high",
+   "target": "heatwave"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "thermal_low",
+   "target": "tmax_c"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "thermal_low",
+   "target": "vpd_kpa"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "thermal_low",
+   "target": "dust_storm"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "orographic_lift",
+   "target": "daily_precip_total"
+  },
+  {
+   "etype": "mechanistically_related_to",
+   "evidence_class": "expert_assertion",
+   "construction_method": "hand_authored_domain_mapping",
+   "source_ref": "TRIGGERS",
+   "confidence": "low",
+   "review_status": "needs_edge_level_citation_review",
+   "eligible_for_causal_explanation": false,
+   "source": "orographic_lift",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "sample_for_hazard",
+   "evidence_class": "dataset_observation",
+   "construction_method": "variable_maximum_assigned_to_predefined_hazard",
+   "source_ref": "EVENT_DEFS:daily_precip_total",
+   "confidence": "low",
+   "review_status": "not_independently_verified_as_disaster_event",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250823_daily_precip_total",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "nearest_named_region",
+   "evidence_class": "geographic_approximation",
+   "construction_method": "minimum_squared_lat_lon_distance",
+   "source_ref": "REGIONS",
+   "confidence": "low",
+   "review_status": "descriptive_only_not_administrative_containment",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250823_daily_precip_total",
+   "target": "Jizan"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 254.9,
+   "source": "E_20250823_daily_precip_total",
+   "target": "daily_precip_total"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 2360.0,
+   "source": "E_20250823_daily_precip_total",
+   "target": "cape"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 150.0,
+   "source": "E_20250823_daily_precip_total",
+   "target": "ivt"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 47.1,
+   "source": "E_20250823_daily_precip_total",
+   "target": "pwat"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 1.6,
+   "source": "E_20250823_daily_precip_total",
+   "target": "wind850_speed"
+  },
+  {
+   "etype": "sample_for_hazard",
+   "evidence_class": "dataset_observation",
+   "construction_method": "variable_maximum_assigned_to_predefined_hazard",
+   "source_ref": "EVENT_DEFS:cape",
+   "confidence": "low",
+   "review_status": "not_independently_verified_as_disaster_event",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250831_cape",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "nearest_named_region",
+   "evidence_class": "geographic_approximation",
+   "construction_method": "minimum_squared_lat_lon_distance",
+   "source_ref": "REGIONS",
+   "confidence": "low",
+   "review_status": "descriptive_only_not_administrative_containment",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250831_cape",
+   "target": "Abha"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 0.2,
+   "source": "E_20250831_cape",
+   "target": "daily_precip_total"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 5196.0,
+   "source": "E_20250831_cape",
+   "target": "cape"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 94.9,
+   "source": "E_20250831_cape",
+   "target": "ivt"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 46.0,
+   "source": "E_20250831_cape",
+   "target": "pwat"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 1.8,
+   "source": "E_20250831_cape",
+   "target": "wind850_speed"
+  },
+  {
+   "etype": "sample_for_hazard",
+   "evidence_class": "dataset_observation",
+   "construction_method": "variable_maximum_assigned_to_predefined_hazard",
+   "source_ref": "EVENT_DEFS:ivt",
+   "confidence": "low",
+   "review_status": "not_independently_verified_as_disaster_event",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250819_ivt",
+   "target": "flash_flood"
+  },
+  {
+   "etype": "nearest_named_region",
+   "evidence_class": "geographic_approximation",
+   "construction_method": "minimum_squared_lat_lon_distance",
+   "source_ref": "REGIONS",
+   "confidence": "low",
+   "review_status": "descriptive_only_not_administrative_containment",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250819_ivt",
+   "target": "Arabian Sea"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 2.5,
+   "source": "E_20250819_ivt",
+   "target": "daily_precip_total"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 52.0,
+   "source": "E_20250819_ivt",
+   "target": "cape"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 728.4,
+   "source": "E_20250819_ivt",
+   "target": "ivt"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 61.1,
+   "source": "E_20250819_ivt",
+   "target": "pwat"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 21.5,
+   "source": "E_20250819_ivt",
+   "target": "wind850_speed"
+  },
+  {
+   "etype": "sample_for_hazard",
+   "evidence_class": "dataset_observation",
+   "construction_method": "variable_maximum_assigned_to_predefined_hazard",
+   "source_ref": "EVENT_DEFS:tmax_c",
+   "confidence": "low",
+   "review_status": "not_independently_verified_as_disaster_event",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250725_tmax_c",
+   "target": "heatwave"
+  },
+  {
+   "etype": "nearest_named_region",
+   "evidence_class": "geographic_approximation",
+   "construction_method": "minimum_squared_lat_lon_distance",
+   "source_ref": "REGIONS",
+   "confidence": "low",
+   "review_status": "descriptive_only_not_administrative_containment",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250725_tmax_c",
+   "target": "Empty Quarter"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 53.7,
+   "source": "E_20250725_tmax_c",
+   "target": "tmax_c"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 39.6,
+   "source": "E_20250725_tmax_c",
+   "target": "heat_index_c"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 5.3,
+   "source": "E_20250725_tmax_c",
+   "target": "vpd_kpa"
+  },
+  {
+   "etype": "sample_for_hazard",
+   "evidence_class": "dataset_observation",
+   "construction_method": "variable_maximum_assigned_to_predefined_hazard",
+   "source_ref": "EVENT_DEFS:heat_index_c",
+   "confidence": "low",
+   "review_status": "not_independently_verified_as_disaster_event",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250816_heat_index_c",
+   "target": "heatwave"
+  },
+  {
+   "etype": "nearest_named_region",
+   "evidence_class": "geographic_approximation",
+   "construction_method": "minimum_squared_lat_lon_distance",
+   "source_ref": "REGIONS",
+   "confidence": "low",
+   "review_status": "descriptive_only_not_administrative_containment",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250816_heat_index_c",
+   "target": "Persian Gulf"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 35.2,
+   "source": "E_20250816_heat_index_c",
+   "target": "tmax_c"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 54.7,
+   "source": "E_20250816_heat_index_c",
+   "target": "heat_index_c"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 1.4,
+   "source": "E_20250816_heat_index_c",
+   "target": "vpd_kpa"
+  },
+  {
+   "etype": "sample_for_hazard",
+   "evidence_class": "dataset_observation",
+   "construction_method": "variable_maximum_assigned_to_predefined_hazard",
+   "source_ref": "EVENT_DEFS:wind10_speed",
+   "confidence": "low",
+   "review_status": "not_independently_verified_as_disaster_event",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250726_wind10_speed",
+   "target": "dust_storm"
+  },
+  {
+   "etype": "nearest_named_region",
+   "evidence_class": "geographic_approximation",
+   "construction_method": "minimum_squared_lat_lon_distance",
+   "source_ref": "REGIONS",
+   "confidence": "low",
+   "review_status": "descriptive_only_not_administrative_containment",
+   "eligible_for_causal_explanation": false,
+   "source": "E_20250726_wind10_speed",
+   "target": "Arabian Sea"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 20.7,
+   "source": "E_20250726_wind10_speed",
+   "target": "wind10_speed"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 5.0,
+   "source": "E_20250726_wind10_speed",
+   "target": "wind850_speed"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 3.2,
+   "source": "E_20250726_wind10_speed",
+   "target": "dewpoint_depression_c"
+  },
+  {
+   "etype": "observed_value",
+   "evidence_class": "dataset_observation",
+   "construction_method": "same_grid_cell_and_date_value_lookup",
+   "source_ref": "mazu_dataset.nc",
+   "confidence": "high",
+   "review_status": "computed_reproducibly",
+   "eligible_for_causal_explanation": false,
+   "value": 0.5,
+   "source": "E_20250726_wind10_speed",
+   "target": "vpd_kpa"
+  },
+  {
+   "etype": "grounded_by",
+   "source": "ARST",
+   "target": "cite_ref_devries2013",
+   "evidence_class": "curated_literature_support",
+   "construction_method": "llm_extraction_plus_local_passage_substring_check",
+   "source_ref": "ref_devries2013",
+   "confidence": "medium",
+   "review_status": "original_publication_wording_not_verified",
+   "eligible_for_causal_explanation": true,
+   "verification_scope": "curated_local_passage_only"
+  },
+  {
+   "etype": "grounded_by",
+   "source": "moisture_transport",
+   "target": "cite_ref_redsea_topo",
+   "evidence_class": "curated_literature_support",
+   "construction_method": "llm_extraction_plus_local_passage_substring_check",
+   "source_ref": "ref_redsea_topo",
+   "confidence": "medium",
+   "review_status": "original_publication_wording_not_verified",
+   "eligible_for_causal_explanation": true,
+   "verification_scope": "curated_local_passage_only"
+  },
+  {
+   "etype": "grounded_by",
+   "source": "moisture_transport",
+   "target": "cite_ref_heatflux_era5",
+   "evidence_class": "curated_literature_support",
+   "construction_method": "llm_extraction_plus_local_passage_substring_check",
+   "source_ref": "ref_heatflux_era5",
+   "confidence": "medium",
+   "review_status": "original_publication_wording_not_verified",
+   "eligible_for_causal_explanation": true,
+   "verification_scope": "curated_local_passage_only"
+  },
+  {
+   "etype": "grounded_by",
+   "source": "subtropical_high",
+   "target": "cite_ref_heatwave_circulation",
+   "evidence_class": "curated_literature_support",
+   "construction_method": "llm_extraction_plus_local_passage_substring_check",
+   "source_ref": "ref_heatwave_circulation",
+   "confidence": "medium",
+   "review_status": "original_publication_wording_not_verified",
+   "eligible_for_causal_explanation": true,
+   "verification_scope": "curated_local_passage_only"
+  },
+  {
+   "etype": "grounded_by",
+   "source": "subtropical_high",
+   "target": "cite_ref_heatwave_variability",
+   "evidence_class": "curated_literature_support",
+   "construction_method": "llm_extraction_plus_local_passage_substring_check",
+   "source_ref": "ref_heatwave_variability",
+   "confidence": "medium",
+   "review_status": "original_publication_wording_not_verified",
+   "eligible_for_causal_explanation": true,
+   "verification_scope": "curated_local_passage_only"
+  },
+  {
+   "etype": "grounded_by",
+   "source": "thermal_low",
+   "target": "cite_ref_shamal_yu2016",
+   "evidence_class": "curated_literature_support",
+   "construction_method": "llm_extraction_plus_local_passage_substring_check",
+   "source_ref": "ref_shamal_yu2016",
+   "confidence": "medium",
+   "review_status": "original_publication_wording_not_verified",
+   "eligible_for_causal_explanation": true,
+   "verification_scope": "curated_local_passage_only"
+  }
+ ]
+}

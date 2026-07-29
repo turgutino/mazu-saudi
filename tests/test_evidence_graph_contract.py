@@ -94,3 +94,8 @@ def test_showcase_counts_match_generated_graph_and_avoids_causal_uplift_claim():
     assert "not an automatic causal-discovery system" in index
     assert "not used to train or score the forecast model" in readme
     assert not re.search(r"\b60 nodes, 183 edges\b", index + readme)
+
+
+def test_bundled_frontend_kg_data_matches_source_graph_bytes():
+    bundled_path = ROOT / "competition_app" / "src" / "data" / "kg_data.json"
+    assert bundled_path.read_bytes() == KG_PATH.read_bytes()
