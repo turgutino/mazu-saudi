@@ -1,0 +1,798 @@
+{
+  "@context": {
+    "@vocab": "urn:mazu-saudi:ontology:",
+    "mazu": "urn:mazu-saudi:ontology:",
+    "concept": "urn:mazu-saudi:concept:",
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "owl": "http://www.w3.org/2002/07/owl#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "sosa": "http://www.w3.org/ns/sosa/",
+    "ssn": "http://www.w3.org/ns/ssn/",
+    "geo": "http://www.opengis.net/ont/geosparql#",
+    "time": "http://www.w3.org/2006/time#",
+    "prov": "http://www.w3.org/ns/prov#",
+    "qudt": "http://qudt.org/schema/qudt/",
+    "quantitykind": "http://qudt.org/vocab/quantitykind/",
+    "uom": "http://qudt.org/vocab/unit/",
+    "labelEn": {
+      "@id": "skos:prefLabel",
+      "@language": "en"
+    },
+    "labelZh": {
+      "@id": "skos:prefLabel",
+      "@language": "zh"
+    },
+    "definitionEn": {
+      "@id": "skos:definition",
+      "@language": "en"
+    },
+    "definitionZh": {
+      "@id": "skos:definition",
+      "@language": "zh"
+    },
+    "module": "mazu:module",
+    "status": "mazu:status",
+    "claimBoundary": "mazu:claimBoundary",
+    "versionInfo": "owl:versionInfo",
+    "referencesStandard": {
+      "@id": "mazu:referencesStandard",
+      "@type": "@id"
+    },
+    "subClassOf": {
+      "@id": "rdfs:subClassOf",
+      "@type": "@id"
+    },
+    "subPropertyOf": {
+      "@id": "rdfs:subPropertyOf",
+      "@type": "@id"
+    },
+    "domain": {
+      "@id": "rdfs:domain",
+      "@type": "@id"
+    },
+    "range": {
+      "@id": "rdfs:range",
+      "@type": "@id"
+    },
+    "alignsWith": {
+      "@id": "skos:exactMatch",
+      "@type": "@id"
+    },
+    "broader": {
+      "@id": "skos:broader",
+      "@type": "@id"
+    },
+    "cfStandardName": "mazu:cfStandardName",
+    "quantityKind": {
+      "@id": "qudt:hasQuantityKind",
+      "@type": "@id"
+    },
+    "unit": {
+      "@id": "qudt:unit",
+      "@type": "@id"
+    },
+    "derivedFromIndicator": {
+      "@id": "mazu:derivedFromIndicator",
+      "@type": "@id"
+    },
+    "compatibleWithMechanism": {
+      "@id": "mazu:compatibleWithMechanism",
+      "@type": "@id"
+    },
+    "applicableUnder": {
+      "@id": "mazu:applicableUnder",
+      "@type": "@id"
+    }
+  },
+  "@id": "urn:mazu-saudi:ontology",
+  "@type": "owl:Ontology",
+  "versionInfo": "1.0.0",
+  "labelEn": "MAZU Global Observational Mechanism Applicability Ontology",
+  "labelZh": "MAZU 全球观测机制适用性本体",
+  "claimBoundary": "The ontology separates observations, derived indicator states, observational assertions, expert or literature evidence, and forecast constraints. Data-derived associations are never causal by default and cannot be treated as observed hazard events.",
+  "referencesStandard": [
+    "http://www.w3.org/ns/sosa/",
+    "http://www.opengis.net/doc/AS/om/3.0",
+    "http://www.opengis.net/ont/geosparql",
+    "http://www.w3.org/2006/time",
+    "http://www.w3.org/ns/prov",
+    "http://qudt.org/schema/qudt/",
+    "https://cfconventions.org/"
+  ],
+  "@graph": [
+    {
+      "@id": "mazu:DataSource",
+      "@type": "owl:Class",
+      "module": "observation",
+      "labelEn": "Data source",
+      "labelZh": "数据源",
+      "definitionEn": "A versioned collection or product from which observations or derived indicators are obtained.",
+      "definitionZh": "产生观测事实或派生指标的版本化数据集合或产品。",
+      "subClassOf": "prov:Entity"
+    },
+    {
+      "@id": "mazu:DerivedIndicator",
+      "@type": "owl:Class",
+      "module": "observation",
+      "labelEn": "Derived indicator",
+      "labelZh": "派生指标",
+      "definitionEn": "An observable property calculated from one or more source observations by a declared procedure.",
+      "definitionZh": "通过已声明过程从一个或多个源观测计算得到的可观测属性。",
+      "subClassOf": "sosa:ObservableProperty"
+    },
+    {
+      "@id": "mazu:GriddedObservation",
+      "@type": "owl:Class",
+      "module": "observation",
+      "labelEn": "Gridded observation",
+      "labelZh": "格点观测",
+      "definitionEn": "An observation whose proximate feature of interest is a spatial grid or grid cell.",
+      "definitionZh": "以空间网格或网格单元为直接观测对象的观测。",
+      "subClassOf": "sosa:Observation",
+      "alignsWith": "http://www.opengis.net/doc/AS/om/3.0"
+    },
+    {
+      "@id": "mazu:ProxyLabel",
+      "@type": "owl:Class",
+      "module": "observation",
+      "labelEn": "Proxy label",
+      "labelZh": "代理标签",
+      "definitionEn": "A weak-supervision target derived from indicators or rules rather than an independently verified hazard event.",
+      "definitionZh": "由指标或规则产生、而非独立核验灾害事件确定的弱监督目标。",
+      "subClassOf": "prov:Entity"
+    },
+    {
+      "@id": "mazu:AtmosphericState",
+      "@type": "owl:Class",
+      "module": "state",
+      "labelEn": "Atmospheric state",
+      "labelZh": "大气状态",
+      "definitionEn": "A time-bounded semantic classification of atmospheric conditions.",
+      "definitionZh": "对某一时间范围内大气条件的语义化分类。"
+    },
+    {
+      "@id": "mazu:IndicatorState",
+      "@type": "owl:Class",
+      "module": "state",
+      "labelEn": "Indicator state",
+      "labelZh": "指标状态",
+      "definitionEn": "A state obtained by applying a versioned absolute, percentile, or anomaly definition to an indicator.",
+      "definitionZh": "依据版本化绝对阈值、百分位或距平定义从指标得到的状态。",
+      "subClassOf": "mazu:AtmosphericState"
+    },
+    {
+      "@id": "mazu:ExtremeWeatherState",
+      "@type": "owl:Class",
+      "module": "state",
+      "labelEn": "Extreme weather state",
+      "labelZh": "极端天气状态",
+      "definitionEn": "An atmospheric state that exceeds a declared local or physical extreme criterion.",
+      "definitionZh": "超过已声明当地或物理极端判据的大气状态。",
+      "subClassOf": "mazu:AtmosphericState"
+    },
+    {
+      "@id": "mazu:HazardFavourableState",
+      "@type": "owl:Class",
+      "module": "state",
+      "labelEn": "Hazard-favourable state",
+      "labelZh": "灾害有利状态",
+      "definitionEn": "A meteorological state favourable for a hazard but not evidence that the hazard impact occurred.",
+      "definitionZh": "有利于某类灾害形成、但不能证明灾害影响已经发生的气象状态。",
+      "subClassOf": "mazu:AtmosphericState"
+    },
+    {
+      "@id": "mazu:ObservedHazardEvent",
+      "@type": "owl:Class",
+      "module": "state",
+      "labelEn": "Observed hazard event",
+      "labelZh": "观测灾害事件",
+      "definitionEn": "A hazard occurrence supported by an independent and traceable event source.",
+      "definitionZh": "由独立且可追溯事件来源支持的灾害发生记录。",
+      "subClassOf": "prov:Entity"
+    },
+    {
+      "@id": "mazu:WeatherEpisode",
+      "@type": "owl:Class",
+      "module": "episode",
+      "labelEn": "Weather episode",
+      "labelZh": "天气过程",
+      "definitionEn": "A spatially and temporally coherent sequence of atmospheric states treated as one evaluation unit.",
+      "definitionZh": "在时空上连续、作为一个评估单元处理的一组大气状态序列。",
+      "subClassOf": "time:TemporalEntity"
+    },
+    {
+      "@id": "mazu:EpisodePhase",
+      "@type": "owl:Class",
+      "module": "episode",
+      "labelEn": "Episode phase",
+      "labelZh": "天气过程阶段",
+      "definitionEn": "An initiation, intensification, mature, or decay interval within a weather episode.",
+      "definitionZh": "天气过程中的初生、增强、成熟或衰减时段。",
+      "subClassOf": "time:TemporalEntity"
+    },
+    {
+      "@id": "mazu:SpatialContext",
+      "@type": "owl:Class",
+      "module": "context",
+      "labelEn": "Spatial context",
+      "labelZh": "空间环境",
+      "definitionEn": "A geographic environment used to scope the applicability of an observational assertion.",
+      "definitionZh": "用于限定观测断言适用范围的地理环境。",
+      "subClassOf": "geo:Feature"
+    },
+    {
+      "@id": "mazu:ClimateRegime",
+      "@type": "owl:Class",
+      "module": "context",
+      "labelEn": "Climate regime",
+      "labelZh": "气候型",
+      "definitionEn": "A climate classification used as an applicability condition rather than as a forecast mechanism.",
+      "definitionZh": "作为适用条件而非预测机制使用的气候分类。",
+      "subClassOf": "mazu:SpatialContext"
+    },
+    {
+      "@id": "mazu:TerrainContext",
+      "@type": "owl:Class",
+      "module": "context",
+      "labelEn": "Terrain context",
+      "labelZh": "地形环境",
+      "definitionEn": "Terrain configuration relevant to weather-process applicability, such as windward mountains or flat interior.",
+      "definitionZh": "与天气过程适用性相关的地形配置，例如迎风山地或平坦内陆。",
+      "subClassOf": "mazu:SpatialContext"
+    },
+    {
+      "@id": "mazu:SeasonalContext",
+      "@type": "owl:Class",
+      "module": "context",
+      "labelEn": "Seasonal context",
+      "labelZh": "季节环境",
+      "definitionEn": "A recurring temporal regime used to scope an assertion.",
+      "definitionZh": "用于限定断言适用范围的周期性时间环境。",
+      "subClassOf": "time:TemporalEntity"
+    },
+    {
+      "@id": "mazu:DataAvailabilityContext",
+      "@type": "owl:Class",
+      "module": "context",
+      "labelEn": "Data availability context",
+      "labelZh": "数据可用性环境",
+      "definitionEn": "A declared pattern of present, missing, stale, or quality-limited input modalities.",
+      "definitionZh": "对输入模态存在、缺测、过期或质量受限状态的声明。"
+    },
+    {
+      "@id": "mazu:WeatherMechanism",
+      "@type": "owl:Class",
+      "module": "mechanism",
+      "labelEn": "Weather mechanism",
+      "labelZh": "天气机制",
+      "definitionEn": "A physically interpretable process used to organise evidence and forecast constraints.",
+      "definitionZh": "用于组织证据和预测约束、具有物理解释的天气过程。"
+    },
+    {
+      "@id": "mazu:EvidenceAssertion",
+      "@type": "owl:Class",
+      "module": "assertion",
+      "labelEn": "Evidence assertion",
+      "labelZh": "证据断言",
+      "definitionEn": "A reified claim carrying provenance, scope, evidence class, review status, and causal eligibility.",
+      "definitionZh": "携带来源、适用范围、证据类别、审核状态和因果资格的实体化主张。",
+      "subClassOf": "prov:Entity"
+    },
+    {
+      "@id": "mazu:LaggedAssociationAssertion",
+      "@type": "owl:Class",
+      "module": "assertion",
+      "labelEn": "Lagged association assertion",
+      "labelZh": "滞后关联断言",
+      "definitionEn": "An observational assertion that one state statistically precedes another at a declared lag and scope.",
+      "definitionZh": "声明某状态在指定滞后和适用范围内统计上先于另一状态的观测断言。",
+      "subClassOf": "mazu:EvidenceAssertion"
+    },
+    {
+      "@id": "mazu:MechanismApplicabilityAssertion",
+      "@type": "owl:Class",
+      "module": "assertion",
+      "labelEn": "Mechanism applicability assertion",
+      "labelZh": "机制适用性断言",
+      "definitionEn": "An assertion that a mechanism is compatible with specified states and contexts.",
+      "definitionZh": "声明某机制与指定状态和环境相容的断言。",
+      "subClassOf": "mazu:EvidenceAssertion"
+    },
+    {
+      "@id": "mazu:CounterexampleAssertion",
+      "@type": "owl:Class",
+      "module": "assertion",
+      "labelEn": "Counterexample assertion",
+      "labelZh": "反例断言",
+      "definitionEn": "A documented context or episode in which a candidate relation fails or reverses.",
+      "definitionZh": "候选关系失效或反向的已记录环境或天气过程。",
+      "subClassOf": "mazu:EvidenceAssertion"
+    },
+    {
+      "@id": "mazu:ExtractionRun",
+      "@type": "owl:Class",
+      "module": "provenance",
+      "labelEn": "Extraction run",
+      "labelZh": "图谱提取运行",
+      "definitionEn": "A versioned activity that derives states, episodes, or assertions from frozen data.",
+      "definitionZh": "从冻结数据中派生状态、天气过程或断言的版本化活动。",
+      "subClassOf": "prov:Activity"
+    },
+    {
+      "@id": "mazu:ForecastConstraint",
+      "@type": "owl:Class",
+      "module": "forecast",
+      "labelEn": "Forecast constraint",
+      "labelZh": "预测约束",
+      "definitionEn": "A graph-derived soft prior, directional constraint, or review rule applied to a forecast system.",
+      "definitionZh": "应用于预测系统的图谱派生软先验、方向约束或复核规则。",
+      "subClassOf": "prov:Entity"
+    },
+    {
+      "@id": "mazu:GraphDerivedFeature",
+      "@type": "owl:Class",
+      "module": "forecast",
+      "labelEn": "Graph-derived feature",
+      "labelZh": "图谱派生特征",
+      "definitionEn": "A numeric feature produced by querying applicable graph assertions for a forecast case.",
+      "definitionZh": "针对某次预报查询适用图谱断言后生成的数值特征。",
+      "subClassOf": "prov:Entity"
+    },
+    {
+      "@id": "mazu:derivedFromIndicator",
+      "@type": "owl:ObjectProperty",
+      "module": "state",
+      "labelEn": "derived from indicator",
+      "labelZh": "派生自指标",
+      "definitionEn": "Links an indicator state to the indicator and threshold definition used to derive it.",
+      "definitionZh": "连接指标状态与生成该状态所使用的指标及阈值定义。",
+      "domain": "mazu:IndicatorState",
+      "range": "mazu:DerivedIndicator"
+    },
+    {
+      "@id": "mazu:hasState",
+      "@type": "owl:ObjectProperty",
+      "module": "episode",
+      "labelEn": "has state",
+      "labelZh": "包含状态",
+      "definitionEn": "Links a weather episode or phase to an atmospheric state.",
+      "definitionZh": "连接天气过程或阶段与大气状态。",
+      "domain": "mazu:WeatherEpisode",
+      "range": "mazu:AtmosphericState"
+    },
+    {
+      "@id": "mazu:hasPhase",
+      "@type": "owl:ObjectProperty",
+      "module": "episode",
+      "labelEn": "has phase",
+      "labelZh": "包含阶段",
+      "definitionEn": "Links a weather episode to an ordered episode phase.",
+      "definitionZh": "连接天气过程与其有序阶段。",
+      "domain": "mazu:WeatherEpisode",
+      "range": "mazu:EpisodePhase"
+    },
+    {
+      "@id": "mazu:sourceState",
+      "@type": "owl:ObjectProperty",
+      "module": "assertion",
+      "labelEn": "source state",
+      "labelZh": "源状态",
+      "definitionEn": "Identifies the earlier or conditioning state of an assertion.",
+      "definitionZh": "标识断言中较早发生或作为条件的状态。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "mazu:AtmosphericState"
+    },
+    {
+      "@id": "mazu:targetState",
+      "@type": "owl:ObjectProperty",
+      "module": "assertion",
+      "labelEn": "target state",
+      "labelZh": "目标状态",
+      "definitionEn": "Identifies the later or outcome state of an assertion.",
+      "definitionZh": "标识断言中较晚发生或作为结果的状态。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "mazu:AtmosphericState"
+    },
+    {
+      "@id": "mazu:applicableUnder",
+      "@type": "owl:ObjectProperty",
+      "module": "assertion",
+      "labelEn": "applicable under",
+      "labelZh": "适用于",
+      "definitionEn": "Scopes an assertion or constraint to climate, terrain, seasonal, or data-availability context.",
+      "definitionZh": "将断言或约束限定在气候、地形、季节或数据可用性环境内。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "mazu:SpatialContext"
+    },
+    {
+      "@id": "mazu:compatibleWithMechanism",
+      "@type": "owl:ObjectProperty",
+      "module": "mechanism",
+      "labelEn": "compatible with mechanism",
+      "labelZh": "与机制相容",
+      "definitionEn": "Links observational evidence to a physically interpretable mechanism without asserting causality.",
+      "definitionZh": "将观测证据连接到物理机制，但不声明因果关系。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "mazu:WeatherMechanism"
+    },
+    {
+      "@id": "mazu:supportedByEpisode",
+      "@type": "owl:ObjectProperty",
+      "module": "assertion",
+      "labelEn": "supported by episode",
+      "labelZh": "由天气过程支持",
+      "definitionEn": "Links an assertion to an independent supporting weather episode.",
+      "definitionZh": "连接断言与一个独立支持天气过程。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "mazu:WeatherEpisode"
+    },
+    {
+      "@id": "mazu:contradictedByEpisode",
+      "@type": "owl:ObjectProperty",
+      "module": "assertion",
+      "labelEn": "contradicted by episode",
+      "labelZh": "被天气过程反驳",
+      "definitionEn": "Links an assertion to an episode that contradicts or limits it.",
+      "definitionZh": "连接断言与一个反驳或限制该断言的天气过程。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "mazu:WeatherEpisode"
+    },
+    {
+      "@id": "mazu:generatesForecastConstraint",
+      "@type": "owl:ObjectProperty",
+      "module": "forecast",
+      "labelEn": "generates forecast constraint",
+      "labelZh": "生成预测约束",
+      "definitionEn": "Links an audited assertion to a soft forecast constraint derived from it.",
+      "definitionZh": "连接已审计断言与由其生成的软预测约束。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "mazu:ForecastConstraint"
+    },
+    {
+      "@id": "mazu:generatesGraphFeature",
+      "@type": "owl:ObjectProperty",
+      "module": "forecast",
+      "labelEn": "generates graph feature",
+      "labelZh": "生成图谱特征",
+      "definitionEn": "Links an audited assertion to a numeric feature used by a Saudi forecast model.",
+      "definitionZh": "连接已审计断言与供沙特预测模型使用的数值特征。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "mazu:GraphDerivedFeature"
+    },
+    {
+      "@id": "mazu:lagHours",
+      "@type": "owl:DatatypeProperty",
+      "module": "assertion",
+      "labelEn": "lag hours",
+      "labelZh": "滞后小时数",
+      "definitionEn": "Declared temporal lag between source and target states.",
+      "definitionZh": "源状态与目标状态之间声明的时间滞后。",
+      "domain": "mazu:LaggedAssociationAssertion",
+      "range": "xsd:decimal"
+    },
+    {
+      "@id": "mazu:thresholdDefinition",
+      "@type": "owl:DatatypeProperty",
+      "module": "state",
+      "labelEn": "threshold definition",
+      "labelZh": "阈值定义",
+      "definitionEn": "Versioned absolute, percentile, anomaly, or compound expression that defines a state.",
+      "definitionZh": "定义状态的版本化绝对阈值、百分位、距平或组合表达式。",
+      "domain": "mazu:IndicatorState",
+      "range": "xsd:string"
+    },
+    {
+      "@id": "mazu:evidenceClass",
+      "@type": "owl:DatatypeProperty",
+      "module": "assertion",
+      "labelEn": "evidence class",
+      "labelZh": "证据类别",
+      "definitionEn": "Whether evidence is observational, expert-authored, literature-grounded, or mixed.",
+      "definitionZh": "证据属于观测、专家编写、文献支持或混合类型。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "xsd:string"
+    },
+    {
+      "@id": "mazu:eligibleForCausalExplanation",
+      "@type": "owl:DatatypeProperty",
+      "module": "assertion",
+      "labelEn": "eligible for causal explanation",
+      "labelZh": "可用于因果解释",
+      "definitionEn": "Explicit review flag; automatically extracted observational assertions must be false.",
+      "definitionZh": "显式审核标志；自动提取的观测断言必须为否。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "xsd:boolean"
+    },
+    {
+      "@id": "mazu:supportEpisodeCount",
+      "@type": "owl:DatatypeProperty",
+      "module": "assertion",
+      "labelEn": "support episode count",
+      "labelZh": "支持天气过程数",
+      "definitionEn": "Number of independent weather episodes supporting an assertion.",
+      "definitionZh": "支持某断言的独立天气过程数量。",
+      "domain": "mazu:EvidenceAssertion",
+      "range": "xsd:nonNegativeInteger"
+    },
+    {
+      "@id": "mazu:lift",
+      "@type": "owl:DatatypeProperty",
+      "module": "assertion",
+      "labelEn": "lift",
+      "labelZh": "提升比",
+      "definitionEn": "Conditional outcome rate divided by the scoped baseline outcome rate.",
+      "definitionZh": "条件结果发生率与同一适用范围内基础发生率之比。",
+      "domain": "mazu:LaggedAssociationAssertion",
+      "range": "xsd:decimal"
+    },
+    {
+      "@id": "mazu:applicabilityScore",
+      "@type": "owl:DatatypeProperty",
+      "module": "forecast",
+      "labelEn": "applicability score",
+      "labelZh": "适用度",
+      "definitionEn": "A bounded score describing how well an assertion context matches a forecast case.",
+      "definitionZh": "描述断言环境与某次预报案例匹配程度的有界分数。",
+      "domain": "mazu:ForecastConstraint",
+      "range": "xsd:decimal"
+    },
+    {
+      "@id": "concept:DailyPrecipitation",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Daily precipitation",
+      "labelZh": "日降水量",
+      "definitionEn": "Daily accumulated precipitation amount.",
+      "definitionZh": "逐日累计降水量。",
+      "cfStandardName": "precipitation_amount",
+      "quantityKind": "quantitykind:Length",
+      "unit": "uom:MilliM"
+    },
+    {
+      "@id": "concept:IntegratedVaporTransport",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Integrated vapor transport",
+      "labelZh": "整层水汽输送",
+      "definitionEn": "Magnitude of vertically integrated horizontal water-vapour transport.",
+      "definitionZh": "垂直积分水平水汽输送的模长。",
+      "cfStandardName": "atmosphere_water_vapor_transport_across_unit_distance",
+      "quantityKind": "quantitykind:MassFlowRate"
+    },
+    {
+      "@id": "concept:CAPE",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Convective available potential energy",
+      "labelZh": "对流有效位能",
+      "definitionEn": "Convective available potential energy reduced to the horizontal forecast grid.",
+      "definitionZh": "折算到水平预报网格的对流有效位能。",
+      "cfStandardName": "atmosphere_convective_available_potential_energy",
+      "quantityKind": "quantitykind:SpecificEnergy",
+      "unit": "uom:J-PER-KiloGM"
+    },
+    {
+      "@id": "concept:PrecipitableWater",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Precipitable water",
+      "labelZh": "可降水量",
+      "definitionEn": "Vertically integrated atmospheric water vapour per unit area.",
+      "definitionZh": "单位面积大气柱中的垂直积分水汽量。",
+      "quantityKind": "quantitykind:AreaDensity",
+      "unit": "uom:KiloGM-PER-M2"
+    },
+    {
+      "@id": "concept:MaximumAirTemperature",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Daily maximum air temperature",
+      "labelZh": "日最高气温",
+      "definitionEn": "Daily maximum near-surface air temperature.",
+      "definitionZh": "近地面空气温度的逐日最大值。",
+      "cfStandardName": "air_temperature",
+      "quantityKind": "quantitykind:Temperature",
+      "unit": "uom:DEG_C"
+    },
+    {
+      "@id": "concept:VaporPressureDeficit",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Vapor pressure deficit",
+      "labelZh": "饱和水汽压差",
+      "definitionEn": "Difference between saturation and actual vapour pressure.",
+      "definitionZh": "饱和水汽压与实际水汽压之差。",
+      "quantityKind": "quantitykind:Pressure",
+      "unit": "uom:KiloPA"
+    },
+    {
+      "@id": "concept:TenMetreWindSpeed",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "10 metre wind speed",
+      "labelZh": "10米风速",
+      "definitionEn": "Near-surface wind-speed magnitude at 10 metres.",
+      "definitionZh": "10米高度近地面风速模长。",
+      "cfStandardName": "wind_speed",
+      "quantityKind": "quantitykind:Speed",
+      "unit": "uom:M-PER-SEC"
+    },
+    {
+      "@id": "concept:Orography",
+      "@type": "mazu:DerivedIndicator",
+      "module": "indicator",
+      "labelEn": "Orography",
+      "labelZh": "地形高度",
+      "definitionEn": "Static terrain elevation and derived slope context.",
+      "definitionZh": "静态地形高程及其派生坡度环境。",
+      "quantityKind": "quantitykind:Length",
+      "unit": "uom:M"
+    },
+    {
+      "@id": "concept:HighIVTState",
+      "@type": "mazu:IndicatorState",
+      "module": "state",
+      "labelEn": "High IVT state",
+      "labelZh": "高水汽输送状态",
+      "definitionEn": "An IVT state defined by a versioned local-percentile and physical-threshold expression.",
+      "definitionZh": "通过版本化当地百分位和物理阈值表达式定义的高IVT状态。",
+      "derivedFromIndicator": "concept:IntegratedVaporTransport",
+      "thresholdDefinition": "Versioned local percentile plus minimum physical threshold; values are supplied by each extraction run."
+    },
+    {
+      "@id": "concept:HighCAPEState",
+      "@type": "mazu:IndicatorState",
+      "module": "state",
+      "labelEn": "High CAPE state",
+      "labelZh": "高对流不稳定状态",
+      "definitionEn": "A CAPE state exceeding a versioned local or physical instability criterion.",
+      "definitionZh": "超过版本化当地或物理不稳定判据的CAPE状态。",
+      "derivedFromIndicator": "concept:CAPE",
+      "thresholdDefinition": "Versioned local percentile or physical instability threshold supplied by each extraction run."
+    },
+    {
+      "@id": "concept:MoistAtmosphereState",
+      "@type": "mazu:IndicatorState",
+      "module": "state",
+      "labelEn": "Moist atmosphere state",
+      "labelZh": "高水汽含量状态",
+      "definitionEn": "A precipitable-water state exceeding a declared local moisture criterion.",
+      "definitionZh": "超过已声明当地水汽判据的可降水量状态。",
+      "derivedFromIndicator": "concept:PrecipitableWater",
+      "thresholdDefinition": "Versioned local moisture percentile or physical threshold supplied by each extraction run."
+    },
+    {
+      "@id": "concept:ExtremeRainfallState",
+      "@type": "mazu:ExtremeWeatherState",
+      "module": "state",
+      "labelEn": "Extreme rainfall state",
+      "labelZh": "极端降水状态",
+      "definitionEn": "Rainfall exceeding a versioned local percentile and minimum physical amount.",
+      "definitionZh": "同时超过版本化当地百分位和最低物理量级的降水状态。"
+    },
+    {
+      "@id": "concept:ExtremeHeatState",
+      "@type": "mazu:ExtremeWeatherState",
+      "module": "state",
+      "labelEn": "Extreme heat state",
+      "labelZh": "极端高温状态",
+      "definitionEn": "Near-surface heat exceeding a versioned local anomaly or percentile criterion.",
+      "definitionZh": "超过版本化当地距平或百分位判据的近地面高温状态。"
+    },
+    {
+      "@id": "concept:StrongDryWindState",
+      "@type": "mazu:IndicatorState",
+      "module": "state",
+      "labelEn": "Strong dry-wind state",
+      "labelZh": "强风干燥状态",
+      "definitionEn": "A compound state combining strong near-surface wind and dry-air indicators.",
+      "definitionZh": "由近地面强风和空气干燥指标组合定义的状态。",
+      "derivedFromIndicator": [
+        "concept:TenMetreWindSpeed",
+        "concept:VaporPressureDeficit"
+      ],
+      "thresholdDefinition": "Versioned compound expression over wind speed and atmospheric dryness."
+    },
+    {
+      "@id": "concept:MoistureAdvection",
+      "@type": "mazu:WeatherMechanism",
+      "module": "mechanism",
+      "labelEn": "Moisture advection",
+      "labelZh": "水汽平流",
+      "definitionEn": "Horizontal transport of moisture into a target environment.",
+      "definitionZh": "向目标环境输送水汽的水平输送过程。"
+    },
+    {
+      "@id": "concept:LocalConvection",
+      "@type": "mazu:WeatherMechanism",
+      "module": "mechanism",
+      "labelEn": "Local convection",
+      "labelZh": "局地对流",
+      "definitionEn": "Local convective initiation and intensification supported by instability and moisture.",
+      "definitionZh": "由不稳定能量和水汽支持的局地对流初生与增强。"
+    },
+    {
+      "@id": "concept:OrographicLift",
+      "@type": "mazu:WeatherMechanism",
+      "module": "mechanism",
+      "labelEn": "Orographic lift",
+      "labelZh": "地形抬升",
+      "definitionEn": "Forced ascent associated with airflow encountering terrain.",
+      "definitionZh": "气流遇到地形后产生的强迫上升。"
+    },
+    {
+      "@id": "concept:ThermalPersistence",
+      "@type": "mazu:WeatherMechanism",
+      "module": "mechanism",
+      "labelEn": "Thermal persistence",
+      "labelZh": "热力持续",
+      "definitionEn": "Persistence and decay of an established thermal state.",
+      "definitionZh": "已建立热力状态的维持与衰减过程。"
+    },
+    {
+      "@id": "concept:DryWindDustMobilization",
+      "@type": "mazu:WeatherMechanism",
+      "module": "mechanism",
+      "labelEn": "Dry-wind dust mobilization",
+      "labelZh": "干风起沙",
+      "definitionEn": "Mobilization potential associated with strong wind and dry surface or boundary-layer conditions.",
+      "definitionZh": "由强风与干燥地表或边界层条件共同形成的起沙潜势。"
+    },
+    {
+      "@id": "concept:AridCoastal",
+      "@type": "mazu:ClimateRegime",
+      "module": "context",
+      "labelEn": "Arid coastal regime",
+      "labelZh": "干旱沿海气候型",
+      "definitionEn": "An arid environment directly influenced by an adjacent sea.",
+      "definitionZh": "直接受到邻近海域影响的干旱环境。"
+    },
+    {
+      "@id": "concept:AridInterior",
+      "@type": "mazu:ClimateRegime",
+      "module": "context",
+      "labelEn": "Arid interior regime",
+      "labelZh": "干旱内陆气候型",
+      "definitionEn": "An arid continental environment with limited direct marine influence.",
+      "definitionZh": "直接海洋影响有限的干旱大陆内部环境。"
+    },
+    {
+      "@id": "concept:MountainWindward",
+      "@type": "mazu:TerrainContext",
+      "module": "context",
+      "labelEn": "Mountain windward context",
+      "labelZh": "山地迎风环境",
+      "definitionEn": "Terrain context in which airflow approaches an ascending slope.",
+      "definitionZh": "气流面向上升坡面运动的地形环境。"
+    },
+    {
+      "@id": "concept:FlashFloodFavourableState",
+      "@type": "mazu:HazardFavourableState",
+      "module": "state",
+      "labelEn": "Flash-flood-favourable state",
+      "labelZh": "山洪有利状态",
+      "definitionEn": "A meteorological screening state favourable for flash flooding, not an observed flash-flood event.",
+      "definitionZh": "有利于山洪形成的气象筛查状态，不是观测山洪事件。"
+    },
+    {
+      "@id": "concept:HeatwaveFavourableState",
+      "@type": "mazu:HazardFavourableState",
+      "module": "state",
+      "labelEn": "Heatwave-favourable state",
+      "labelZh": "热浪有利状态",
+      "definitionEn": "A meteorological screening state favourable for heatwave conditions.",
+      "definitionZh": "有利于热浪条件形成的气象筛查状态。"
+    },
+    {
+      "@id": "concept:DustStormFavourableState",
+      "@type": "mazu:HazardFavourableState",
+      "module": "state",
+      "labelEn": "Dust-storm-favourable state",
+      "labelZh": "沙尘暴有利状态",
+      "definitionEn": "A meteorological screening state favourable for dust mobilization, not an observed dust-storm impact.",
+      "definitionZh": "有利于起沙的气象筛查状态，不是观测沙尘灾害影响。"
+    }
+  ]
+}

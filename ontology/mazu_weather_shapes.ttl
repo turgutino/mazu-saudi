@@ -1,0 +1,75 @@
+@prefix mazu: <urn:mazu-saudi:ontology:> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+
+mazu:IndicatorStateShape
+    a sh:NodeShape ;
+    sh:targetClass mazu:IndicatorState ;
+    sh:property [
+        sh:path mazu:derivedFromIndicator ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mazu:thresholdDefinition ;
+        sh:minCount 1 ;
+    ] .
+
+mazu:EvidenceAssertionShape
+    a sh:NodeShape ;
+    sh:targetClass mazu:EvidenceAssertion ;
+    sh:property [
+        sh:path mazu:evidenceClass ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path mazu:eligibleForCausalExplanation ;
+        sh:minCount 1 ;
+        sh:datatype xsd:boolean ;
+    ] ;
+    sh:property [
+        sh:path prov:wasGeneratedBy ;
+        sh:minCount 1 ;
+    ] .
+
+mazu:LaggedAssociationAssertionShape
+    a sh:NodeShape ;
+    sh:targetClass mazu:LaggedAssociationAssertion ;
+    sh:property [
+        sh:path mazu:sourceState ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mazu:targetState ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mazu:lagHours ;
+        sh:minCount 1 ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+    ] ;
+    sh:property [
+        sh:path mazu:applicableUnder ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mazu:supportEpisodeCount ;
+        sh:minCount 1 ;
+        sh:datatype xsd:nonNegativeInteger ;
+    ] .
+
+mazu:ForecastConstraintShape
+    a sh:NodeShape ;
+    sh:targetClass mazu:ForecastConstraint ;
+    sh:property [
+        sh:path mazu:applicabilityScore ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:decimal ;
+        sh:minInclusive 0 ;
+        sh:maxInclusive 1 ;
+    ] .

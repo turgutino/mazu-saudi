@@ -113,3 +113,17 @@ _Avoid_: 实时预警、在线预报
 **历史预警研究资产（Historical Warning Research Assets）**：
 支撑历史预警演练的冻结模型、数据、证据、报告和复现实验集合，不是可启动应用。
 _Avoid_: Warning Demo、Legacy App、备用应用
+
+## 全球机制知识
+
+**全球观测机制适用性图谱（Global Observational Mechanism Applicability Graph）**：
+由全球观测提取、带环境适用范围和来源追溯的天气状态、过程、观测断言、反例与预测约束集合。
+_Avoid_: 全球因果图、全球预测模型
+
+**指标状态（Indicator State）**：
+依据版本化绝对阈值、当地百分位或气候距平定义，从物理指标得到的有时间范围语义状态。
+_Avoid_: 指标值、灾害标签
+
+**机制适用性断言（Mechanism Applicability Assertion）**：
+声明某天气机制与指定指标状态和环境相容、并携带证据类别、支持过程、反例和审核状态的主张。
+_Avoid_: 因果边、通用规则

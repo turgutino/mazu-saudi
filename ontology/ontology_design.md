@@ -1,0 +1,282 @@
+# MAZU 全球观测机制适用性本体设计
+
+## 1. 目的与边界
+
+本体用于把全球观测数据中的指标、天气状态、天气过程、适用环境、统计断言、反例和预测
+约束组织成可审计知识。它不把全球预测函数直接迁移到沙特，也不把数据相关性自动升级为
+因果关系。
+
+规范名称为 **全球观测机制适用性图谱**（Global Observational Mechanism
+Applicability Graph，GOMAG）。本体是图谱的语义模式；后续全球数据提取产生的天气过程
+和断言是图谱实例。
+
+不可违反的边界：
+
+- `ExtremeWeatherState` 是气象极端状态，不是灾害影响事件。
+- `HazardFavourableState` 是灾害有利气象条件，不是 `ObservedHazardEvent`。
+- `ProxyLabel` 不能标记为独立灾害真值。
+- 自动提取的 `EvidenceAssertion` 默认
+  `eligibleForCausalExplanation=false`。
+- 每条观测断言必须记录适用环境、来源运行、支持过程、反例和版本。
+- 图谱提取本身属于从数据学习，必须在沙特测试期之前冻结。
+
+## 2. 标准复用
+
+| 关注点 | 采用标准 | 本项目用法 |
+|---|---|---|
+| 观测、属性、结果、采样 | [W3C SOSA/SSN](https://www.w3.org/TR/vocab-ssn/) | 复用 `Observation`、`ObservableProperty`、`FeatureOfInterest`、`Procedure` 和 `Result` |
+| 观测概念模型 | [OGC OMS 3.0 / ISO 19156:2023](https://www.ogc.org/standards/om/) | 校验观测对象、观测属性、过程、结果、现象时间和结果时间的分离 |
+| 空间对象和关系 | [OGC GeoSPARQL 1.1](https://www.ogc.org/standards/geosparql/) | 表达网格、区域、天气过程覆盖区及相交、包含等关系 |
+| 时间与时段 | [W3C OWL-Time](https://www.w3.org/TR/owl-time/) | 表达天气过程、过程阶段、时刻、时段和滞后 |
+| 来源追溯 | [W3C PROV-O](https://www.w3.org/TR/prov-o/) | 追溯数据、指标过程、提取运行、断言和预测约束 |
+| 物理量与单位 | [QUDT](https://qudt.org/doc/2026/02/DOC_SCHEMA-QUDT.html) | 统一数量类型、单位和维度 |
+| 气象变量名称 | [CF Metadata Conventions](https://cfconventions.org/) | 为指标保存 CF Standard Name，保留项目内部变量名映射 |
+| 气象主题分类 | [WMO Codes Registry](https://codes.wmo.int/wis/topic-hierarchy/earth-system-discipline/weather) | 后续为数据源和制品绑定 WMO 稳定主题 URI |
+
+SOSA 与 OMS 概念接近。本体 RDF 表达以 SOSA 为主，不复制一套 `MAZUObservation`；OMS
+用于概念校验。GeoSPARQL、OWL-Time、PROV-O 和 QUDT 只复用所需部分，避免导入不必要的
+完整推理负担。
+
+## 3. 命名空间与制品
+
+| 制品 | 路径 | 职责 |
+|---|---|---|
+| JSON-LD 本体真源 | `ontology/mazu_weather_ontology.jsonld` | 类、属性、标准映射和首批受控概念 |
+| SHACL 约束 | `ontology/mazu_weather_shapes.ttl` | 断言、指标状态和预测约束的最小完整性要求 |
+| SQLite 物化库 | `runtime/ontology/mazu_weather.sqlite3` | 离线查询和后续图谱实例存储入口，不进入 Git |
+| 构建脚本 | `scripts/build_ontology_db.py` | 校验 JSON-LD 并原子重建数据库 |
+| 查询接口 | `mazu_saudi.ontology.OntologyStore` | 资源、模块、三元组和邻接查询 |
+
+本项目命名空间使用稳定的本地 URN：
+
+```text
+urn:mazu-saudi:ontology:   类与属性
+urn:mazu-saudi:concept:    指标、状态、机制和环境受控概念
+```
+
+未来若注册可长期解析的公共 URI，可发布等价映射，但不能在没有注册的情况下伪装成
+`w3id.org` 永久标识符。
+
+## 4. 模块设计
+
+### 4.1 Observation
+
+| 类 | 含义 |
+|---|---|
+| `DataSource` | 产生观测或指标的版本化产品 |
+| `DerivedIndicator` | 由声明过程从源观测计算的物理指标 |
+| `GriddedObservation` | 以网格或网格单元为直接对象的观测 |
+| `ProxyLabel` | 由指标或规则得到的弱监督目标 |
+
+全球数值数组仍保存在 NetCDF/Zarr。图数据库保存变量定义、状态、过程摘要、断言和源制品
+指针，不为每个全球格点复制一条 RDF 记录。
+
+### 4.2 State
+
+| 类 | 含义 |
+|---|---|
+| `AtmosphericState` | 有时间范围的大气条件分类 |
+| `IndicatorState` | 由绝对阈值、当地百分位或气候距平定义的指标状态 |
+| `ExtremeWeatherState` | 达到已声明气象极端判据的状态 |
+| `HazardFavourableState` | 有利于灾害形成、但不证明灾害发生的状态 |
+| `ObservedHazardEvent` | 有独立可追溯事件来源支持的灾害事件 |
+
+状态转换必须保留：
+
+```text
+数值指标
+  → 指标定义与单位
+  → 阈值定义版本
+  → IndicatorState
+```
+
+例如 `HighIVTState` 连接 `IntegratedVaporTransport`，具体百分位和物理阈值由每次冻结的
+图谱提取运行提供，而不是写死在本体概念中。
+
+### 4.3 Episode
+
+`WeatherEpisode` 是时空连续的天气过程，也是统计检验、Bootstrap 和数据切分的最小独立
+单元。`EpisodePhase` 表达初生、增强、成熟和衰减阶段。禁止将数百万个相邻格点日当成
+独立证据数。
+
+### 4.4 Context
+
+| 类 | 例子 |
+|---|---|
+| `ClimateRegime` | `AridCoastal`、`AridInterior` |
+| `TerrainContext` | `MountainWindward` |
+| `SeasonalContext` | 暖季、Shamal 季节 |
+| `DataAvailabilityContext` | 卫星降水缺测、压力层不完整 |
+
+国家名称不是天气机制。`Saudi Arabia` 应拆成干旱沿海、干旱内陆、红海邻近、山地迎风、
+季节和数据可用性等可迁移环境。
+
+### 4.5 Mechanism
+
+首版机制概念包括：
+
+- `MoistureAdvection`
+- `LocalConvection`
+- `OrographicLift`
+- `ThermalPersistence`
+- `DryWindDustMobilization`
+
+`compatibleWithMechanism` 只表示观测证据与机制相容。自动提取流程不使用 `causes`。
+
+### 4.6 Assertion
+
+关系必须实体化为断言，不能只写一条缺少上下文的裸边。
+
+| 类 | 含义 |
+|---|---|
+| `EvidenceAssertion` | 带来源、范围、证据类别和审核状态的主张 |
+| `LaggedAssociationAssertion` | 某状态在指定滞后与环境下统计先于另一状态 |
+| `MechanismApplicabilityAssertion` | 某机制与指定状态和环境相容 |
+| `CounterexampleAssertion` | 记录关系失效、反向或不适用的环境与过程 |
+
+典型滞后断言至少包含：
+
+```text
+sourceState
+targetState
+lagHours
+applicableUnder
+supportEpisodeCount
+supportedByEpisode
+contradictedByEpisode
+evidenceClass
+eligibleForCausalExplanation
+prov:wasGeneratedBy
+```
+
+后续实例还应保存条件发生率、同范围基础发生率、Lift、置信区间、稳定性、留一地区结果和
+数据版本。
+
+### 4.7 Forecast
+
+| 类 | 含义 |
+|---|---|
+| `GraphDerivedFeature` | 查询适用断言后得到的数值特征 |
+| `ForecastConstraint` | 图谱派生的软先验、方向约束或复核规则 |
+
+图谱不能直接覆盖模型概率。所有图谱输出都必须携带适用度和来源断言。
+
+## 5. 指标、图谱与沙特预测
+
+### 5.1 指标进入图谱
+
+```text
+IVT/CAPE/PWAT/降水/SST/地形等数值
+  → 当地百分位、气候距平和物理阈值
+  → HighIVTState、HighCAPEState、MoistAtmosphereState
+  → WeatherEpisode
+  → LaggedAssociationAssertion
+  → MechanismApplicabilityAssertion
+```
+
+本体首版内置日降水、IVT、CAPE、PWAT、最高温、VPD、10 米风速和地形概念。更多指标必须
+先建立 CF 名称、QUDT 单位、来源和计算过程映射，再加入本体。
+
+### 5.2 第一阶段：HGB 图谱特征
+
+针对沙特某次预测，将当前指标转换成状态，并查询环境匹配的断言，生成：
+
+```text
+moisture_advection_support
+convection_support
+orographic_support
+persistence_support
+relation_stability
+domain_applicability
+counterexample_rate
+evidence_completeness
+```
+
+这些特征与原有物理指标共同输入 HGB。必须与“仅物理指标 HGB”在相同冻结切分上比较。
+
+### 5.3 第二阶段：MCR 路由软先验
+
+图谱生成机制先验 \(\pi\)，MCR 路由器输出 \(q\)：
+
+\[
+L_{\text{graph-prior}}
+=
+\lambda \cdot a
+\cdot D_{KL}(\pi \parallel q)
+\]
+
+其中 \(a\) 是图谱断言对当前沙特案例的适用度。适用度低时，图谱约束自动减弱，而不是
+强迫沙特模型服从不适用的全球关系。
+
+### 5.4 第三阶段：反事实约束与预测复核
+
+- 移除高 IVT 状态后，水汽平流专家权重不应增加。
+- 移除迎风坡环境后，地形专家权重应下降。
+- 降低 CAPE 后，对流专家权重不应增加。
+- 模型概率与图谱支持强烈冲突时，标记人工复核，不自动篡改概率。
+
+## 6. 图谱提取和防泄漏
+
+图谱提取不是“无训练”，而是知识学习活动。推荐冻结协议：
+
+```text
+全球图谱构建：2025-01 至 2025-05，排除阿拉伯半岛
+全球关系验证：2025-06，留出完整气候区和天气过程
+沙特最终测试：2025-07 至 2025-12
+```
+
+所有阈值、环境分类、关系筛选、Lift 门槛和适用度算法必须在打开沙特测试结果前冻结。
+图谱版本、数据 SHA、提取代码 SHA 和 SHACL 验证结果写入 `ExtractionRun`。
+
+## 7. SQLite 物化模型
+
+数据库包含：
+
+| 表 | 内容 |
+|---|---|
+| `ontology_documents` | 本体 IRI、版本、JSON-LD SHA、加载时间和完整源文档 |
+| `namespaces` | JSON-LD 前缀与命名空间 |
+| `resources` | 类、属性和受控概念的双语检索索引 |
+| `statements` | 主语—谓词—宾语三元组，区分 IRI 与带语言/数据类型的字面量 |
+
+`resources` 是查询优化索引，`statements` 是语义真值。数据库可重复构建，不作为手工维护
+真源。
+
+构建：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/build_ontology_db.py
+```
+
+检查一个概念：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/build_ontology_db.py \
+  --inspect urn:mazu-saudi:concept:HighIVTState
+```
+
+Python 查询：
+
+```python
+from pathlib import Path
+from mazu_saudi.ontology import OntologyStore
+
+store = OntologyStore(Path("runtime/ontology/mazu_weather.sqlite3"))
+print(store.summary())
+print(store.list_resources(module="mechanism"))
+print(store.statements_for("urn:mazu-saudi:concept:HighIVTState"))
+```
+
+## 8. 当前版本和后续里程碑
+
+本体 `1.0.0` 完成语义骨架、标准映射、首批指标/状态/机制/环境概念、SHACL 约束和 SQLite
+物化。它尚未包含从全球 2025 数据自动提取的天气过程和统计断言。
+
+后续顺序：
+
+1. 建立全球变量到 CF/QUDT/本体指标的注册表。
+2. 冻结气候型、百分位和天气过程分割协议。
+3. 生成 `WeatherEpisode` 实例和数据制品指针。
+4. 提取并验证 `LaggedAssociationAssertion`。
+5. 经过专家审核后生成图谱派生特征。
+6. 先进行 Saudi HGB 增量对照，通过后再进入 MCR 路由约束。
