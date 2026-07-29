@@ -31,3 +31,12 @@ def test_competition_frontend_has_no_external_runtime_assets():
         text = path.read_text(encoding="utf-8")
         assert "https://" not in text
         assert "http://" not in text
+
+
+def test_competition_frontend_uses_light_service_workspace_visual_system():
+    styles = (FRONTEND / "src" / "styles.css").read_text(encoding="utf-8")
+    assert "color-scheme: light" in styles
+    assert "--canvas: #f4f7f7" in styles
+    assert "--navy: #173f6b" in styles
+    assert 'grid-template-areas: "controls brief" "scenarios brief"' in styles
+    assert "background: #061712" not in styles

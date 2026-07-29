@@ -213,11 +213,11 @@ function RiskMap({ run }: { run: Run }) {
     const rect = element.getBoundingClientRect(); const ratio = window.devicePixelRatio || 1;
     element.width = rect.width * ratio; element.height = rect.height * ratio; context.scale(ratio, ratio);
     const cellWidth = rect.width / field.columns, cellHeight = rect.height / field.rows;
-    context.fillStyle = "#061b17"; context.fillRect(0, 0, rect.width, rect.height);
+    context.fillStyle = "#edf4f2"; context.fillRect(0, 0, rect.width, rect.height);
     field.values.forEach((value, index) => {
       const normalized = layer === "uncertainty" ? Math.min(1, value / Math.max(field.maximum, 0.01)) : value;
-      const hue = layer === "uncertainty" ? 183 - normalized * 145 : 157 - normalized * 125;
-      context.fillStyle = `hsla(${hue}, ${54 + normalized * 34}%, ${17 + normalized * 46}%, .95)`;
+      const hue = layer === "uncertainty" ? 205 + normalized * 105 : 166 - normalized * 142;
+      context.fillStyle = `hsla(${hue}, ${48 + normalized * 30}%, ${92 - normalized * 40}%, .96)`;
       context.fillRect((index % field.columns) * cellWidth, Math.floor(index / field.columns) * cellHeight, cellWidth + .6, cellHeight + .6);
     });
   }, [field, layer]);
