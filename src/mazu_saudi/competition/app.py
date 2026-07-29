@@ -100,14 +100,14 @@ def create_app(
         except RuntimeError as exc:
             raise HTTPException(503, str(exc)) from exc
 
-    @app.get("/api/v1/ontology/graph")
-    def ontology_graph(
+    @app.get("/api/v1/ontology/view")
+    def ontology_relation_view(
         query: Annotated[str | None, Query(max_length=120)] = None,
         module: Annotated[str | None, Query(max_length=40)] = None,
         limit: Annotated[int, Query(ge=1, le=500)] = 200,
     ):
         try:
-            return ontology_service.graph(query=query, module=module, limit=limit)
+            return ontology_service.relation_view(query=query, module=module, limit=limit)
         except RuntimeError as exc:
             raise HTTPException(503, str(exc)) from exc
 

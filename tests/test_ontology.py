@@ -11,6 +11,7 @@ ROOT = Path(__file__).parents[1]
 SOURCE = ROOT / "ontology/mazu_weather_ontology.jsonld"
 SHAPES = ROOT / "ontology/mazu_weather_shapes.ttl"
 DESIGN = ROOT / "ontology/ontology_design.md"
+CONTEXT = ROOT / "CONTEXT.md"
 
 MAZU = "urn:mazu-saudi:ontology:"
 CONCEPT = "urn:mazu-saudi:concept:"
@@ -203,7 +204,22 @@ def test_design_document_covers_database_extraction_and_saudi_usage():
         "HGB 图谱特征",
         "MCR 路由软先验",
         "防泄漏",
-        "GET /api/v1/ontology/graph",
-        "/knowledge-graph",
+        "GET /api/v1/ontology/view",
+        "/ontology",
+        "kg_builds",
+        "本体关系视图不是知识图谱",
     ):
         assert required in design
+
+
+def test_domain_glossary_separates_ontology_relation_view_and_knowledge_graph():
+    glossary = CONTEXT.read_text(encoding="utf-8")
+
+    for term in (
+        "天气机制本体（Weather Mechanism Ontology）",
+        "本体关系视图（Ontology Relation View）",
+        "全球观测机制适用性图谱",
+    ):
+        assert term in glossary
+    assert "它是本体的可视化，不是知识图谱" in glossary
+    assert "以天气机制本体为模式" in glossary

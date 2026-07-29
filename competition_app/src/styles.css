@@ -544,10 +544,16 @@ select:focus, input:focus, textarea:focus { border-color: #68aba5; background: w
 .kg-state-message { height: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; color: var(--muted); font-size: 13px; }
 .kg-state-message i { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); animation: status-pulse 1.2s ease-in-out infinite; }
 .kg-canvas svg { width: 100%; height: 100%; cursor: pointer; }
-.kg-edge { stroke: #b7c7cc; stroke-width: 1; opacity: .55; transition: opacity .15s, stroke .15s; }
-.kg-edge.related { stroke: var(--cyan); stroke-width: 1.8; opacity: .95; }
+.kg-edge { stroke: #9eb3ba; stroke-width: 1; opacity: .48; transition: opacity .15s, stroke .15s; }
+.kg-relation.related .kg-edge { stroke: var(--cyan); stroke-width: 1.8; opacity: .95; }
+.kg-canvas marker path { fill: #8aa3ac; }
+.kg-edge-label { fill: var(--navy); font: 13px ui-monospace, monospace; paint-order: stroke; stroke: white; stroke-width: 5px; stroke-linejoin: round; pointer-events: none; }
 .kg-node circle { stroke: white; stroke-width: 1.4; cursor: pointer; }
 .kg-node.selected circle { stroke: var(--navy); stroke-width: 2.4; }
+.kg-node-label-bg { fill: rgba(255,255,255,.92); stroke: rgba(196,211,215,.9); stroke-width: 1; cursor: pointer; }
+.kg-node-label { fill: #243d52; font-size: 14px; font-weight: 700; cursor: pointer; }
+.kg-node.selected .kg-node-label-bg { fill: #eef8f8; stroke: var(--teal); }
+.kg-node.selected .kg-node-label { fill: var(--navy-deep); }
 .kg-node:focus { outline: none; }.kg-node:focus circle { stroke: var(--focus); stroke-width: 3; }
 .kg-node-inspector { padding: 18px 20px; min-height: 640px; }
 .kg-node-inspector h3 { margin: 4px 0 12px; color: var(--navy-deep); font-size: 18px; overflow-wrap: anywhere; }
@@ -562,6 +568,13 @@ select:focus, input:focus, textarea:focus { border-color: #68aba5; background: w
 .kg-edge-table tr.clickable { cursor: pointer; }.kg-edge-table tr.clickable:hover { background: var(--surface-soft); }
 .kg-claim-boundary { margin-top: 12px; padding: 14px 16px; border-radius: 11px; background: #fff7eb; color: #875417; font-size: 12px; line-height: 1.6; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.kg-pending { min-height: 430px; display: grid; grid-template-columns: 180px minmax(0, 1fr); grid-template-areas: "mark copy" "stages stages"; gap: 34px; align-items: center; padding: 42px; }
+.kg-pending-mark { grid-area: mark; position: relative; width: 164px; height: 164px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: radial-gradient(circle, white 0 33%, #eef7f7 34% 47%, transparent 48%); }
+.kg-pending-mark span { color: var(--teal); font-size: 44px; }.kg-pending-mark i { position: absolute; width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 5px rgba(37,141,160,.1); }
+.kg-pending-mark i:nth-of-type(1) { top: 22px; right: 31px; }.kg-pending-mark i:nth-of-type(2) { bottom: 27px; left: 21px; }.kg-pending-mark i:nth-of-type(3) { bottom: 18px; right: 35px; }
+.kg-pending-copy { grid-area: copy; max-width: 720px; }.kg-pending-copy > span { color: var(--teal); font: 10px ui-monospace, monospace; letter-spacing: .11em; }.kg-pending-copy h2 { margin: 8px 0 12px; color: var(--navy-deep); font-size: 28px; }.kg-pending-copy p { max-width: 680px; margin: 0 0 22px; color: var(--muted); line-height: 1.75; }.kg-pending-copy .secondary-button { width: fit-content; text-decoration: none; }
+.kg-build-stages { grid-area: stages; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; border-top: 1px solid var(--line); padding-top: 22px; }
+.kg-build-stages > div { min-height: 88px; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }.kg-build-stages span { grid-row: 1 / 3; align-self: center; color: var(--muted); font: 11px ui-monospace, monospace; }.kg-build-stages strong { color: var(--ink); font-size: 13px; }.kg-build-stages small { color: var(--muted); }.kg-build-stages .ready { border-color: rgba(22,134,123,.28); background: #f2faf7; }.kg-build-stages .ready small { color: var(--teal); }
 
 /* Historical examples tab inside the assistant page. */
 .example-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -580,4 +593,6 @@ select:focus, input:focus, textarea:focus { border-color: #68aba5; background: w
 @media (max-width: 900px) {
   .kg-page { grid-template-columns: 1fr; }
   .kg-node-inspector { min-height: 0; }
+  .kg-pending { grid-template-columns: 1fr; grid-template-areas: "mark" "copy" "stages"; padding: 28px; }
+  .kg-build-stages { grid-template-columns: 1fr; }
 }

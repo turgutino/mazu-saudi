@@ -2,13 +2,19 @@
 
 ## 1. 目的与边界
 
-本体用于把全球观测数据中的指标、天气状态、天气过程、适用环境、统计断言、反例和预测
-约束组织成可审计知识。它不把全球预测函数直接迁移到沙特，也不把数据相关性自动升级为
-因果关系。
+本体规定全球天气机制知识中允许出现的指标、天气状态、天气过程、适用环境、统计断言、
+反例和预测约束类型。它是语义模式，不包含“某时某地出现了某个天气过程”之类的全球
+观测实例。
 
-规范名称为 **全球观测机制适用性图谱**（Global Observational Mechanism
-Applicability Graph，GOMAG）。本体是图谱的语义模式；后续全球数据提取产生的天气过程
-和断言是图谱实例。
+本体规范名称为 **MAZU 天气机制本体**（MAZU Weather Mechanism Ontology，MWMO）。
+后续依照该本体、从全球 2025 观测提取的实例集合才称为 **全球观测机制适用性知识图谱**
+（Global Observational Mechanism Applicability Graph，GOMAG）。
+
+| 层次 | 包含内容 | 不包含 |
+|---|---|---|
+| 本体 | 类、属性、关系类型、受控概念、SHACL 约束 | 全球观测实例、统计发现 |
+| 本体关系视图 | 本体资源的可视化投影 | 知识图谱实例 |
+| 知识图谱 | 状态实例、天气过程实例、证据断言、反例、来源 | 未经数据提取的虚构关系 |
 
 不可违反的边界：
 
@@ -43,7 +49,7 @@ SOSA 与 OMS 概念接近。本体 RDF 表达以 SOSA 为主，不复制一套 `
 |---|---|---|
 | JSON-LD 本体真源 | `ontology/mazu_weather_ontology.jsonld` | 类、属性、标准映射和首批受控概念 |
 | SHACL 约束 | `ontology/mazu_weather_shapes.ttl` | 断言、指标状态和预测约束的最小完整性要求 |
-| SQLite 物化库 | `runtime/ontology/mazu_weather.sqlite3` | 离线查询和后续图谱实例存储入口，不进入 Git |
+| SQLite 物化库 | `runtime/ontology/mazu_weather.sqlite3` | 本体物化表；后续知识图谱使用同一数据库中的独立实例表，不进入 Git |
 | 构建脚本 | `scripts/build_ontology_db.py` | 校验 JSON-LD 并原子重建数据库 |
 | 查询接口 | `mazu_saudi.ontology.OntologyStore` | 资源、模块、三元组和邻接查询 |
 
@@ -242,6 +248,10 @@ L_{\text{graph-prior}}
 `resources` 是查询优化索引，`statements` 是语义真值。数据库可重复构建，不作为手工维护
 真源。
 
+后续全球知识图谱写入同一个 SQLite 文件，但必须使用独立的 `kg_builds`、`kg_nodes`、
+`kg_edges` 和 `kg_evidence` 表。本体重建只能清空本体四张表，不能清空知识图谱实例表；
+知识图谱构建脚本也不能改写本体表。
+
 构建：
 
 ```bash
@@ -275,13 +285,13 @@ print(store.statements_for("urn:mazu-saudi:concept:HighIVTState"))
 | 接口 | 用途 |
 |---|---|
 | `GET /api/v1/ontology` | 查询版本、SHA、资源数、陈述数和模块统计 |
-| `GET /api/v1/ontology/graph` | 按中英文文本和模块查询节点及其一阶关系 |
+| `GET /api/v1/ontology/view` | 按中英文文本和模块查询本体资源及其一阶结构关系 |
 | `GET /api/v1/ontology/resource?iri=...` | 查询单个资源及其出入陈述 |
 
-`graph` 接口支持 `query`、`module` 和 `limit` 参数。所有参数都有长度或数量上限，接口不
+`view` 接口支持 `query`、`module` 和 `limit` 参数。所有参数都有长度或数量上限，接口不
 提供写操作。JSON-LD 仍是规范真源，SQLite 只是可重建的服务索引。
 
-前端入口为 `/knowledge-graph`。页面直接调用 `graph` 接口，支持：
+前端本体入口为 `/ontology`。页面直接调用 `view` 接口，支持：
 
 - 中英文名称和定义搜索；
 - observation、indicator、state、episode、context、mechanism、assertion、
@@ -291,7 +301,11 @@ print(store.statements_for("urn:mazu-saudi:concept:HighIVTState"))
 - 双语定义、资源类型、IRI 和相邻关系检查；
 - 桌面与移动端响应式布局。
 
-页面必须持续展示“观测断言不等于因果事实、也不等于沙特灾害真值”的边界。
+本体关系视图必须显示节点文字、方向箭头，并在选中节点后显示关系谓词。页面必须明确
+声明“本体关系视图不是知识图谱”。
+
+`/knowledge-graph` 是未来 GOMAG 的独立入口。在全球 2025 提取脚本和实例表完成之前，
+该页面只显示真实构建状态，不得把本体资源冒充图谱实例，也不得生成占位关系。
 
 ## 9. 当前版本和后续里程碑
 

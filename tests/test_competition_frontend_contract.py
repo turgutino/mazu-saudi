@@ -13,27 +13,46 @@ def test_competition_frontend_has_five_routes_and_required_boundaries():
         assert boundary in translations
 
 
-def test_competition_frontend_has_overview_and_knowledge_graph_routes():
+def test_competition_frontend_has_separate_overview_ontology_and_knowledge_graph_routes():
     app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
     translations = (FRONTEND / "src" / "i18n.ts").read_text(encoding="utf-8")
     vite_config = (FRONTEND / "vite.config.ts").read_text(encoding="utf-8")
     assert "/overview" in app
+    assert "/ontology" in app
     assert "/knowledge-graph" in app
     for source in (app, translations, vite_config):
         assert "/legacy" not in source
 
 
-def test_knowledge_graph_reads_the_versioned_ontology_service():
+def test_ontology_view_reads_the_versioned_ontology_service():
     app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
     api = (FRONTEND / "src" / "api.ts").read_text(encoding="utf-8")
     types = (FRONTEND / "src" / "types.ts").read_text(encoding="utf-8")
 
-    assert "api.ontologyGraph(search, module)" in app
-    assert 'request<OntologyGraph>(`/api/v1/ontology/graph${suffix}`)' in api
-    assert "export interface OntologyGraph" in types
+    assert "api.ontologyView(search, module)" in app
+    assert 'request<OntologyRelationView>(`/api/v1/ontology/view${suffix}`)' in api
+    assert "export interface OntologyRelationView" in types
     assert 'from "./data/kg_data.json"' not in app
-    for interaction in ("kg-search-field", "kg-filter-chips", "kg-node-inspector"):
+    for interaction in (
+        "kg-search-field",
+        "kg-filter-chips",
+        "kg-node-inspector",
+        "kg-node-label",
+        "ontology-arrow",
+    ):
         assert interaction in app
+
+
+def test_future_global_knowledge_graph_does_not_present_ontology_as_instances():
+    app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    translations = (FRONTEND / "src" / "i18n.ts").read_text(encoding="utf-8")
+
+    assert 'to="/ontology"' in app
+    assert "kgPendingLead" in app
+    assert 'kgPending: "知识图谱尚未构建"' in translations
+    assert "不使用本体概念冒充实例节点" in translations
+    assert 'ontologyTruthContext: "结构定义 · 无观测实例"' in translations
+    assert 'kgTruthContext: "全球2025数据 · 尚未提取"' in translations
 
 
 def test_competition_frontend_excludes_future_research_and_operational_claims():

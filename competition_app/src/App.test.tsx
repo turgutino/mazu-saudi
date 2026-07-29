@@ -140,7 +140,7 @@ describe("historical warning application", () => {
         return jsonResponse(run, 201);
       }
       if (path === "/api/v1/runs") return jsonResponse(created ? [run] : []);
-      if (path.startsWith("/api/v1/ontology/graph")) return jsonResponse(ontologyGraph);
+      if (path.startsWith("/api/v1/ontology/view")) return jsonResponse(ontologyGraph);
       throw new Error(`Unhandled request: ${path}`);
     }));
   });
@@ -178,12 +178,15 @@ describe("historical warning application", () => {
   });
 
   it("browses the live ontology service and inspects a node", async () => {
-    window.history.pushState({}, "", "/knowledge-graph");
+    window.history.pushState({}, "", "/ontology");
     render(<BrowserRouter><App /></BrowserRouter>);
 
-    expect(await screen.findByText("全球观测机制适用性本体")).toBeInTheDocument();
-    expect(await screen.findByText(/2 节点 · 1 关系/)).toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("button", { name: "高水汽输送状态" }));
+    expect(await screen.findByRole("heading", { name: "天气机制本体" })).toBeInTheDocument();
+    expect(await screen.findByText(/2 本体资源 · 1 结构关系/)).toBeInTheDocument();
+    const highIvtNode = await screen.findByRole("button", { name: "高水汽输送状态" });
+    expect(document.querySelectorAll(".kg-node-label")).toHaveLength(2);
+    expect(document.querySelector("#ontology-arrow")).toBeInTheDocument();
+    fireEvent.click(highIvtNode);
     expect(screen.getByText("通过版本化阈值定义的高水汽输送状态。")).toBeInTheDocument();
     expect(screen.getAllByText("derivedFromIndicator").length).toBeGreaterThan(0);
 
@@ -191,7 +194,21 @@ describe("historical warning application", () => {
       target: { value: "IVT" },
     });
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith("/api/v1/ontology/graph?query=IVT", expect.anything());
+      expect(fetch).toHaveBeenCalledWith("/api/v1/ontology/view?query=IVT", expect.anything());
     });
+  });
+
+  it("keeps the future knowledge graph separate from the ontology", async () => {
+    window.history.pushState({}, "", "/knowledge-graph");
+    render(<BrowserRouter><App /></BrowserRouter>);
+
+    expect(await screen.findByText("全球观测机制适用性知识图谱")).toBeInTheDocument();
+    expect(screen.getByText("知识图谱尚未构建")).toBeInTheDocument();
+    expect(screen.getByText(/当前只有本体定义/)).toBeInTheDocument();
+    expect(screen.queryByText(/2 本体资源/)).not.toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/ontology/view"),
+      expect.anything(),
+    );
   });
 });

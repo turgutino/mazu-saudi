@@ -131,7 +131,7 @@ export interface OntologyEdge {
   predicate_label: string;
 }
 
-export interface OntologyGraph {
+export interface OntologyRelationView {
   ontology: {
     ontology_iri: string;
     version: string;

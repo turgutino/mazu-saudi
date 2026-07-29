@@ -52,7 +52,7 @@ class OntologyBrowserService:
         )
         return summary
 
-    def graph(
+    def relation_view(
         self,
         *,
         query: str | None = None,
