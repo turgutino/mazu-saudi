@@ -20,7 +20,7 @@
 | 科研模型 | MCR-Precip 四专家、路由、损失、合成训练 | 真实 dataset builder、基线库、校准、正式 runner |
 | 评估 | 像元级稀有事件与选择性指标 | 事件对象、跨区域、block bootstrap、冻结阈值 |
 | 制品 | 简单 PyTorch model bundle | 实验锁、预测/评估/报告制品、哈希和 lineage |
-| 产品 | MAZU Atlas demo API 与离线前端 | 冻结模型后端、任务状态、真实对象轨迹 |
+| 产品 | Historical Warning Console（当前不接入MCR） | 若未来产品化，需从冻结制品建立独立适配器 |
 | 论文 | 方法稿与 AI4Science 稿、证据矩阵 | 由冻结实验自动回填的结果和 source data |
 
 所以第一个重构目标不是增加网络结构，而是打通：
@@ -33,7 +33,7 @@ flowchart LR
     D --> E["Forecast Artifact"]
     E --> F["Evaluation Artifact"]
     F --> G["Report Artifact"]
-    E --> H["MAZU Atlas"]
+    E --> H["Future Artifact Service"]
     F --> H
     G --> I["Paper / Agent"]
 ```
@@ -45,7 +45,7 @@ flowchart LR
 | LightGBM + 空间传播 | 灾种/机制差异化空间算子 | `features/spatial.py`、基线配置 | 固定邻域、局地极值、方向传播对照 | 同日规则标签与原始高分 |
 | XGBoost 迭代工程 | 多日统计、GSOD/ERA5 独立观测线、负结果记录 | `data/adapters/`、`baselines/trees.py` | 可信树模型基线与站点评估 | 重叠窗口随机切分 |
 | IFS + KG 工程 | forecast-origin 数据组织、指标溯源、lead-time 解译 | `data/adapters/forecast.py`、`evidence/` | 历史预报/回报适配和来源查询 | 缺时效时任意文件回退 |
-| 13 区 Agent 工程 | 区域聚合、服务编排、LLM 只解释 | `delivery/aggregation.py`、`service/` | 产品层摘要和报告 | 同日预测冒充 T+1、跨代阈值 |
+| 13 区 Agent 工程 | 区域聚合、服务编排、LLM 只解释 | `delivery/aggregation.py`、未来制品适配器 | 产品层摘要和报告 | 同日预测冒充 T+1、跨代阈值 |
 | GitHub 次日预测 | PR-AUC/CSI/Brier/ECE、空间机制对照 | `evaluation/metrics.py`、`baselines/` | 统一 baseline harness | 规则标签作为最终真值 |
 | 风险研判工程 | 预注册锁、真值隔离、四状态、Schema/SHA、失败降级 | `experiments/`、`artifacts/` | 整个正式实验的治理骨架 | 小样本结果和原始源码 |
 | 生产实习工程 | Analog Ensemble、多时效诊断、可靠性图、混合基线 | `baselines/analog.py`、`evaluation/` | 在冻结切分下 clean-room 重做 | 随机格点切分、测试集校准 |
@@ -53,7 +53,8 @@ flowchart LR
 
 ## 4. 目标目录与依赖方向
 
-不做一次性搬家。保留现有 `mcr_precip/` 和 `service/`，围绕它们补齐边界：
+不做一次性搬家。保留现有 `mcr_precip/`，围绕科研证据链补齐边界；已删除的合成
+demo服务不作为目标结构的一部分：
 
 ```text
 src/mazu_saudi/
@@ -105,7 +106,7 @@ src/mazu_saudi/
     provenance.py
     cases.py
   risk/                   # 后续，不进入第一篇降水论文
-  service/                # 只读取 artifacts
+  delivery/               # 未来产品化时只读取artifacts；当前不实现
 configs/
   data/
   experiments/
@@ -130,7 +131,7 @@ data → splits → baselines / mcr_precip → calibration
   ↑                                  ↓
   └──────── experiments → artifacts → evaluation
                                       ↓
-                              service / evidence / paper
+                              delivery / evidence / paper
 ```
 
 禁止 `mcr_precip` 导入 `service`、`evidence` 或 `risk`；禁止页面在请求期间训练、校准或搜索阈值。
@@ -188,7 +189,7 @@ calibrator, training manifest, validation report, code commit, checksums
 - `EvaluationArtifact`：标签版本、阈值来源、指标、事件级置信区间和失败案例。
 - `ReportArtifact`：只引用前两者生成图表和叙事，不重新计算科学概率。
 
-MAZU Atlas 和 Agent 只能消费这些制品。LLM 输出必须保留引用的 artifact ID。
+未来产品适配器和Agent只能消费这些制品。LLM输出必须保留引用的artifact ID。
 
 ## 6. 基线怎样整理
 
@@ -223,9 +224,9 @@ Analog 库和机制原型都只能从当前训练折生成。校准只用验证�
 
 新的 Analog/机制原型不会成为第五、第六个 MCR 专家。它们回答的是“传统类比或原型方法能否解释提升”，属于论文强基线。
 
-## 8. MAZU Atlas 与 Agent 怎样接入
+## 8. 未来制品服务与 Agent 怎样接入
 
-把 `DemoForecastService` 抽象为：
+当前不保留独立MCR产品服务。若真实研究结果通过采用门，再从零实现以下只读接口：
 
 ```text
 ForecastBackend
@@ -235,7 +236,8 @@ ForecastBackend
   events()
 ```
 
-保留 `DemoForecastBackend`，新增 `FrozenArtifactForecastBackend`。正式后端只能读取已经发布的 Forecast/Evaluation artifacts；没有匹配制品时返回 `unavailable`，不能回退为看似真实的 demo。
+`FrozenArtifactForecastBackend`只能读取已经发布的Forecast/Evaluation artifacts；没有
+匹配制品时返回`unavailable`，不能回退为合成demo。它不得复用已删除原型的确定性概率。
 
 页面下一批新增内容应是：
 
@@ -282,7 +284,7 @@ ForecastBackend
 
 **验收**：同一 experiment lock 可一键复跑；图表数字只来自 frozen artifacts。
 
-### Slice 5：产品与论文消费
+### Slice 5：未来产品与论文消费
 
 - 实现 `FrozenArtifactForecastBackend`。
 - 页面展示真实模式与基线对照。
@@ -300,7 +302,7 @@ ForecastBackend
 4. `Add clean-room analog and mechanism prototype baselines`
 5. `Add validation-only calibration and block evaluation`
 6. `Run MCR-Precip from frozen experiment manifests`
-7. `Serve frozen forecast artifacts in MAZU Atlas`
+7. `Serve frozen forecast artifacts after the adoption gate`
 
 不要把目录搬迁、数据下载、模型重写和前端改版放进同一个提交。
 

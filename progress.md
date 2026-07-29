@@ -281,3 +281,13 @@
   8765改为8766，消除与比赛应用的启动冲突。
 - 新增4项应用架构合同并与产品/比赛测试一起通过 `24 passed`；conda `ml` 完整测试
   `118 passed`，仅保留1个既有Starlette TestClient弃用提示。
+- 用户明确授权删除MAZU Atlas研究产品原型；启动阶段32。删除范围锁定为
+  `mazu_saudi.service`、两组专用测试和产品文档，同时保留`mcr_precip`科研内核、
+  真实负结果、比赛应用和`warning_demo`科学资产。
+- 完成阶段32：删除 `src/mazu_saudi/service/` 的后端、静态前端与生成缓存，删除两组
+  原型专用测试和 `docs/product_interface.md`，并清理打包声明和现存产品表述。
+- ADR 0006保留为历史记录并标记被ADR 0007取代；新决策明确只删除演示产品表面，
+  MCR科研内核、真实实验结果、当前比赛应用和Legacy Archive继续保留。
+- 新增删除边界防回归检查；首次聚焦测试因扫描到测试自身断言产生1个误报，收紧到真实
+  Python导入语句后通过。最终聚焦测试 `30 passed`，前端 `6 passed`，生产构建成功，
+  全仓测试 `113 passed`，仅保留1个既有Starlette TestClient弃用提示。

@@ -173,7 +173,7 @@ ST-GNN 对山洪 ROC-AUC 有所提升，但 PR-AUC 下降，并将风险溢出�
 4. 锁定后才打开 IMERG、SSOD、GHCN 或影响证据。
 5. 未过门槛的任务保留 `research_only_blocked`，而不是调阈值直到通过。
 
-它还明确区分 `observed`、`not_observed`、`not_observable` 和 `conflicting`，并把天气、影响和预测制品分开。当影响数据没有可信负例时只报告正例覆盖，不制造准确率。这些做法应进入 Historical Common-Core 的冻结切分、实验注册表和 MAZU Atlas 的审计轨迹。
+它还明确区分 `observed`、`not_observed`、`not_observable` 和 `conflicting`，并把天气、影响和预测制品分开。当影响数据没有可信负例时只报告正例覆盖，不制造准确率。这些做法应进入 Historical Common-Core 的冻结切分、实验注册表和未来制品服务的审计轨迹。
 
 ### 8.2 能吸收的工程资产
 

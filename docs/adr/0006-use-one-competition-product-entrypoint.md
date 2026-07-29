@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0007
+---
+
 # 使用唯一比赛产品入口
 
 仓库保留 Historical Warning Console、MAZU Atlas 研究原型和 `warning_demo` 历史展示，是因为

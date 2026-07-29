@@ -19,7 +19,6 @@ dependencies = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-"mazu_saudi.service" = ["web/*.html", "web/*.css", "web/*.js"]
 "mazu_saudi.competition" = ["web_dist/**/*"]
 
 [tool.pytest.ini_options]

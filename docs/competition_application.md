@@ -7,7 +7,7 @@ project's frozen 2025 Saudi dataset. It is the primary product entrypoint and
 keeps the former `warning_demo` pages as a read-only evidence archive.
 The repository-wide lifecycle map is maintained in
 [`APPLICATIONS.md`](../APPLICATIONS.md); the MCR research prototype is not a
-second competition application.
+second competition application and its former demo service has been removed.
 
 The public application has five routes:
 

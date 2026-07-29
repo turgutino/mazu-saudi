@@ -29,7 +29,7 @@ def test_blueprint_separates_science_baselines_artifacts_and_service():
         "baselines/",
         "mcr_precip/",
         "artifacts/",
-        "service/",
+        "delivery/",
         "ForecastBackend",
         "FrozenArtifactForecastBackend",
         "不会成为第五、第六个 MCR 专家",

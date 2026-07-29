@@ -18,8 +18,8 @@
 ```
 
 仓库中其他可视化界面的状态、入口和依赖关系见
-[应用与运行入口](APPLICATIONS.md)。比赛功能只进入上述主应用；MAZU Atlas 是冻结的
-MCR 研究原型，`warning_demo` 页面是 Legacy Archive。
+[应用与运行入口](APPLICATIONS.md)。比赛功能只进入上述主应用；`warning_demo` 页面是
+Legacy Archive，MCR-Precip 仅保留科研内核与实验资产。
 
 ## Framework Design
 
@@ -34,7 +34,6 @@ MCR 研究原型，`warning_demo` 页面是 Legacy Archive。
 - [AI4Science 论文包](docs/ai4science_manuscript/README.md)：跨尺度机制图谱、物理验证、预报盲区及分阶段试验计划。
 - [MCR-Precip 本地实现](docs/mcr_precip_implementation.md)：论文 1 的四专家机制路由、输入合同、训练闭环和烟测命令。
 - [MCR-Precip 2025 代理任务对比](experiments/mcr_precip_2025_proxy/report.md)：同输入 HGB、普通 MoE 与机制先验 MCR 的三种子真实数据负结果。
-- [MAZU Atlas 冻结研究原型](docs/product_interface.md)：demo-only API、科研界面边界与独立回归方式，不作为比赛入口。
 - [竞赛创新性与工程完成度审计](docs/competition_innovation_audit.md)：依据正式提交要求核对创新证据、产品完成度、合规缺口和比赛优先级。
 
 当前开发原则是先建立可信的高温/山洪 `t→t+1` 科研基线，再扩展到高频预报场、HAMF-Light、多灾种风险决策和 Agent 交付。
@@ -105,8 +104,7 @@ MCR 研究原型，`warning_demo` 页面是 Legacy Archive。
 |-- competition_app/             # React frontend for the only current competition product
 |-- src/mazu_saudi/              # Installable package
 |   |-- competition/             # FastAPI backend for the competition product
-|   |-- mcr_precip/              # MCR-Precip model, losses, training, evaluation
-|   `-- service/                 # Frozen demo-only MCR research prototype
+|   `-- mcr_precip/              # MCR-Precip model, losses, training, evaluation
 |-- tests/                       # Unit and contract tests
 |-- warning_demo/                # Legacy pages plus models/data/tools reused by the competition adapter
 `-- reference_code/               # Untracked, read-only reference projects (design input only)

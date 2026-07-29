@@ -1,7 +1,7 @@
 # MAZU 应用与运行入口
 
-本仓库只有一个当前产品入口，其余可视化界面是研究原型或历史归档。开发、演示和提交比赛
-时，以本文件为应用生命周期的唯一说明。
+本仓库只有一个可启动的产品入口。开发、演示和提交比赛时，以本文件为应用生命周期的
+唯一说明。
 
 ## 1. 比赛主应用：Historical Warning Console
 
@@ -20,24 +20,7 @@
 
 默认访问 `http://127.0.0.1:8765`。比赛演示、截图、视频和功能开发都应从这里开始。
 
-## 2. MCR-Precip 研究原型：MAZU Atlas
-
-**状态：冻结的研究原型 / 非比赛入口**
-
-`src/mazu_saudi/service/` 是较早建立的 MCR-Precip API 与静态界面垂直切片。它使用
-确定性 demo backend，只用于保留未来 MCR 产品化的接口设计，不提供比赛当前的真实历史
-推理、审计、证据图谱或报告能力。
-
-如需专门研究该原型，可显式启动：
-
-```bash
-PYTHONPATH=src python -m mazu_saudi.service.server \
-  --host 127.0.0.1 --port 8766
-```
-
-它默认使用 `8766`，避免与比赛应用冲突。新的比赛功能不得加入这个目录。
-
-## 3. Legacy Archive 与科学资产
+## 2. Legacy Archive 与科学资产
 
 **状态：只读展示归档 + 被主应用复用的科学资产**
 
@@ -70,10 +53,12 @@ competition_app
 
 mazu_saudi.competition
   → runtime/competition_app
-
-mazu_saudi.service
-  → DemoForecastService
-  → 独立研究原型页面
 ```
 
-比赛前端不直接读取 NetCDF、模型文件或知识图谱；研究原型也不应反向依赖比赛应用。
+比赛前端不直接读取 NetCDF、模型文件或知识图谱。
+
+## 已删除的产品原型
+
+早期 `mazu_saudi.service` / MAZU Atlas 合成演示服务已删除。它没有进入比赛应用，也没有
+进入 MCR 科研训练链。未来若需要产品化 MCR，只允许从冻结预测与评估制品建立新的后端，
+不得恢复合成概率冒充真实运行。

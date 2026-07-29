@@ -43,7 +43,7 @@ def test_review_maps_reusable_assets_to_own_framework():
         "Analog Ensemble",
         "机制原型",
         "MCR-Precip",
-        "MAZU Atlas",
+        "未来制品服务",
     ):
         assert asset in text
 

@@ -24,8 +24,8 @@ class CompetitionInnovationAuditContractTests(unittest.TestCase):
     def test_scientific_boundaries_are_explicit(self):
         for phrase in (
             "代理标签",
-            "mode=demo",
-            "scientific_evidence=false",
+            "合成演示服务已从仓库删除",
+            "当前产品不展示MCR",
             "合成训练闭环",
             "不能写成 “outperforms existing models”",
             "不证明跨年、跨区域或业务泛化",
