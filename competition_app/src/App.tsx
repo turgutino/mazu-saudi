@@ -17,7 +17,7 @@ import {
   ruleNote,
   t,
 } from "./i18n";
-import type { Config, FieldData, FieldLayer, Health, Locale, OntologyEdge, OntologyNode, OntologyRelationView, ReportItem, Run, Scenario } from "./types";
+import type { Config, FieldData, FieldLayer, Health, KnowledgeGraphNode, KnowledgeGraphView, Locale, OntologyEdge, OntologyNode, OntologyRelationView, ReportItem, Run, Scenario } from "./types";
 import agentExamples from "./data/agentExamples.json";
 
 type AppState = {
@@ -804,11 +804,211 @@ function OntologyPage() {
 
 function KnowledgeGraphPage() {
   const { locale } = useApp();
+  const [data, setData] = useState<KnowledgeGraphView | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+
+  useEffect(() => {
+    api.knowledgeGraphView()
+      .then(setData)
+      .catch(() => setError(t(locale, "kgLoadFailed")))
+      .finally(() => setLoading(false));
+  }, [locale]);
+
   const stages = [
     [t(locale, "kgStepOntology"), t(locale, "kgStepOntologyState"), "ready"],
-    [t(locale, "kgStepExtraction"), t(locale, "kgStepExtractionState"), "pending"],
+    [t(locale, "kgStepExtraction"), t(locale, "kgStepExtractionState"), "ready"],
     [t(locale, "kgStepInstances"), t(locale, "kgStepInstancesState"), "waiting"],
   ] as const;
+
+  const visibleNodes = useMemo(() => {
+    if (!data?.build) return [];
+    const normalized = search.trim().toLocaleLowerCase();
+    if (!normalized) {
+      const core = data.nodes.filter((node) =>
+        node.ontology_class_iri.endsWith("LaggedAssociationAssertion")
+        || node.ontology_class_iri.endsWith("SeasonalContext")
+        || node.ontology_class_iri.endsWith("ExtractionRun")
+        || node.properties.kind === "ontology-concept",
+      );
+      const episodes = data.nodes
+        .filter((node) => node.ontology_class_iri.endsWith("WeatherEpisode"))
+        .slice(0, 36);
+      return [...core, ...episodes].slice(0, 180);
+    }
+    const matched = new Set(
+      data.nodes
+        .filter((node) =>
+          `${node.label} ${node.spatial_key || ""} ${JSON.stringify(node.properties)}`
+            .toLocaleLowerCase()
+            .includes(normalized),
+        )
+        .map((node) => node.node_id),
+    );
+    data.edges.forEach((edge) => {
+      if (matched.has(edge.source_id)) matched.add(edge.target_id);
+      if (matched.has(edge.target_id)) matched.add(edge.source_id);
+    });
+    return data.nodes.filter((node) => matched.has(node.node_id)).slice(0, 180);
+  }, [data, search]);
+  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.node_id)), [visibleNodes]);
+  const visibleEdges = useMemo(
+    () => (data?.edges || []).filter((edge) =>
+      visibleNodeIds.has(edge.source_id) && visibleNodeIds.has(edge.target_id),
+    ),
+    [data, visibleNodeIds],
+  );
+
+  useEffect(() => {
+    if (!visibleNodes.length) {
+      setPositions({});
+      return;
+    }
+    const nodes = visibleNodes.map((node) => ({ ...node, id: node.node_id }));
+    const links = visibleEdges.map((edge) => ({ source: edge.source_id, target: edge.target_id }));
+    const simulation = forceSimulation(nodes as never[])
+      .force("charge", forceManyBody().strength(-210))
+      .force("link", forceLink(links as never[]).id((node: unknown) => (node as { id: string }).id).distance(125).strength(0.32))
+      .force("center", forceCenter(500, 300))
+      .force("collide", forceCollide(58))
+      .stop();
+    for (let index = 0; index < 260; index += 1) simulation.tick();
+    const next: Record<string, { x: number; y: number }> = {};
+    nodes.forEach((node) => {
+      next[node.id] = {
+        x: Math.max(32, Math.min(968, (node as unknown as { x: number }).x)),
+        y: Math.max(32, Math.min(568, (node as unknown as { y: number }).y)),
+      };
+    });
+    setPositions(next);
+  }, [visibleNodes, visibleEdges]);
+
+  const selectedNode = data?.nodes.find((node) => node.node_id === selected) || null;
+  const selectedEdges = selected
+    ? (data?.edges || []).filter((edge) => edge.source_id === selected || edge.target_id === selected)
+    : [];
+  const nodeById = new Map((data?.nodes || []).map((node) => [node.node_id, node]));
+  const color = (node: KnowledgeGraphNode) => {
+    const type = node.ontology_class_iri;
+    if (type.endsWith("LaggedAssociationAssertion")) return "var(--amber)";
+    if (type.endsWith("SeasonalContext")) return "var(--mint)";
+    if (type.endsWith("WeatherEpisode")) return "#8c6ed3";
+    if (type.endsWith("ExtractionRun")) return "var(--navy)";
+    if (node.properties.kind === "ontology-concept") return "var(--teal)";
+    return "var(--cyan)";
+  };
+  const shortLabel = (node: KnowledgeGraphNode) => node.label.length > 16 ? `${node.label.slice(0, 15)}…` : node.label;
+  const nodeWidth = (node: KnowledgeGraphNode) => Math.min(210, Math.max(78, shortLabel(node).length * 14 + 22));
+
+  if (loading) {
+    return (
+      <>
+        <PageHeading eyebrow={t(locale, "kgEyebrow")} title={t(locale, "kgTitle")} lead={t(locale, "kgLead")} truth={locale === "zh" ? "正在读取实例数据库" : "Reading instance database"} context={t(locale, "kgTruthContext")} archiveSensitive={false} />
+        <section className="kg-pending panel"><div className="kg-state-message"><i />{t(locale, "kgLoading")}</div></section>
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        <PageHeading eyebrow={t(locale, "kgEyebrow")} title={t(locale, "kgTitle")} lead={t(locale, "kgLead")} truth={t(locale, "kgLoadFailed")} context={t(locale, "kgTruthContext")} archiveSensitive={false} />
+        <section className="kg-pending panel"><div className="kg-state-message error-message">{error}</div></section>
+      </>
+    );
+  }
+
+  if (data?.build) {
+    return (
+      <>
+        <PageHeading eyebrow={t(locale, "kgEyebrow")} title={t(locale, "kgTitle")} lead={t(locale, "kgLead")} truth={t(locale, "kgBuiltTruth")} context={`${data.build.scope_label} · ${data.build.start_date}–${data.build.end_date}`} archiveSensitive={false} />
+        <section className="kg-page">
+          <article className="kg-canvas-panel panel">
+            <div className="panel-label">
+              <span>{data.build.assertion_count} {t(locale, "kgAssertionLabel")} · {data.build.episode_count} {t(locale, "kgEpisodeLabel")}</span>
+              <b>{t(locale, "kgBuildLabel")} {data.build.build_id}</b>
+            </div>
+            <label className="kg-search-field">
+              <span className="sr-only">{t(locale, "kgSearchPlaceholder")}</span>
+              <input className="kg-search-bar" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t(locale, "kgSearchPlaceholder")} />
+              {search && <button type="button" onClick={() => setSearch("")} aria-label={locale === "zh" ? "清除搜索" : "Clear search"}>×</button>}
+            </label>
+            <div className="kg-canvas">
+              {!visibleNodes.length && <div className="kg-state-message">{locale === "zh" ? "没有匹配的图谱节点" : "No matching graph nodes"}</div>}
+              {!!visibleNodes.length && (
+                <svg viewBox="0 0 1000 600" aria-label={t(locale, "kgTitle")}>
+                  <defs>
+                    <marker id="kg-instance-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                      <path d="M 0 0 L 10 5 L 0 10 z" />
+                    </marker>
+                  </defs>
+                  {visibleEdges.map((edge) => {
+                    const source = positions[edge.source_id];
+                    const target = positions[edge.target_id];
+                    if (!source || !target) return null;
+                    const related = selected && (edge.source_id === selected || edge.target_id === selected);
+                    return (
+                      <g className={related ? "kg-relation related" : "kg-relation"} key={edge.edge_id}>
+                        <line className="kg-edge" x1={source.x} y1={source.y} x2={target.x} y2={target.y} markerEnd="url(#kg-instance-arrow)" />
+                        {related && <text className="kg-edge-label" x={(source.x + target.x) / 2} y={(source.y + target.y) / 2 - 5}>{edge.predicate_iri.split(/[/#:]/).pop()}</text>}
+                      </g>
+                    );
+                  })}
+                  {visibleNodes.map((node) => {
+                    const position = positions[node.node_id];
+                    if (!position) return null;
+                    const width = nodeWidth(node);
+                    const offset = position.x > 810 ? -width - 12 : 12;
+                    return (
+                      <g className={`kg-node ${selected === node.node_id ? "selected" : ""}`} transform={`translate(${position.x}, ${position.y})`} tabIndex={0} role="button" aria-label={node.label} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelected(node.node_id); }} onClick={() => setSelected(node.node_id)} key={node.node_id}>
+                        <circle r={selected === node.node_id ? 11 : 8} fill={color(node)} />
+                        <rect className="kg-node-label-bg" x={offset} y={-15} width={width} height={30} rx={7} />
+                        <text className="kg-node-label" x={offset + 10} y={5}>{shortLabel(node)}</text>
+                        <title>{node.label}</title>
+                      </g>
+                    );
+                  })}
+                </svg>
+              )}
+            </div>
+          </article>
+          <aside className="kg-node-inspector panel">
+            <div className="panel-label"><span>{selectedNode?.ontology_class_iri.split(":").pop() || t(locale, "kgBuildLabel")}</span></div>
+            {selectedNode ? (
+              <>
+                <h3>{selectedNode.label}</h3>
+                <dl>
+                  <div><dt>{locale === "zh" ? "空间" : "Spatial"}</dt><dd>{selectedNode.spatial_key || "—"}</dd></div>
+                  <div><dt>{locale === "zh" ? "开始" : "Start"}</dt><dd>{selectedNode.start_time || "—"}</dd></div>
+                  <div><dt>{locale === "zh" ? "结束" : "End"}</dt><dd>{selectedNode.end_time || "—"}</dd></div>
+                </dl>
+                <div className="kg-property-list">
+                  {Object.entries(selectedNode.properties).map(([key, value]) => (
+                    <div key={key}><span>{key}</span><b>{typeof value === "object" ? JSON.stringify(value) : String(value)}</b></div>
+                  ))}
+                </div>
+                <table className="kg-edge-table">
+                  <thead><tr><th>{locale === "zh" ? "相邻节点" : "Neighbour"}</th><th>predicate</th></tr></thead>
+                  <tbody>
+                    {selectedEdges.map((edge) => {
+                      const peerId = edge.source_id === selected ? edge.target_id : edge.source_id;
+                      const peer = nodeById.get(peerId);
+                      return <tr key={edge.edge_id} className={peer ? "clickable" : ""} onClick={() => peer && setSelected(peer.node_id)}><td>{peer?.label || peerId.split(":").pop()}</td><td>{edge.predicate_iri.split(/[/#:]/).pop()}</td></tr>;
+                    })}
+                  </tbody>
+                </table>
+              </>
+            ) : <p className="empty-inline">{t(locale, "kgSelectNode")}</p>}
+          </aside>
+        </section>
+        <p className="kg-claim-boundary">{t(locale, "kgClaimBoundary")}</p>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeading eyebrow={t(locale, "kgEyebrow")} title={t(locale, "kgTitle")} lead={t(locale, "kgLead")} truth={locale === "zh" ? "实例数据尚未生成" : "Instance data not generated"} context={t(locale, "kgTruthContext")} archiveSensitive={false} />

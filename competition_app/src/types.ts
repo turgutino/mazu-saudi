@@ -144,3 +144,51 @@ export interface OntologyRelationView {
   node_count: number;
   edge_count: number;
 }
+
+export interface KnowledgeGraphBuild {
+  build_id: string;
+  ontology_iri: string;
+  ontology_version: string;
+  ontology_sha256: string;
+  input_root: string;
+  input_manifest_sha256: string;
+  scope_label: string;
+  start_date: string;
+  end_date: string;
+  file_count: number;
+  created_at: string;
+  node_count: number;
+  edge_count: number;
+  assertion_count: number;
+  episode_count: number;
+  config: Record<string, unknown>;
+}
+
+export interface KnowledgeGraphNode {
+  node_id: string;
+  build_id: string;
+  ontology_class_iri: string;
+  concept_iri: string | null;
+  label: string;
+  spatial_key: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  properties: Record<string, unknown>;
+}
+
+export interface KnowledgeGraphEdge {
+  edge_id: string;
+  build_id: string;
+  source_id: string;
+  predicate_iri: string;
+  target_id: string;
+  properties: Record<string, unknown>;
+}
+
+export interface KnowledgeGraphView {
+  build: KnowledgeGraphBuild | null;
+  nodes: KnowledgeGraphNode[];
+  edges: KnowledgeGraphEdge[];
+  node_count: number;
+  edge_count: number;
+}

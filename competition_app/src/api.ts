@@ -1,4 +1,4 @@
-import type { Config, FieldData, FieldLayer, Health, Locale, OntologyRelationView, ReportItem, Run, Scenario } from "./types";
+import type { Config, FieldData, FieldLayer, Health, KnowledgeGraphView, Locale, OntologyRelationView, ReportItem, Run, Scenario } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -34,6 +34,8 @@ export const api = {
     const suffix = params.size ? `?${params.toString()}` : "";
     return request<OntologyRelationView>(`/api/v1/ontology/view${suffix}`);
   },
+  knowledgeGraphView: (limit = 500) =>
+    request<KnowledgeGraphView>(`/api/v1/knowledge-graph/view?limit=${limit}`),
   createReport: (id: string) =>
     request<{ report: { id: string }; evidence: { id: string } }>(`/api/v1/runs/${id}/report`, { method: "POST" }),
 };

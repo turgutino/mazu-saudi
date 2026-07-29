@@ -11,7 +11,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from mazu_saudi.knowledge_graph import KnowledgeGraphStore
+
 from .adapters import CITIES, HAZARDS
+from .knowledge_graph_service import KnowledgeGraphBrowserService
 from .ontology_service import OntologyBrowserService
 from .reports import REPORT_LIBRARY, render_evidence_json, render_run_report
 from .service import HistoricalWarningService, SCENARIOS
@@ -49,6 +52,10 @@ def create_app(
         settings.ontology_source_file,
         settings.ontology_database_file,
     )
+    knowledge_graph_service = KnowledgeGraphBrowserService(
+        KnowledgeGraphStore(settings.ontology_database_file),
+        ontology_service,
+    )
     app = FastAPI(
         title="MAZU Saudi Historical Warning Console",
         version="1.0.0",
@@ -58,6 +65,7 @@ def create_app(
     app.state.store = store
     app.state.service = service
     app.state.ontology_service = ontology_service
+    app.state.knowledge_graph_service = knowledge_graph_service
 
     @app.get("/api/v1/health")
     def health():
@@ -120,6 +128,23 @@ def create_app(
         """Keep cached pre-rename clients working without advertising the old name."""
         try:
             return ontology_service.relation_view(query=query, module=module, limit=limit)
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+
+    @app.get("/api/v1/knowledge-graph")
+    def knowledge_graph_summary():
+        try:
+            return knowledge_graph_service.summary()
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+
+    @app.get("/api/v1/knowledge-graph/view")
+    def knowledge_graph_view(
+        build_id: Annotated[str | None, Query(max_length=120)] = None,
+        limit: Annotated[int, Query(ge=1, le=2000)] = 500,
+    ):
+        try:
+            return knowledge_graph_service.view(build_id=build_id, limit=limit)
         except RuntimeError as exc:
             raise HTTPException(503, str(exc)) from exc
 

@@ -232,7 +232,7 @@ L_{\text{graph-prior}}
 ```
 
 所有阈值、环境分类、关系筛选、Lift 门槛和适用度算法必须在打开沙特测试结果前冻结。
-图谱版本、数据 SHA、提取代码 SHA 和 SHACL 验证结果写入 `ExtractionRun`。
+图谱版本、本体 SHA、输入清单 SHA、状态规则和统计筛选配置写入 `ExtractionRun`。
 
 ## 7. SQLite 物化模型
 
@@ -248,8 +248,8 @@ L_{\text{graph-prior}}
 `resources` 是查询优化索引，`statements` 是语义真值。数据库可重复构建，不作为手工维护
 真源。
 
-后续全球知识图谱写入同一个 SQLite 文件，但必须使用独立的 `kg_builds`、`kg_nodes`、
-`kg_edges` 和 `kg_evidence` 表。本体重建只能清空本体四张表，不能清空知识图谱实例表；
+全球知识图谱写入同一个 SQLite 文件，但使用独立的 `kg_builds`、`kg_nodes`、
+`kg_edges`、`kg_evidence` 和 `kg_thresholds` 表。本体重建只能清空本体四张表，不能清空知识图谱实例表；
 知识图谱构建脚本也不能改写本体表。
 
 构建：
@@ -287,6 +287,8 @@ print(store.statements_for("urn:mazu-saudi:concept:HighIVTState"))
 | `GET /api/v1/ontology` | 查询版本、SHA、资源数、陈述数和模块统计 |
 | `GET /api/v1/ontology/view` | 按中英文文本和模块查询本体资源及其一阶结构关系 |
 | `GET /api/v1/ontology/resource?iri=...` | 查询单个资源及其出入陈述 |
+| `GET /api/v1/knowledge-graph` | 查询最新图谱构建批次和真实性边界 |
+| `GET /api/v1/knowledge-graph/view` | 查询一版实例图谱的节点、关系和构建元数据 |
 
 `view` 接口支持 `query`、`module` 和 `limit` 参数。所有参数都有长度或数量上限，接口不
 提供写操作。JSON-LD 仍是规范真源，SQLite 只是可重建的服务索引。
@@ -304,19 +306,21 @@ print(store.statements_for("urn:mazu-saudi:concept:HighIVTState"))
 本体关系视图必须显示节点文字、方向箭头，并在选中节点后显示关系谓词。页面必须明确
 声明“本体关系视图不是知识图谱”。
 
-`/knowledge-graph` 是未来 GOMAG 的独立入口。在全球 2025 提取脚本和实例表完成之前，
-该页面只显示真实构建状态，不得把本体资源冒充图谱实例，也不得生成占位关系。
+`/knowledge-graph` 是 GOMAG 的独立入口。没有构建批次时只显示真实待构建状态；数据库
+存在构建批次时，页面交互展示统计断言、上下文、证据过程和受控状态概念，不得生成占位
+关系。
 
 ## 9. 当前版本和后续里程碑
 
 本体 `1.0.0` 完成语义骨架、标准映射、首批指标/状态/机制/环境概念、SHACL 约束和 SQLite
-物化。它尚未包含从全球 2025 数据自动提取的天气过程和统计断言。
+物化。第一阶段统计构图脚本已经实现，读取每日指标 NetCDF 后生成天气过程、滞后关联断言、
+支持证据和反例；正式全球图谱仍须在全球日指标文件准备完成后运行。
 
 后续顺序：
 
-1. 建立全球变量到 CF/QUDT/本体指标的注册表。
-2. 冻结气候型、百分位和天气过程分割协议。
-3. 生成 `WeatherEpisode` 实例和数据制品指针。
-4. 提取并验证 `LaggedAssociationAssertion`。
-5. 经过专家审核后生成图谱派生特征。
+1. 用现有全球原始产品生成满足输入契约的 365 个全球日指标文件。
+2. 冻结空间块大小、季节分位数、滞后、最小支持数和 Lift 门槛。
+3. 运行统计构图脚本并审核生成的 `LaggedAssociationAssertion` 与反例。
+4. 后续再补气候型环境分层和跨时间验证，不在第一阶段引入论文结论。
+5. 经过审核后生成图谱派生特征。
 6. 先进行 Saudi HGB 增量对照，通过后再进入 MCR 路由约束。

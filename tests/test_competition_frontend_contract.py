@@ -43,14 +43,19 @@ def test_ontology_view_reads_the_versioned_ontology_service():
         assert interaction in app
 
 
-def test_future_global_knowledge_graph_does_not_present_ontology_as_instances():
+def test_global_knowledge_graph_reads_instance_service_without_fabricating_pending_data():
     app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    api = (FRONTEND / "src" / "api.ts").read_text(encoding="utf-8")
     translations = (FRONTEND / "src" / "i18n.ts").read_text(encoding="utf-8")
 
     assert 'to="/ontology"' in app
     assert "kgPendingLead" in app
+    assert "api.knowledgeGraphView()" in app
+    assert "kg-instance-arrow" in app
+    assert 'request<KnowledgeGraphView>(`/api/v1/knowledge-graph/view?limit=${limit}`)' in api
     assert 'kgPending: "知识图谱尚未构建"' in translations
     assert "不使用本体概念冒充实例节点" in translations
+    assert "只表示限定范围内的观测关联" in translations
     assert 'ontologyTruthContext: "结构定义 · 无观测实例"' in translations
     assert 'kgTruthContext: "全球2025数据 · 尚未提取"' in translations
 

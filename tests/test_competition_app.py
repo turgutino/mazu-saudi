@@ -139,6 +139,8 @@ def test_ontology_is_materialized_and_exposed_as_a_read_only_graph(tmp_path):
     paths = client.get("/openapi.json").json()["paths"]
     assert "/api/v1/ontology/view" in paths
     assert "/api/v1/ontology/graph" not in paths
+    assert "/api/v1/knowledge-graph" in paths
+    assert "/api/v1/knowledge-graph/view" in paths
 
     graph = client.get(
         "/api/v1/ontology/view",
@@ -169,6 +171,26 @@ def test_ontology_is_materialized_and_exposed_as_a_read_only_graph(tmp_path):
         params={"iri": "urn:mazu-saudi:concept:DoesNotExist"},
     )
     assert missing.status_code == 404
+
+
+def test_knowledge_graph_api_is_explicitly_empty_before_the_first_build(tmp_path):
+    client, _ = make_client(tmp_path)
+
+    summary = client.get("/api/v1/knowledge-graph")
+    assert summary.status_code == 200
+    assert summary.json()["available"] is False
+    assert summary.json()["build"] is None
+    assert "not causal mechanisms" in summary.json()["boundary"]
+
+    view = client.get("/api/v1/knowledge-graph/view")
+    assert view.status_code == 200
+    assert view.json() == {
+        "build": None,
+        "nodes": [],
+        "edges": [],
+        "node_count": 0,
+        "edge_count": 0,
+    }
 
 
 def test_frontend_entrypoint_is_not_cached_and_unknown_api_routes_stay_json_404(tmp_path):

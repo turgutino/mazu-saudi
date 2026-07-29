@@ -116,6 +116,88 @@ const ontologyGraph = {
   node_count: 2,
   edge_count: 1,
 };
+const emptyKnowledgeGraph = {
+  build: null,
+  nodes: [],
+  edges: [],
+  node_count: 0,
+  edge_count: 0,
+};
+const builtKnowledgeGraph = {
+  build: {
+    build_id: "kg-2025-test",
+    ontology_iri: "urn:mazu-saudi:ontology",
+    ontology_version: "1.0.0",
+    ontology_sha256: "abc123",
+    input_root: "/data/global-indicators",
+    input_manifest_sha256: "def456",
+    scope_label: "global-2025",
+    start_date: "2025-01-01",
+    end_date: "2025-12-31",
+    file_count: 365,
+    created_at: "2026-07-29T00:00:00Z",
+    node_count: 3,
+    edge_count: 2,
+    assertion_count: 1,
+    episode_count: 8,
+    config: {},
+  },
+  nodes: [
+    {
+      node_id: "assertion-1",
+      build_id: "kg-2025-test",
+      ontology_class_iri: "urn:mazu-saudi:ontology:LaggedAssociationAssertion",
+      concept_iri: null,
+      label: "高水汽输送状态 → 极端降水状态 (JJA, +1天)",
+      spatial_key: "global-2025",
+      start_time: "2025-01-01",
+      end_time: "2025-12-31",
+      properties: { lift: 2.4, support_episode_count: 8, eligible_for_causal_explanation: false },
+    },
+    {
+      node_id: "urn:mazu-saudi:concept:HighIVTState",
+      build_id: "kg-2025-test",
+      ontology_class_iri: "urn:mazu-saudi:ontology:IndicatorState",
+      concept_iri: "urn:mazu-saudi:concept:HighIVTState",
+      label: "高水汽输送状态",
+      spatial_key: null,
+      start_time: null,
+      end_time: null,
+      properties: { kind: "ontology-concept" },
+    },
+    {
+      node_id: "urn:mazu-saudi:concept:ExtremeRainfallState",
+      build_id: "kg-2025-test",
+      ontology_class_iri: "urn:mazu-saudi:ontology:ExtremeWeatherState",
+      concept_iri: "urn:mazu-saudi:concept:ExtremeRainfallState",
+      label: "极端降水状态",
+      spatial_key: null,
+      start_time: null,
+      end_time: null,
+      properties: { kind: "ontology-concept" },
+    },
+  ],
+  edges: [
+    {
+      edge_id: "edge-1",
+      build_id: "kg-2025-test",
+      source_id: "assertion-1",
+      predicate_iri: "urn:mazu-saudi:ontology:sourceState",
+      target_id: "urn:mazu-saudi:concept:HighIVTState",
+      properties: {},
+    },
+    {
+      edge_id: "edge-2",
+      build_id: "kg-2025-test",
+      source_id: "assertion-1",
+      predicate_iri: "urn:mazu-saudi:ontology:targetState",
+      target_id: "urn:mazu-saudi:concept:ExtremeRainfallState",
+      properties: {},
+    },
+  ],
+  node_count: 3,
+  edge_count: 2,
+};
 
 function jsonResponse(payload: unknown, status = 200) {
   return Promise.resolve(new Response(JSON.stringify(payload), {
@@ -126,8 +208,10 @@ function jsonResponse(payload: unknown, status = 200) {
 
 describe("historical warning application", () => {
   let created = false;
+  let graphBuilt = false;
   beforeEach(() => {
     created = false;
+    graphBuilt = false;
     localStorage.clear();
     window.history.pushState({}, "", "/console");
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request, init?: RequestInit) => {
@@ -141,6 +225,9 @@ describe("historical warning application", () => {
       }
       if (path === "/api/v1/runs") return jsonResponse(created ? [run] : []);
       if (path.startsWith("/api/v1/ontology/view")) return jsonResponse(ontologyGraph);
+      if (path.startsWith("/api/v1/knowledge-graph/view")) {
+        return jsonResponse(graphBuilt ? builtKnowledgeGraph : emptyKnowledgeGraph);
+      }
       throw new Error(`Unhandled request: ${path}`);
     }));
   });
@@ -206,9 +293,24 @@ describe("historical warning application", () => {
     expect(screen.getByText("知识图谱尚未构建")).toBeInTheDocument();
     expect(screen.getByText(/当前只有本体定义/)).toBeInTheDocument();
     expect(screen.queryByText(/2 本体资源/)).not.toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledWith("/api/v1/knowledge-graph/view?limit=500", expect.anything());
     expect(fetch).not.toHaveBeenCalledWith(
       expect.stringContaining("/api/v1/ontology/view"),
       expect.anything(),
     );
+  });
+
+  it("renders and inspects a built statistical knowledge graph", async () => {
+    graphBuilt = true;
+    window.history.pushState({}, "", "/knowledge-graph");
+    render(<BrowserRouter><App /></BrowserRouter>);
+
+    expect(await screen.findByText(/1 统计断言 · 8 证据过程/)).toBeInTheDocument();
+    expect(document.querySelector("#kg-instance-arrow")).toBeInTheDocument();
+    const assertion = await screen.findByRole("button", { name: /高水汽输送状态 → 极端降水状态/ });
+    fireEvent.click(assertion);
+    expect(screen.getByText("lift")).toBeInTheDocument();
+    expect(screen.getByText("2.4")).toBeInTheDocument();
+    expect(screen.getAllByText("sourceState").length).toBeGreaterThan(0);
   });
 });
