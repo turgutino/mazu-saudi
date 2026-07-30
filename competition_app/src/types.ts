@@ -187,6 +187,16 @@ export interface KnowledgeGraphEdge {
 
 export interface KnowledgeGraphView {
   build: KnowledgeGraphBuild | null;
+  literature_run?: {
+    run_id: string;
+    build_id: string;
+    model: string;
+    prompt_version: string;
+    publication_count: number;
+    evidence_record_count: number;
+    mechanism_assertion_count: number;
+    created_at: string;
+  } | null;
   nodes: KnowledgeGraphNode[];
   edges: KnowledgeGraphEdge[];
   node_count: number;

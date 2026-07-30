@@ -60,6 +60,22 @@ def test_global_knowledge_graph_reads_instance_service_without_fabricating_pendi
     assert 'kgTruthContext: "全球2025数据 · 尚未提取"' in translations
 
 
+def test_knowledge_graph_can_expand_literature_mechanism_evidence_chain():
+    app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    types = (FRONTEND / "src" / "types.ts").read_text(encoding="utf-8")
+
+    for contract in (
+        "MechanismApplicabilityAssertion",
+        "LiteratureEvidenceRecord",
+        "ScholarlyPublication",
+        "supportedByLiteratureEvidence",
+        "groundedByPublication",
+        "证据链",
+    ):
+        assert contract in app
+    assert "literature_run?" in types
+
+
 def test_competition_frontend_excludes_future_research_and_operational_claims():
     public_sources = "\n".join(
         path.read_text(encoding="utf-8")

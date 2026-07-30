@@ -62,6 +62,64 @@ mazu:LaggedAssociationAssertionShape
         sh:datatype xsd:nonNegativeInteger ;
     ] .
 
+mazu:MechanismApplicabilityAssertionShape
+    a sh:NodeShape ;
+    sh:targetClass mazu:MechanismApplicabilityAssertion ;
+    sh:property [
+        sh:path mazu:sourceState ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mazu:targetState ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mazu:compatibleWithMechanism ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mazu:interpretsAssociation ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mazu:supportedByLiteratureEvidence ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mazu:applicableUnder ;
+        sh:minCount 1 ;
+    ] .
+
+mazu:LiteratureEvidenceRecordShape
+    a sh:NodeShape ;
+    sh:targetClass mazu:LiteratureEvidenceRecord ;
+    sh:property [
+        sh:path mazu:groundedByPublication ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path mazu:evidenceQuote ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path mazu:sourceLocator ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path prov:wasGeneratedBy ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] .
+
 mazu:ForecastConstraintShape
     a sh:NodeShape ;
     sh:targetClass mazu:ForecastConstraint ;

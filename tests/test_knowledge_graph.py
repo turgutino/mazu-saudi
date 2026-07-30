@@ -234,7 +234,7 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
     store = KnowledgeGraphStore(database)
     latest = store.latest_build()
     assert latest["build_id"] == result.build_id
-    assert latest["ontology_version"] == "1.2.0"
+    assert latest["ontology_version"] == "1.3.0"
     assert latest["scope_label"] == "synthetic-2025"
     view = store.graph_view()
     assert view["build"]["build_id"] == result.build_id

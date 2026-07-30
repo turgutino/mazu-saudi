@@ -84,11 +84,23 @@
     "applicableUnder": {
       "@id": "mazu:applicableUnder",
       "@type": "@id"
+    },
+    "interpretsAssociation": {
+      "@id": "mazu:interpretsAssociation",
+      "@type": "@id"
+    },
+    "supportedByLiteratureEvidence": {
+      "@id": "mazu:supportedByLiteratureEvidence",
+      "@type": "@id"
+    },
+    "groundedByPublication": {
+      "@id": "mazu:groundedByPublication",
+      "@type": "@id"
     }
   },
   "@id": "urn:mazu-saudi:ontology",
   "@type": "owl:Ontology",
-  "versionInfo": "1.2.0",
+  "versionInfo": "1.3.0",
   "labelEn": "MAZU Global Observational Mechanism Applicability Ontology",
   "labelZh": "MAZU 全球观测机制适用性本体",
   "claimBoundary": "The ontology separates observations, derived indicator states, observational assertions, expert or literature evidence, and forecast constraints. Data-derived associations are never causal by default and cannot be treated as observed hazard events.",
@@ -271,6 +283,36 @@
       "definitionZh": "用于组织证据和预测约束、具有物理解释的天气过程。"
     },
     {
+      "@id": "mazu:ScholarlyPublication",
+      "@type": "owl:Class",
+      "module": "literature",
+      "labelEn": "Scholarly publication",
+      "labelZh": "学术出版物",
+      "definitionEn": "A traceable research output identified by bibliographic metadata and a DOI or stable source URL.",
+      "definitionZh": "具有书目信息以及DOI或稳定来源地址的可追溯研究成果。",
+      "subClassOf": "prov:Entity"
+    },
+    {
+      "@id": "mazu:LiteratureEvidenceRecord",
+      "@type": "owl:Class",
+      "module": "literature",
+      "labelEn": "Literature evidence record",
+      "labelZh": "文献证据记录",
+      "definitionEn": "An exact, source-locatable passage extracted from an accessible scholarly publication text and retained with provenance and review status.",
+      "definitionZh": "从可访问学术出版物正文中提取、能够回定位到来源并保留溯源和审核状态的原文段落。",
+      "subClassOf": "prov:Entity"
+    },
+    {
+      "@id": "mazu:LiteratureEvidenceAugmentationRun",
+      "@type": "owl:Class",
+      "module": "provenance",
+      "labelEn": "Literature evidence augmentation run",
+      "labelZh": "文献证据增强运行",
+      "definitionEn": "An immutable activity that proposes literature evidence and mechanism-applicability assertions for one frozen statistical graph build.",
+      "definitionZh": "针对一版冻结统计图谱提出文献证据和机制适用性断言的不可变活动。",
+      "subClassOf": "prov:Activity"
+    },
+    {
       "@id": "mazu:EvidenceAssertion",
       "@type": "owl:Class",
       "module": "assertion",
@@ -418,6 +460,39 @@
       "range": "mazu:WeatherMechanism"
     },
     {
+      "@id": "mazu:interpretsAssociation",
+      "@type": "owl:ObjectProperty",
+      "module": "literature",
+      "labelEn": "interprets association",
+      "labelZh": "解释统计关联",
+      "definitionEn": "Links a mechanism-applicability assertion to the statistical association it interprets without validating that association's lag or effect size.",
+      "definitionZh": "连接机制适用性断言与其解释的统计关联，但不验证该关联的滞后或效应量。",
+      "domain": "mazu:MechanismApplicabilityAssertion",
+      "range": "mazu:LaggedAssociationAssertion"
+    },
+    {
+      "@id": "mazu:supportedByLiteratureEvidence",
+      "@type": "owl:ObjectProperty",
+      "module": "literature",
+      "labelEn": "supported by literature evidence",
+      "labelZh": "由文献证据支持",
+      "definitionEn": "Links a mechanism-applicability assertion to an exact, source-locatable literature evidence record.",
+      "definitionZh": "连接机制适用性断言与一条可精确回定位来源的文献证据记录。",
+      "domain": "mazu:MechanismApplicabilityAssertion",
+      "range": "mazu:LiteratureEvidenceRecord"
+    },
+    {
+      "@id": "mazu:groundedByPublication",
+      "@type": "owl:ObjectProperty",
+      "module": "literature",
+      "labelEn": "grounded by publication",
+      "labelZh": "来源于学术出版物",
+      "definitionEn": "Links a literature evidence record to the scholarly publication from which its exact passage was obtained.",
+      "definitionZh": "连接文献证据记录与其原文段落所来自的学术出版物。",
+      "domain": "mazu:LiteratureEvidenceRecord",
+      "range": "mazu:ScholarlyPublication"
+    },
+    {
       "@id": "mazu:supportedByEpisode",
       "@type": "owl:ObjectProperty",
       "module": "assertion",
@@ -492,6 +567,50 @@
       "definitionEn": "Whether evidence is observational, expert-authored, literature-grounded, or mixed.",
       "definitionZh": "证据属于观测、专家编写、文献支持或混合类型。",
       "domain": "mazu:EvidenceAssertion",
+      "range": "xsd:string"
+    },
+    {
+      "@id": "mazu:evidenceQuote",
+      "@type": "owl:DatatypeProperty",
+      "module": "literature",
+      "labelEn": "evidence quote",
+      "labelZh": "证据原文",
+      "definitionEn": "An exact passage retained from the normalized accessible publication text.",
+      "definitionZh": "从规范化可访问出版物文本中保留的精确原文段落。",
+      "domain": "mazu:LiteratureEvidenceRecord",
+      "range": "xsd:string"
+    },
+    {
+      "@id": "mazu:sourceLocator",
+      "@type": "owl:DatatypeProperty",
+      "module": "literature",
+      "labelEn": "source locator",
+      "labelZh": "来源定位",
+      "definitionEn": "A page, section, paragraph, or chunk locator used to find an evidence passage in its source snapshot.",
+      "definitionZh": "用于在来源快照中找到证据段落的页码、章节、段落或文本块定位。",
+      "domain": "mazu:LiteratureEvidenceRecord",
+      "range": "xsd:string"
+    },
+    {
+      "@id": "mazu:doi",
+      "@type": "owl:DatatypeProperty",
+      "module": "literature",
+      "labelEn": "DOI",
+      "labelZh": "数字对象标识符",
+      "definitionEn": "The normalized Digital Object Identifier of a scholarly publication when available.",
+      "definitionZh": "学术出版物在可用时采用的规范化数字对象标识符。",
+      "domain": "mazu:ScholarlyPublication",
+      "range": "xsd:string"
+    },
+    {
+      "@id": "mazu:reviewStatus",
+      "@type": "owl:DatatypeProperty",
+      "module": "assertion",
+      "labelEn": "review status",
+      "labelZh": "审核状态",
+      "definitionEn": "The declared automatic and human review state of an evidence record or assertion.",
+      "definitionZh": "证据记录或断言所处的自动审核与人工审核状态。",
+      "domain": "prov:Entity",
       "range": "xsd:string"
     },
     {

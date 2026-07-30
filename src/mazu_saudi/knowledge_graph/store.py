@@ -431,17 +431,27 @@ class KnowledgeGraphStore:
                 (build["build_id"], limit),
             ).fetchall()
             nodes = [dict(row) for row in node_rows]
-            node_ids = {node["node_id"] for node in nodes}
-            edge_rows = connection.execute(
+            base_edge_rows = connection.execute(
                 "SELECT * FROM kg_edges WHERE build_id=? ORDER BY edge_id",
                 (build["build_id"],),
             ).fetchall()
+            literature_run, literature_nodes, literature_edges = (
+                self._literature_projection(connection, build["build_id"])
+            )
         for node in nodes:
             node["properties"] = json.loads(node.pop("properties_json"))
+        nodes.extend(literature_nodes)
+        edges = [
+            {**dict(row), "properties": json.loads(row["properties_json"])}
+            for row in base_edge_rows
+        ]
+        for edge in edges:
+            edge.pop("properties_json", None)
+        edges.extend(literature_edges)
         concept_iris = {
             endpoint
-            for row in edge_rows
-            for endpoint in (row["source_id"], row["target_id"])
+            for edge in edges
+            for endpoint in (edge["source_id"], edge["target_id"])
             if endpoint.startswith("urn:mazu-saudi:concept:")
         }
         if concept_iris:
@@ -476,19 +486,88 @@ class KnowledgeGraphStore:
                 )
         node_ids = {node["node_id"] for node in nodes}
         edges = [
-            {**dict(row), "properties": json.loads(row["properties_json"])}
-            for row in edge_rows
-            if row["source_id"] in node_ids and row["target_id"] in node_ids
+            edge
+            for edge in edges
+            if edge["source_id"] in node_ids and edge["target_id"] in node_ids
         ]
-        for edge in edges:
-            edge.pop("properties_json", None)
         return {
             "build": build,
+            "literature_run": literature_run,
             "nodes": nodes,
             "edges": edges,
             "node_count": len(nodes),
             "edge_count": len(edges),
         }
+
+    @staticmethod
+    def _literature_projection(
+        connection: sqlite3.Connection,
+        build_id: str,
+    ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], list[dict[str, Any]]]:
+        tables = {
+            row["name"]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name IN ("
+                "'kg_literature_runs','kg_literature_nodes',"
+                "'kg_literature_edges')"
+            )
+        }
+        if tables != {
+            "kg_literature_runs",
+            "kg_literature_nodes",
+            "kg_literature_edges",
+        }:
+            return None, [], []
+        run_row = connection.execute(
+            """
+            SELECT * FROM kg_literature_runs
+            WHERE build_id=?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (build_id,),
+        ).fetchone()
+        if run_row is None:
+            return None, [], []
+        run = dict(run_row)
+        run["config"] = json.loads(run.pop("config_json"))
+        node_rows = connection.execute(
+            """
+            SELECT * FROM kg_literature_nodes
+            WHERE run_id=?
+            ORDER BY node_id
+            """,
+            (run["run_id"],),
+        ).fetchall()
+        nodes = []
+        for row in node_rows:
+            node = dict(row)
+            node["properties"] = json.loads(node.pop("properties_json"))
+            node.pop("run_id", None)
+            node.update(
+                {
+                    "spatial_key": None,
+                    "start_time": None,
+                    "end_time": None,
+                }
+            )
+            nodes.append(node)
+        edge_rows = connection.execute(
+            """
+            SELECT * FROM kg_literature_edges
+            WHERE run_id=?
+            ORDER BY edge_id
+            """,
+            (run["run_id"],),
+        ).fetchall()
+        edges = []
+        for row in edge_rows:
+            edge = dict(row)
+            edge["properties"] = json.loads(edge.pop("properties_json"))
+            edge.pop("run_id", None)
+            edges.append(edge)
+        return run, nodes, edges
 
     def _build(self, build_id: str) -> dict[str, Any] | None:
         with self._connect() as connection:

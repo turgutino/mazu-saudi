@@ -260,3 +260,8 @@ GET /api/v1/knowledge-graph/view?limit=500
 
 前端 `/knowledge-graph` 会从实例表读取真实节点和关系。没有正式构建批次时继续显示待构建
 状态；不会用本体节点或合成关系填充页面。
+
+统计图谱冻结后，可按照
+`ontology/literature_evidence_build.md`
+运行独立的文献证据增强。文献层引用统计构建但不修改统计关系、Lift或预测资格；前端审计
+结构中的“证据链”用于查看机理断言、原文证据和出版物来源。

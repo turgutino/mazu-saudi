@@ -1,0 +1,138 @@
+{
+  "version": "2026-07-30.1",
+  "sources": [
+    {
+      "source_id": "devries2013_arst",
+      "title": "Extreme precipitation events in the Middle East: Dynamics of the Active Red Sea Trough",
+      "authors": ["de Vries et al."],
+      "year": 2013,
+      "doi": "10.1002/jgrd.50569",
+      "landing_url": "https://agupubs.onlinelibrary.wiley.com/doi/10.1002/jgrd.50569",
+      "document_url": "https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/jgrd.50569",
+      "allowed_mechanisms": [
+        "urn:mazu-saudi:concept:MoistureAdvection",
+        "urn:mazu-saudi:concept:LocalConvection"
+      ],
+      "topics": ["active red sea trough", "moisture transport", "extreme precipitation", "instability"],
+      "access_note": "Publisher page selected by the project; extraction scope is limited to text actually present in the saved snapshot."
+    },
+    {
+      "source_id": "devries2018_ivt",
+      "title": "Identification of Tropical-Extratropical Interactions and Extreme Precipitation Events in the Middle East Based on Potential Vorticity and Moisture Transport",
+      "authors": ["de Vries et al."],
+      "year": 2018,
+      "doi": "10.1002/2017JD027587",
+      "landing_url": "https://agupubs.onlinelibrary.wiley.com/doi/10.1002/2017JD027587",
+      "document_url": "https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017JD027587",
+      "allowed_mechanisms": [
+        "urn:mazu-saudi:concept:MoistureAdvection",
+        "urn:mazu-saudi:concept:LocalConvection"
+      ],
+      "topics": ["integrated water vapor transport", "potential vorticity", "extreme precipitation", "Saudi Arabia"],
+      "access_note": "Publisher page selected by the project; extraction scope is limited to text actually present in the saved snapshot."
+    },
+    {
+      "source_id": "francis2024_ar_rapids",
+      "title": "Atmospheric River Rapids and Their Role in the Extreme Rainfall Event of April 2023 in the Middle East",
+      "authors": ["Francis et al."],
+      "year": 2024,
+      "doi": "10.1029/2024GL109446",
+      "landing_url": "https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2024GL109446",
+      "document_url": "https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2024GL109446",
+      "allowed_mechanisms": [
+        "urn:mazu-saudi:concept:MoistureAdvection",
+        "urn:mazu-saudi:concept:LocalConvection",
+        "urn:mazu-saudi:concept:OrographicLift"
+      ],
+      "topics": ["atmospheric river", "integrated vapor transport", "western Saudi Arabia", "terrain", "convection"],
+      "access_note": "Publisher page selected by the project; extraction scope is limited to text actually present in the saved snapshot."
+    },
+    {
+      "source_id": "redsea_topography2019",
+      "title": "On the Effect of Red Sea and Topography on Rainfall over Saudi Arabia: Case Study",
+      "authors": ["Motirh Al-Mutairi", "Heshmat Abdel Basset", "Mostafa Morsy", "Abdallah Abdeldym"],
+      "year": 2019,
+      "doi": "10.3390/atmos10110669",
+      "landing_url": "https://www.mdpi.com/2073-4433/10/11/669",
+      "document_url": "https://www.mdpi.com/2073-4433/10/11/669",
+      "allowed_mechanisms": [
+        "urn:mazu-saudi:concept:MoistureAdvection",
+        "urn:mazu-saudi:concept:OrographicLift"
+      ],
+      "topics": ["Red Sea", "topography", "rainfall", "Saudi Arabia", "moisture flux"],
+      "access_note": "Open publisher HTML selected by the project; save the page snapshot used for extraction."
+    },
+    {
+      "source_id": "saudi_rainfall_extremes2020",
+      "title": "Rainfall Trends and Extremes in Saudi Arabia in Recent Decades",
+      "authors": ["Mansour Almazroui"],
+      "year": 2020,
+      "doi": "10.3390/atmos11090964",
+      "landing_url": "https://www.mdpi.com/2073-4433/11/9/964",
+      "document_url": "https://www.mdpi.com/2073-4433/11/9/964",
+      "allowed_mechanisms": [
+        "urn:mazu-saudi:concept:MoistureAdvection",
+        "urn:mazu-saudi:concept:LocalConvection",
+        "urn:mazu-saudi:concept:OrographicLift"
+      ],
+      "topics": ["extreme rainfall", "Saudi Arabia", "deep convection", "Red Sea Trough", "orography"],
+      "access_note": "Open publisher HTML selected by the project; save the page snapshot used for extraction."
+    },
+    {
+      "source_id": "saudi_extreme_temperature2020",
+      "title": "Analysis of extreme summer temperatures in Saudi Arabia and the association with large-scale atmospheric circulation",
+      "authors": ["Irfan Ur Rashid", "Mansour Almazroui", "Sajjad Saeed", "Rana Muhammad Atif"],
+      "year": 2020,
+      "doi": "10.1016/j.atmosres.2019.104659",
+      "landing_url": "https://www.sciencedirect.com/science/article/pii/S0169809519301747",
+      "document_url": "https://www.sciencedirect.com/science/article/pii/S0169809519301747",
+      "allowed_mechanisms": [
+        "urn:mazu-saudi:concept:ThermalPersistence"
+      ],
+      "topics": ["extreme summer temperature", "Saudi Arabia", "large-scale circulation", "heat wave"],
+      "access_note": "Publisher landing page may expose only abstract text; such a snapshot must be labelled and must not be presented as full-text evidence."
+    },
+    {
+      "source_id": "saudi_summer_temperature2020",
+      "title": "Saudi Arabia's summer surface air temperature and its association with circulation patterns",
+      "authors": ["Almazroui"],
+      "year": 2020,
+      "doi": "10.1002/joc.6547",
+      "landing_url": "https://rmets.onlinelibrary.wiley.com/doi/10.1002/joc.6547",
+      "document_url": "https://rmets.onlinelibrary.wiley.com/doi/full/10.1002/joc.6547",
+      "allowed_mechanisms": [
+        "urn:mazu-saudi:concept:ThermalPersistence"
+      ],
+      "topics": ["surface air temperature", "Saudi Arabia", "circulation", "sea surface temperature"],
+      "access_note": "Publisher page selected by the project; extraction scope is limited to text actually present in the saved snapshot."
+    },
+    {
+      "source_id": "yu2016_shamal",
+      "title": "Climatology of summer Shamal wind in the Middle East",
+      "authors": ["Yu et al."],
+      "year": 2016,
+      "doi": "10.1002/2015JD024063",
+      "landing_url": "https://agupubs.onlinelibrary.wiley.com/doi/10.1002/2015JD024063",
+      "document_url": "https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2015JD024063",
+      "allowed_mechanisms": [
+        "urn:mazu-saudi:concept:DryWindDustMobilization"
+      ],
+      "topics": ["summer Shamal", "dust", "Saudi Arabia", "strong wind"],
+      "access_note": "Publisher page selected by the project; extraction scope is limited to text actually present in the saved snapshot."
+    },
+    {
+      "source_id": "mofidi2022_shamal",
+      "title": "On the Existence of Summer Shamal Wind Induced by the Zagros Mountains in the Middle East",
+      "authors": ["Mofidi et al."],
+      "year": 2022,
+      "doi": "10.1029/2022GL100151",
+      "landing_url": "https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2022GL100151",
+      "document_url": "https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2022GL100151",
+      "allowed_mechanisms": [
+        "urn:mazu-saudi:concept:DryWindDustMobilization"
+      ],
+      "topics": ["summer Shamal", "Zagros Mountains", "strong wind", "dust"],
+      "access_note": "Publisher page selected by the project; extraction scope is limited to text actually present in the saved snapshot."
+    }
+  ]
+}

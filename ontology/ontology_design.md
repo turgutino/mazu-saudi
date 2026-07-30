@@ -77,7 +77,7 @@ urn:mazu-saudi:concept:    指标、状态、机制和环境受控概念
 全球数值数组仍保存在 NetCDF/Zarr。图数据库保存变量定义、状态、过程摘要、断言和源制品
 指针，不为每个全球格点复制一条 RDF 记录。
 
-本体 `1.2.0` 保留四个受控 `DataSource` 概念。DS2 日产品派生动力和地面状态；DS4
+本体 `1.3.0` 保留四个受控 `DataSource` 概念。DS2 日产品派生动力和地面状态；DS4
 海温与 DS10 卫星降水在逐季覆盖率达标时可以形成独立观测状态，同时继续提供天气过程
 背景和跨源一致性证据。DS1 月背景不变成逐日事件状态，任何单一降水源也不能冒充独立真值。
 
@@ -171,6 +171,36 @@ prov:wasGeneratedBy
 
 图谱不能直接覆盖模型概率。所有图谱输出都必须携带适用度和来源断言。
 
+### 4.8 Literature evidence
+
+文献层是统计图谱的一次独立、不可变增强运行，不修改原全球数据提取构建。它区分：
+
+| 类 | 含义 |
+|---|---|
+| `ScholarlyPublication` | 由题名、作者、年份、DOI或稳定地址标识的学术来源 |
+| `LiteratureEvidenceRecord` | 能在保存的可访问正文快照中精确回定位的原文证据 |
+| `LiteratureEvidenceAugmentationRun` | 针对一版冻结统计图谱运行的版本化文献抽取活动 |
+| `MechanismApplicabilityAssertion` | 将统计断言解释为与某机制相容的非因果主张 |
+
+连接结构为：
+
+```text
+MechanismApplicabilityAssertion
+  ├─ sourceState / targetState → 状态概念
+  ├─ applicableUnder → 原统计断言的环境
+  ├─ interpretsAssociation → LaggedAssociationAssertion
+  ├─ compatibleWithMechanism → WeatherMechanism
+  └─ supportedByLiteratureEvidence → LiteratureEvidenceRecord
+
+LiteratureEvidenceRecord
+  ├─ groundedByPublication → ScholarlyPublication
+  └─ prov:wasGeneratedBy → LiteratureEvidenceAugmentationRun
+```
+
+文献只支持状态组合与机制的相容性，不自动支持原统计断言中的季节、滞后、Lift，也不能
+使统计断言进入生产预测。大模型输出必须通过受控概念、候选统计断言、原文精确包含和
+来源定位校验；未通过人工审核的断言保持 `eligibleForCausalExplanation=false`。
+
 ## 5. 指标、图谱与沙特预测
 
 ### 5.1 指标进入图谱
@@ -237,6 +267,9 @@ L_{\text{graph-prior}}
 
 所有阈值、环境分类、关系筛选、Lift 门槛和适用度算法必须在打开沙特测试结果前冻结。
 图谱版本、本体 SHA、输入清单 SHA、状态规则和统计筛选配置写入 `ExtractionRun`。
+
+文献增强同样记录文献清单 SHA、正文快照 SHA、提示词版本、模型名称和原始响应 SHA。
+文献增强只解释冻结统计断言，不改变统计构建的候选等级；沙特验证仍是独立的后续阶段。
 
 ### 6.1 数据关系的分层与晋级
 
@@ -367,7 +400,7 @@ print(store.statements_for("urn:mazu-saudi:concept:HighIVTState"))
 
 ## 9. 当前版本和后续里程碑
 
-本体 `1.2.0` 完成语义骨架、标准映射、首批指标/状态/机制/环境概念、四类数据源、多源
+本体 `1.3.0` 完成语义骨架、标准映射、首批指标/状态/机制/环境概念、四类数据源、多源
 观测状态、SHACL 约束及 SQLite 物化。第一阶段统计构图脚本已经实现，读取每日指标 NetCDF
 后生成天气过程、滞后关联断言、支持证据和反例；关系级逐季覆盖门控会抑制缺测动力状态，
 但保留覆盖达标的可观测状态。全球原始数据到空间块指标的流式脚本也已实现，并在原始格点

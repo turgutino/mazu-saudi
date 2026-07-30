@@ -31,7 +31,7 @@ def test_ontology_declares_standards_version_and_claim_boundary():
     context = payload["@context"]
 
     assert payload["@type"] == "owl:Ontology"
-    assert payload["versionInfo"] == "1.2.0"
+    assert payload["versionInfo"] == "1.3.0"
     assert "never causal by default" in payload["claimBoundary"]
     assert context["@vocab"] == MAZU
     for prefix in ("sosa", "geo", "time", "prov", "qudt", "uom"):
@@ -62,6 +62,9 @@ def test_core_domain_boundaries_and_forecast_bridge_are_explicit():
         "mazu:LaggedAssociationAssertion",
         "mazu:MechanismApplicabilityAssertion",
         "mazu:CounterexampleAssertion",
+        "mazu:ScholarlyPublication",
+        "mazu:LiteratureEvidenceRecord",
+        "mazu:LiteratureEvidenceAugmentationRun",
         "mazu:GraphDerivedFeature",
         "mazu:ForecastConstraint",
     ):
@@ -129,6 +132,8 @@ def test_shacl_shapes_require_scope_provenance_and_causal_flag():
         "mazu:IndicatorStateShape",
         "mazu:EvidenceAssertionShape",
         "mazu:LaggedAssociationAssertionShape",
+        "mazu:MechanismApplicabilityAssertionShape",
+        "mazu:LiteratureEvidenceRecordShape",
         "mazu:ForecastConstraintShape",
         "mazu:applicableUnder",
         "mazu:eligibleForCausalExplanation",
@@ -145,9 +150,9 @@ def test_materializer_builds_queryable_idempotent_database(tmp_path):
     first = materialize_ontology(SOURCE, database)
     second = materialize_ontology(SOURCE, database)
 
-    assert first["ontology"]["version"] == "1.2.0"
+    assert first["ontology"]["version"] == "1.3.0"
     assert first["ontology"]["source_sha256"] == second["ontology"]["source_sha256"]
-    assert first["resource_count"] == second["resource_count"] == 78
+    assert first["resource_count"] == second["resource_count"] == 88
     assert first["statement_count"] == second["statement_count"]
     assert first["statement_count"] >= 500
 
@@ -246,6 +251,8 @@ def test_domain_glossary_separates_ontology_relation_view_and_knowledge_graph():
         "天气机制本体（Weather Mechanism Ontology）",
         "本体关系视图（Ontology Relation View）",
         "全球观测机制适用性图谱",
+        "文献证据记录（Literature Evidence Record）",
+        "文献支持的机制适用性断言",
     ):
         assert term in glossary
     assert "它是本体的可视化，不是知识图谱" in glossary

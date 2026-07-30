@@ -823,6 +823,14 @@ type CollapsedKnowledgeRelation = {
 const KG_VIEWPORT: GraphViewport = { x: 0, y: 0, width: 1200, height: 760 };
 const isAssertionNode = (node: KnowledgeGraphNode) =>
   node.ontology_class_iri.endsWith("LaggedAssociationAssertion");
+const isMechanismAssertionNode = (node: KnowledgeGraphNode) =>
+  node.ontology_class_iri.endsWith("MechanismApplicabilityAssertion");
+const isLiteratureNode = (node: KnowledgeGraphNode) =>
+  node.ontology_class_iri.endsWith("LiteratureEvidenceRecord")
+  || node.ontology_class_iri.endsWith("ScholarlyPublication");
+const isRunNode = (node: KnowledgeGraphNode) =>
+  node.ontology_class_iri.endsWith("ExtractionRun")
+  || node.ontology_class_iri.endsWith("LiteratureEvidenceAugmentationRun");
 
 function collapsedRelationLabel(
   relation: CollapsedKnowledgeRelation,
@@ -976,6 +984,39 @@ function KnowledgeGraphPage() {
       }
       included.add(peerId);
     });
+    if (showEvidence) {
+      const literaturePredicates = [
+        "interpretsAssociation",
+        "supportedByLiteratureEvidence",
+        "groundedByPublication",
+        "compatibleWithMechanism",
+        "wasGeneratedBy",
+      ];
+      let frontier = new Set(included);
+      let literatureCount = 0;
+      for (let depth = 0; depth < 3 && frontier.size && literatureCount < 80; depth += 1) {
+        const next = new Set<string>();
+        data.edges.forEach((edge) => {
+          if (!literaturePredicates.some((suffix) => edge.predicate_iri.endsWith(suffix))) return;
+          const sourceSelected = frontier.has(edge.source_id);
+          const targetSelected = frontier.has(edge.target_id);
+          if (!sourceSelected && !targetSelected) return;
+          const peerId = sourceSelected ? edge.target_id : edge.source_id;
+          const peer = byId.get(peerId);
+          if (!peer || included.has(peerId)) return;
+          if (
+            !isMechanismAssertionNode(peer)
+            && !isLiteratureNode(peer)
+            && !isRunNode(peer)
+            && peer.properties.kind !== "ontology-concept"
+          ) return;
+          included.add(peerId);
+          next.add(peerId);
+          literatureCount += 1;
+        });
+        frontier = next;
+      }
+    }
     return data.nodes.filter((node) => included.has(node.node_id));
   }, [assertionLimit, data, layer, search, season, showEvidence, stage]);
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.node_id)), [visibleNodes]);
@@ -1066,13 +1107,14 @@ function KnowledgeGraphPage() {
       });
     } else if (layout === "radial") {
       const groups = [
-        canvasNodes.filter((node) => node.ontology_class_iri.endsWith("ExtractionRun")),
+        canvasNodes.filter(isRunNode),
         canvasNodes.filter((node) => node.ontology_class_iri.endsWith("SeasonalContext")),
         canvasNodes.filter((node) => node.properties.kind === "ontology-concept"),
-        canvasNodes.filter(isAssertionNode),
+        canvasNodes.filter((node) => isAssertionNode(node) || isMechanismAssertionNode(node)),
+        canvasNodes.filter(isLiteratureNode),
         canvasNodes.filter((node) => node.ontology_class_iri.endsWith("WeatherEpisode")),
       ];
-      const radii = [0, 120, 235, 345, 465];
+      const radii = [0, 95, 190, 285, 385, 475];
       groups.forEach((group, groupIndex) => {
         group.forEach((node, index) => {
           const angle = group.length === 1 ? 0 : (Math.PI * 2 * index) / group.length - Math.PI / 2;
@@ -1098,8 +1140,8 @@ function KnowledgeGraphPage() {
       });
     } else {
       const groupIndex = (node: KnowledgeGraphNode) => {
-        if (node.ontology_class_iri.endsWith("ExtractionRun") || node.ontology_class_iri.endsWith("SeasonalContext")) return 0;
-        if (node.ontology_class_iri.endsWith("LaggedAssociationAssertion")) return 1;
+        if (isRunNode(node) || node.ontology_class_iri.endsWith("SeasonalContext")) return 0;
+        if (isAssertionNode(node) || isMechanismAssertionNode(node)) return 1;
         if (node.ontology_class_iri.endsWith("WeatherEpisode")) return 3;
         return 2;
       };
@@ -1153,7 +1195,10 @@ function KnowledgeGraphPage() {
     }
     if (type.endsWith("SeasonalContext")) return "var(--mint)";
     if (type.endsWith("WeatherEpisode")) return "#8c6ed3";
-    if (type.endsWith("ExtractionRun")) return "var(--navy)";
+    if (type.endsWith("MechanismApplicabilityAssertion")) return "#ad7cff";
+    if (type.endsWith("LiteratureEvidenceRecord")) return "#d28b27";
+    if (type.endsWith("ScholarlyPublication")) return "#2f7f7a";
+    if (isRunNode(node)) return "var(--navy)";
     if (node.properties.kind === "ontology-concept") return "var(--teal)";
     return "var(--cyan)";
   };
@@ -1226,7 +1271,10 @@ function KnowledgeGraphPage() {
         <section className="kg-page">
           <article className="kg-canvas-panel panel">
             <div className="panel-label">
-              <span>{data.build.assertion_count} {t(locale, "kgAssertionLabel")} · {data.build.episode_count} {t(locale, "kgEpisodeLabel")}</span>
+              <span>
+                {data.build.assertion_count} {t(locale, "kgAssertionLabel")} · {data.build.episode_count} {t(locale, "kgEpisodeLabel")}
+                {data.literature_run ? ` · ${data.literature_run.mechanism_assertion_count} ${locale === "zh" ? "条文献机理断言" : "literature mechanism assertions"}` : ""}
+              </span>
               <b>{t(locale, "kgBuildLabel")} {data.build.build_id}</b>
             </div>
             <label className="kg-search-field">
@@ -1298,7 +1346,7 @@ function KnowledgeGraphPage() {
                 </label>
                 <button type="button" className={displayMode === "relations" ? "active" : ""} aria-pressed={displayMode === "relations"} onClick={() => setDisplayMode("relations")}>{locale === "zh" ? "关系视图" : "Relation view"}</button>
                 <button type="button" className={displayMode === "audit" ? "active" : ""} aria-pressed={displayMode === "audit"} onClick={() => setDisplayMode("audit")}>{locale === "zh" ? "审计结构" : "Audit structure"}</button>
-                {displayMode === "audit" && <button type="button" className={showEvidence ? "active" : ""} aria-pressed={showEvidence} onClick={() => setShowEvidence((value) => !value)}>{locale === "zh" ? "证据过程" : "Evidence"}</button>}
+                {displayMode === "audit" && <button type="button" className={showEvidence ? "active" : ""} aria-pressed={showEvidence} onClick={() => setShowEvidence((value) => !value)}>{locale === "zh" ? "证据链" : "Evidence chain"}</button>}
                 <button type="button" className={showLabels ? "active" : ""} aria-pressed={showLabels} onClick={() => setShowLabels((value) => !value)}>{locale === "zh" ? "文字标签" : "Labels"}</button>
                 <span className="kg-visible-count">{canvasNodes.length} {locale === "zh" ? "节点" : "nodes"} · {displayMode === "relations" ? collapsedRelations.length : visibleEdges.length} {locale === "zh" ? "关系" : "edges"}</span>
               </div>
