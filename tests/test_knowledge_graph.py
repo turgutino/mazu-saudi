@@ -20,7 +20,13 @@ ROOT = Path(__file__).resolve().parents[1]
 ONTOLOGY = ROOT / "ontology" / "mazu_weather_ontology.jsonld"
 
 
-def write_indicator_days(root: Path, count: int = 36) -> None:
+def write_indicator_days(
+    root: Path,
+    count: int = 36,
+    *,
+    missing_analysis_indices: set[int] | None = None,
+) -> None:
+    missing_analysis_indices = missing_analysis_indices or set()
     latitudes = np.asarray([5.0, 15.0])
     longitudes = np.asarray([5.0, 15.0])
     shape = (2, 2)
@@ -28,12 +34,30 @@ def write_indicator_days(root: Path, count: int = 36) -> None:
         current = date(2025, 3, 1) + timedelta(days=day_index)
         phase = float(day_index % 10)
         ivt = np.full(shape, phase)
+        if day_index in missing_analysis_indices:
+            ivt[:] = np.nan
         rain = np.full(shape, float((day_index - 1) % 10))
         dataset = xr.Dataset(
             {
                 "ivt": (("latitude", "longitude"), ivt),
-                "cape": (("latitude", "longitude"), np.full(shape, 100.0)),
-                "pwat": (("latitude", "longitude"), np.full(shape, 20.0)),
+                "cape": (
+                    ("latitude", "longitude"),
+                    np.full(
+                        shape,
+                        np.nan
+                        if day_index in missing_analysis_indices
+                        else 100.0,
+                    ),
+                ),
+                "pwat": (
+                    ("latitude", "longitude"),
+                    np.full(
+                        shape,
+                        np.nan
+                        if day_index in missing_analysis_indices
+                        else 20.0,
+                    ),
+                ),
                 "daily_precip_total": (("latitude", "longitude"), rain),
                 "tmax_c": (("latitude", "longitude"), np.full(shape, 30.0)),
                 "wind10_speed": (("latitude", "longitude"), np.full(shape, 5.0)),
@@ -60,6 +84,11 @@ def write_indicator_days(root: Path, count: int = 36) -> None:
                 ),
             },
             coords={"latitude": latitudes, "longitude": longitudes},
+        )
+        dataset.attrs["analysis_source_quality"] = (
+            "missing_required_messages"
+            if day_index in missing_analysis_indices
+            else "complete"
         )
         dataset.to_netcdf(root / f"global_indicators_{current:%Y%m%d}.nc")
 
@@ -169,6 +198,73 @@ def test_builder_rejects_indicator_files_that_do_not_match_the_contract(tmp_path
             input_dir=indicators,
             database_file=database,
             config=BuildConfig(require_complete_year=False),
+        )
+
+
+def test_formal_graph_rejects_seasonal_gaps_but_validation_graph_records_them(
+    tmp_path,
+):
+    indicators = tmp_path / "indicators"
+    indicators.mkdir()
+    write_indicator_days(
+        indicators,
+        count=20,
+        missing_analysis_indices=set(range(10)),
+    )
+    database = tmp_path / "mazu.sqlite3"
+    materialize_ontology(ONTOLOGY, database)
+    base = BuildConfig(
+        require_complete_year=False,
+        min_indicator_file_coverage=0.50,
+        min_indicator_season_coverage=0.75,
+        min_support_episodes=1,
+    )
+
+    with pytest.raises(ValueError, match="seasonal file coverage"):
+        build_statistical_knowledge_graph(
+            input_dir=indicators,
+            database_file=database,
+            config=base,
+        )
+
+    result = build_statistical_knowledge_graph(
+        input_dir=indicators,
+        database_file=database,
+        config=replace(
+            base,
+            allow_degraded_coverage=True,
+            scope_label="synthetic-validation-degraded",
+        ),
+    )
+
+    latest = KnowledgeGraphStore(database).latest_build()
+    assert result.input_file_count == 20
+    assert latest["config"]["quality_tier"] == "validation-degraded"
+    assert latest["config"]["seasonal_coverage_issues"]["ivt"]["MAM"] == 0.5
+    view = KnowledgeGraphStore(database).graph_view()
+    run = next(
+        node
+        for node in view["nodes"]
+        if node["ontology_class_iri"]
+        == "urn:mazu-saudi:ontology:ExtractionRun"
+    )
+    assert run["properties"]["quality_tier"] == "validation-degraded"
+    assert run["properties"]["source_quality_counts"] == {
+        "complete": 10,
+        "missing_required_messages": 10,
+    }
+
+
+def test_degraded_coverage_requires_an_explicit_validation_scope(tmp_path):
+    with pytest.raises(ValueError, match="validation-degraded"):
+        build_statistical_knowledge_graph(
+            input_dir=tmp_path,
+            database_file=tmp_path / "mazu.sqlite3",
+            config=BuildConfig(
+                require_complete_year=False,
+                allow_degraded_coverage=True,
+                scope_label="formal-looking-scope",
+            ),
         )
 
 

@@ -189,6 +189,49 @@ IVT 默认使用 1000、925、850、700、500、300 hPa 六层，在原始格点
 构建结果以 JSON 输出批次 ID、文件数、空间块数、节点数、关系数、断言数、证据过程数和
 阈值数。
 
+### 5.1 分析源异常的可审计降级
+
+`--stage audit` 除文件是否存在外，还报告：
+
+- `analysis_size_outlier_days`：分析文件小于当年分析文件中位大小一半的日期；
+- `analysis_truncated_days`：文件末尾没有完整 GRIB `7777` 结束标记的日期；
+- `analysis_quality_suspect_days`：以上两类日期的并集。
+
+实际解码时，缺少 CAPE、PWAT 或规范六层 q/u/v，以及读取到截断消息，均不再丢弃整天。
+脚本将 `ivt/cape/pwat` 写成 NaN，继续计算当天实际可用的降水、最高温、风、VPD 和多源
+背景，并在 NetCDF 属性及构建清单记录：
+
+```text
+analysis_source_quality
+analysis_missing_indicators
+analysis_source_error_type
+analysis_source_error
+```
+
+如果某个地表消息本身也是填充值，对应指标同样保持 NaN，不进行插值或伪造。
+
+### 5.2 正式图谱与验证图谱
+
+正式构建默认要求每个核心指标：
+
+- 全年有效文件覆盖率至少 50%；
+- 每个实际包含输入日期的季节有效覆盖率至少 75%。
+
+任一逐季门槛不满足时，默认停止构图。当前冬季分析源缺测只能显式构建验证图谱：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/build_global_knowledge_graph.py \
+  --stage all \
+  --allow-degraded-coverage
+```
+
+默认作用域会自动改为 `global-2025-excluding-saudi-validation-degraded`。提取运行节点和构建
+配置保存 `quality_tier=validation-degraded`、逐季指标覆盖率、源质量计数和覆盖问题；
+该图谱只用于数据库、接口与交互验证，不能作为正式全球机制规则。
+
+补齐原始分析文件后，重复运行指标阶段会依据源文件指纹只重算变更日期。随后不带
+`--allow-degraded-coverage` 执行构图，只有通过正式覆盖门槛才会写入正式图谱。
+
 ## 6. 服务与展示
 
 构建完成并重启应用后：

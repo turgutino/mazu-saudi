@@ -35,6 +35,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--evidence-episode-limit", type=int, default=12)
     parser.add_argument("--min-indicator-file-coverage", type=float, default=0.50)
     parser.add_argument(
+        "--min-indicator-season-coverage",
+        type=float,
+        default=0.75,
+    )
+    parser.add_argument(
+        "--allow-degraded-coverage",
+        action="store_true",
+        help=(
+            "Allow an explicitly labelled validation graph when seasonal "
+            "indicator coverage is below the formal gate."
+        ),
+    )
+    parser.add_argument(
         "--allow-incomplete-year",
         action="store_true",
         help="Allow a deliberate partial build; complete-year input is required by default.",
@@ -46,10 +59,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    scope_label = args.scope_label
+    if (
+        args.allow_degraded_coverage
+        and "validation-degraded" not in scope_label
+    ):
+        scope_label = f"{scope_label}-validation-degraded"
     config = BuildConfig(
         year=args.year,
         file_glob=args.file_glob,
-        scope_label=args.scope_label,
+        scope_label=scope_label,
         tile_degrees=args.tile_degrees,
         max_lag_days=args.max_lag_days,
         min_support_episodes=args.min_support_episodes,
@@ -57,6 +76,8 @@ def main(argv: list[str] | None = None) -> int:
         max_assertions=args.max_assertions,
         evidence_episode_limit=args.evidence_episode_limit,
         min_indicator_file_coverage=args.min_indicator_file_coverage,
+        min_indicator_season_coverage=args.min_indicator_season_coverage,
+        allow_degraded_coverage=args.allow_degraded_coverage,
         require_complete_year=not args.allow_incomplete_year,
     )
     materialize_ontology(args.ontology_source, args.database)

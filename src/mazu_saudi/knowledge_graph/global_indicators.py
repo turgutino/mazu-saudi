@@ -88,6 +88,17 @@ class SourceAudit:
     complete_day_count: int
     missing_source_days: dict[str, tuple[str, ...]]
     source_coverage_days: dict[str, int]
+    analysis_size_outlier_days: tuple[str, ...]
+    analysis_truncated_days: tuple[str, ...]
+    analysis_quality_suspect_days: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AnalysisReadQuality:
+    status: str
+    missing_indicators: tuple[str, ...] = ()
+    error_type: str | None = None
+    error: str | None = None
 
 
 @dataclass
@@ -268,6 +279,38 @@ def audit_sources(
             f"{len(missing)} days miss required source products; configured maximum is "
             f"{config.max_days_with_missing_sources}"
         )
+    analysis_files = [
+        (source.day, source.files.get("analysis"))
+        for source in records
+        if source.files.get("analysis") is not None
+    ]
+    analysis_sizes = np.asarray(
+        [path.stat().st_size for _, path in analysis_files],
+        dtype=np.float64,
+    )
+    median_analysis_size = (
+        float(np.median(analysis_sizes))
+        if analysis_sizes.size
+        else 0.0
+    )
+    size_outliers = tuple(
+        day
+        for day, path in analysis_files
+        if median_analysis_size > 0
+        and path.stat().st_size < median_analysis_size * 0.5
+    )
+    truncated: list[str] = []
+    for day, path in analysis_files:
+        try:
+            with path.open("rb") as stream:
+                stream.seek(-4, 2)
+                complete_tail = stream.read(4) == b"7777"
+        except (OSError, ValueError):
+            complete_tail = False
+        if not complete_tail:
+            truncated.append(day)
+    truncated_days = tuple(truncated)
+    suspect_days = tuple(sorted(set(size_outliers) | set(truncated_days)))
     return SourceAudit(
         year=config.year,
         day_count=len(records),
@@ -288,6 +331,9 @@ def audit_sources(
                 1 for source in records if len(source.satellite_files) == 48
             ),
         },
+        analysis_size_outlier_days=size_outliers,
+        analysis_truncated_days=truncated_days,
+        analysis_quality_suspect_days=suspect_days,
     )
 
 
@@ -453,58 +499,101 @@ def read_analysis_fields(
     *,
     config: GlobalIndicatorConfig,
     grid: TileGrid | None = None,
-) -> tuple[dict[str, np.ndarray], TileGrid]:
+) -> tuple[dict[str, np.ndarray], TileGrid | None, AnalysisReadQuality]:
     eccodes = _require_eccodes()
     levels = set(config.ivt_levels_hpa)
     humidity: dict[int, np.ndarray] = {}
     zonal: dict[int, np.ndarray] = {}
     meridional: dict[int, np.ndarray] = {}
     fields: dict[str, np.ndarray] = {}
-    with Path(path).open("rb") as stream:
-        while True:
-            handle = eccodes.codes_grib_new_from_file(stream)
-            if handle is None:
-                break
-            try:
-                short_name, level_type, level_value = _message_key(eccodes, handle)
-                level = int(level_value)
-                selected = (
-                    (short_name == "cape" and level_type == "surface")
-                    or (short_name == "pwat" and level_type == "atmosphereSingleLayer")
-                    or (
-                        short_name in {"q", "u", "v"}
-                        and level_type == "isobaricInhPa"
-                        and level in levels
+    try:
+        with Path(path).open("rb") as stream:
+            while True:
+                handle = eccodes.codes_grib_new_from_file(stream)
+                if handle is None:
+                    break
+                try:
+                    short_name, level_type, level_value = _message_key(
+                        eccodes,
+                        handle,
                     )
-                )
-                if not selected:
-                    continue
-                values = _message_values(eccodes, handle)
-                if grid is None:
-                    grid = _message_grid(eccodes, handle, config)
-                if values.size != grid.point_count:
-                    raise ValueError(f"Grid mismatch in {path.name}: {short_name}")
-                if short_name == "cape":
-                    fields["cape"] = _clean(values, 0.0, 100_000.0)
-                elif short_name == "pwat":
-                    fields["pwat"] = _clean(values, 0.0, 500.0)
-                elif short_name == "q":
-                    humidity[level] = _clean(values, 0.0, 0.1)
-                elif short_name == "u":
-                    zonal[level] = _clean(values, -200.0, 200.0)
-                elif short_name == "v":
-                    meridional[level] = _clean(values, -200.0, 200.0)
-            finally:
-                eccodes.codes_release(handle)
-    if grid is None:
-        raise ValueError(f"No graph indicator fields found in {path}")
+                    level = int(level_value)
+                    selected = (
+                        (short_name == "cape" and level_type == "surface")
+                        or (
+                            short_name == "pwat"
+                            and level_type == "atmosphereSingleLayer"
+                        )
+                        or (
+                            short_name in {"q", "u", "v"}
+                            and level_type == "isobaricInhPa"
+                            and level in levels
+                        )
+                    )
+                    if not selected:
+                        continue
+                    values = _message_values(eccodes, handle)
+                    if grid is None:
+                        grid = _message_grid(eccodes, handle, config)
+                    if values.size != grid.point_count:
+                        raise ValueError(
+                            f"Grid mismatch in {path.name}: {short_name}"
+                        )
+                    if short_name == "cape":
+                        fields["cape"] = _clean(values, 0.0, 100_000.0)
+                    elif short_name == "pwat":
+                        fields["pwat"] = _clean(values, 0.0, 500.0)
+                    elif short_name == "q":
+                        humidity[level] = _clean(values, 0.0, 0.1)
+                    elif short_name == "u":
+                        zonal[level] = _clean(values, -200.0, 200.0)
+                    elif short_name == "v":
+                        meridional[level] = _clean(values, -200.0, 200.0)
+                finally:
+                    eccodes.codes_release(handle)
+    except (OSError, eccodes.CodesInternalError) as exc:
+        return (
+            {},
+            grid,
+            AnalysisReadQuality(
+                status="corrupted",
+                missing_indicators=("ivt", "cape", "pwat"),
+                error_type=type(exc).__name__,
+                error=str(exc),
+            ),
+        )
+    missing_messages: list[str] = []
+    for indicator in ("cape", "pwat"):
+        if indicator not in fields:
+            missing_messages.append(indicator)
+    for short_name, available in (
+        ("q", humidity),
+        ("u", zonal),
+        ("v", meridional),
+    ):
+        missing_levels = sorted(levels - set(available), reverse=True)
+        if missing_levels:
+            missing_messages.append(
+                f"{short_name}@{','.join(str(level) for level in missing_levels)}hPa"
+            )
+    if missing_messages:
+        return (
+            {},
+            grid,
+            AnalysisReadQuality(
+                status="missing_required_messages",
+                missing_indicators=("ivt", "cape", "pwat"),
+                error_type="MissingRequiredGribMessages",
+                error="; ".join(missing_messages),
+            ),
+        )
     fields["ivt"] = integrate_ivt(
         humidity,
         zonal,
         meridional,
         config.ivt_levels_hpa,
     )
-    return fields, grid
+    return fields, grid, AnalysisReadQuality(status="complete")
 
 
 def derive_surface_indicators(fields: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
@@ -717,12 +806,23 @@ def read_daily_raw_indicators(
     config: GlobalIndicatorConfig,
     *,
     monthly_cache: dict[str, tuple[dict[str, np.ndarray], dict[str, np.ndarray]]] | None = None,
-) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray], TileGrid]:
+) -> tuple[
+    dict[str, np.ndarray],
+    dict[str, np.ndarray],
+    TileGrid,
+    AnalysisReadQuality,
+]:
     grid: TileGrid | None = None
     raw: dict[str, np.ndarray] = {}
     analysis = source.files["analysis"]
+    analysis_quality = AnalysisReadQuality(
+        status="missing_file",
+        missing_indicators=("ivt", "cape", "pwat"),
+        error_type="MissingSourceFile",
+        error="DS2 daily analysis file is absent",
+    )
     if analysis is not None:
-        analysis_fields, grid = read_analysis_fields(
+        analysis_fields, grid, analysis_quality = read_analysis_fields(
             analysis,
             config=config,
             grid=grid,
@@ -789,7 +889,7 @@ def read_daily_raw_indicators(
             monthly_cache[month] = (monthly_values, monthly_counts)
     values.update(monthly_values)
     counts.update(monthly_counts)
-    return values, counts, grid
+    return values, counts, grid, analysis_quality
 
 
 def write_daily_indicators(
@@ -808,7 +908,7 @@ def write_daily_indicators(
             "output": str(path),
             "missing_products": list(source.missing_products),
         }
-    values, counts, grid = read_daily_raw_indicators(
+    values, counts, grid, analysis_quality = read_daily_raw_indicators(
         source,
         config,
         monthly_cache=monthly_cache,
@@ -855,6 +955,12 @@ def write_daily_indicators(
             "source_product": "DS1+DS2+DS4+DS10 layered global indicators",
             "source_file_manifest": _source_manifest(source),
             "missing_source_products": ",".join(source.missing_products),
+            "analysis_source_quality": analysis_quality.status,
+            "analysis_missing_indicators": ",".join(
+                analysis_quality.missing_indicators
+            ),
+            "analysis_source_error_type": analysis_quality.error_type or "",
+            "analysis_source_error": analysis_quality.error or "",
             "tile_degrees": config.tile_degrees,
             "saudi_exclusion": json.dumps(asdict(config.exclusion), sort_keys=True),
             "saudi_cells_excluded_before_aggregation": "true",
@@ -870,11 +976,16 @@ def write_daily_indicators(
     }
     dataset.to_netcdf(temporary, encoding=encoding)
     temporary.replace(path)
+    degraded = analysis_quality.status != "complete"
     return {
         "day": source.day,
-        "status": "computed",
+        "status": "computed_degraded" if degraded else "computed",
         "output": str(path),
         "missing_products": list(source.missing_products),
+        "analysis_source_quality": analysis_quality.status,
+        "missing_indicators": list(analysis_quality.missing_indicators),
+        "analysis_source_error_type": analysis_quality.error_type,
+        "analysis_source_error": analysis_quality.error,
         "indicator_count": len(ALL_OUTPUT_VARIABLES),
     }
 

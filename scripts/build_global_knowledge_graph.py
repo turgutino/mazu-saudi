@@ -49,6 +49,19 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--min-support-episodes", type=int, default=8)
     result.add_argument("--min-lift", type=float, default=1.15)
     result.add_argument("--max-assertions", type=int, default=160)
+    result.add_argument(
+        "--min-indicator-season-coverage",
+        type=float,
+        default=0.75,
+    )
+    result.add_argument(
+        "--allow-degraded-coverage",
+        action="store_true",
+        help=(
+            "Build an explicitly labelled validation graph even when a "
+            "required indicator fails the seasonal coverage gate."
+        ),
+    )
     return result
 
 
@@ -99,17 +112,27 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
     materialize_ontology(args.ontology_source, args.database)
+    scope_label = args.scope_label
+    if (
+        args.allow_degraded_coverage
+        and "validation-degraded" not in scope_label
+    ):
+        scope_label = f"{scope_label}-validation-degraded"
     graph_result = build_statistical_knowledge_graph(
         input_dir=args.indicator_output,
         database_file=args.database,
         config=BuildConfig(
             year=args.year,
-            scope_label=args.scope_label,
+            scope_label=scope_label,
             tile_degrees=args.tile_degrees,
             max_lag_days=args.max_lag_days,
             min_support_episodes=args.min_support_episodes,
             min_lift=args.min_lift,
             max_assertions=args.max_assertions,
+            min_indicator_season_coverage=(
+                args.min_indicator_season_coverage
+            ),
+            allow_degraded_coverage=args.allow_degraded_coverage,
         ),
     )
     print(json.dumps(asdict(graph_result), ensure_ascii=False, indent=2))

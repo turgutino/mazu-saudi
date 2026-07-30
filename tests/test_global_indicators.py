@@ -7,6 +7,7 @@ import xarray as xr
 
 from mazu_saudi.knowledge_graph.global_indicators import (
     ALL_OUTPUT_VARIABLES,
+    AnalysisReadQuality,
     DailySource,
     GlobalIndicatorConfig,
     SaudiExclusion,
@@ -100,6 +101,9 @@ def test_source_audit_reports_known_product_gaps_without_inventing_files(tmp_pat
         "ds4_sea_surface_temperature": 0,
         "ds10_satellite_precipitation": 0,
     }
+    assert audit.analysis_size_outlier_days == ()
+    assert audit.analysis_truncated_days == ("20250101",)
+    assert audit.analysis_quality_suspect_days == ("20250101",)
 
 
 def test_sst_and_satellite_precipitation_are_aggregated_as_independent_sources(tmp_path):
@@ -173,7 +177,12 @@ def test_daily_output_is_atomic_resumable_and_records_missing_products(tmp_path)
 
     with patch(
         "mazu_saudi.knowledge_graph.global_indicators.read_daily_raw_indicators",
-        return_value=(values, counts, grid),
+        return_value=(
+            values,
+            counts,
+            grid,
+            AnalysisReadQuality(status="complete"),
+        ),
     ) as reader:
         first = write_daily_indicators(source, tmp_path, config)
         second = write_daily_indicators(source, tmp_path, config)
@@ -198,6 +207,58 @@ def test_daily_output_is_atomic_resumable_and_records_missing_products(tmp_path)
     with xr.open_dataset(path) as dataset:
         assert dataset.attrs["pipeline_version"] == "3"
         assert dataset.attrs["indicator_formula_version"] == "1.0.0"
+        assert dataset.attrs["analysis_source_quality"] == "complete"
         assert dataset.attrs["missing_source_products"] == "accumulation"
         assert dataset.attrs["saudi_cells_excluded_before_aggregation"] == "true"
         assert set(ALL_OUTPUT_VARIABLES).issubset(dataset.data_vars)
+
+
+def test_degraded_analysis_writes_nan_indicators_and_quality_metadata(tmp_path):
+    config = GlobalIndicatorConfig(tile_degrees=10.0)
+    source = DailySource(
+        day="20250102",
+        files={
+            "analysis": tmp_path / "analysis.grib2",
+            "accumulation": tmp_path / "accumulation.grib2",
+            "maximum": tmp_path / "maximum.grib2",
+            "surface": tmp_path / "surface.grib2",
+        },
+    )
+    for path in source.files.values():
+        path.touch()
+    grid = TileGrid.regular(config)
+    values = {
+        name: np.full(grid.shape, 1.0, dtype=np.float32)
+        for name in ALL_OUTPUT_VARIABLES
+    }
+    counts = {
+        name: np.ones(grid.shape, dtype=np.int32)
+        for name in ALL_OUTPUT_VARIABLES
+    }
+    for name in ("ivt", "cape", "pwat"):
+        values[name][:] = np.nan
+        counts[name][:] = 0
+    quality = AnalysisReadQuality(
+        status="missing_required_messages",
+        missing_indicators=("ivt", "cape", "pwat"),
+        error_type="MissingRequiredGribMessages",
+        error="cape; pwat; q@1000hPa",
+    )
+
+    with patch(
+        "mazu_saudi.knowledge_graph.global_indicators.read_daily_raw_indicators",
+        return_value=(values, counts, grid, quality),
+    ):
+        result = write_daily_indicators(source, tmp_path, config)
+
+    assert result["status"] == "computed_degraded"
+    with xr.open_dataset(result["output"]) as dataset:
+        assert dataset.attrs["analysis_source_quality"] == (
+            "missing_required_messages"
+        )
+        assert dataset.attrs["analysis_missing_indicators"] == "ivt,cape,pwat"
+        assert dataset.attrs["analysis_source_error_type"] == (
+            "MissingRequiredGribMessages"
+        )
+        assert not np.any(np.isfinite(dataset["ivt"]))
+        assert np.any(np.isfinite(dataset["daily_precip_total"]))

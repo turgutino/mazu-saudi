@@ -134,6 +134,8 @@ class BuildConfig:
     max_assertions: int = 160
     evidence_episode_limit: int = 12
     min_indicator_file_coverage: float = 0.50
+    min_indicator_season_coverage: float = 0.75
+    allow_degraded_coverage: bool = False
     require_complete_year: bool = True
 
 
@@ -160,6 +162,8 @@ class AggregatedIndicators:
     tile_longitudes: np.ndarray
     values: dict[str, np.ndarray]
     file_coverage: dict[str, float]
+    seasonal_file_coverage: dict[str, dict[str, float]]
+    source_quality_counts: dict[str, int]
 
 
 @dataclass(frozen=True)
@@ -290,6 +294,7 @@ def aggregate_daily_indicators(
     }
     active = np.zeros(tile_count, dtype=bool)
     indicator_file_counts = {name: 0 for name in indicator_names}
+    source_quality_counts: dict[str, int] = {}
 
     for day_index, (_, path) in enumerate(files):
         with xr.open_dataset(path) as dataset:
@@ -306,6 +311,7 @@ def aggregate_daily_indicators(
             lat_bin = np.clip(lat_bin, 0, nlat - 1)
             lon_bin = np.clip(lon_bin, 0, nlon - 1)
             tile_ids = (lat_bin * nlon + lon_bin).ravel()
+            available_indicators: set[str] = set()
 
             for indicator in indicator_names:
                 if indicator not in dataset:
@@ -321,6 +327,7 @@ def aggregate_daily_indicators(
                 valid = np.isfinite(raw) & (np.abs(raw) < 1.0e20)
                 if np.any(valid):
                     indicator_file_counts[indicator] += 1
+                    available_indicators.add(indicator)
                 sums = np.bincount(
                     tile_ids[valid],
                     weights=raw[valid],
@@ -335,6 +342,20 @@ def aggregate_daily_indicators(
                 )
                 values[indicator][day_index] = aggregated.astype(np.float32)
                 active |= counts > 0
+            quality_attr = dataset.attrs.get("analysis_source_quality")
+            if quality_attr is None:
+                quality = (
+                    "complete_unrecorded_v3"
+                    if {"ivt", "cape", "pwat"}.issubset(
+                        available_indicators
+                    )
+                    else "degraded_unrecorded_v3"
+                )
+            else:
+                quality = str(quality_attr)
+            source_quality_counts[quality] = (
+                source_quality_counts.get(quality, 0) + 1
+            )
 
     active_ids = np.flatnonzero(active)
     absent = [
@@ -354,6 +375,18 @@ def aggregate_daily_indicators(
         spatial_keys.append(f"tile:{lat_min:.3f}:{lon_min:.3f}:{tile_degrees:.3f}")
         tile_latitudes.append(min(90.0, lat_min + tile_degrees / 2.0))
         tile_longitudes.append(min(180.0, lon_min + tile_degrees / 2.0))
+    seasons = np.asarray([_season(day) for day, _ in files])
+    seasonal_file_coverage: dict[str, dict[str, float]] = {}
+    for name, array in values.items():
+        available_by_day = np.any(np.isfinite(array), axis=1)
+        seasonal_file_coverage[name] = {}
+        for season in ("DJF", "MAM", "JJA", "SON"):
+            season_mask = seasons == season
+            if not np.any(season_mask):
+                continue
+            seasonal_file_coverage[name][season] = float(
+                np.mean(available_by_day[season_mask])
+            )
     return AggregatedIndicators(
         dates=[day for day, _ in files],
         spatial_keys=spatial_keys,
@@ -364,6 +397,8 @@ def aggregate_daily_indicators(
             name: count / len(files)
             for name, count in indicator_file_counts.items()
         },
+        seasonal_file_coverage=seasonal_file_coverage,
+        source_quality_counts=source_quality_counts,
     )
 
 
@@ -729,6 +764,22 @@ def _materialize_records(
             "properties": {
                 "config": asdict(config),
                 "source_file_coverage": aggregated.file_coverage,
+                "seasonal_indicator_file_coverage": (
+                    aggregated.seasonal_file_coverage
+                ),
+                "source_quality_counts": aggregated.source_quality_counts,
+                "quality_tier": (
+                    "validation-degraded"
+                    if config.allow_degraded_coverage
+                    else "formal"
+                ),
+                "claim_boundary": (
+                    "Degraded source coverage was explicitly accepted for "
+                    "pipeline and interface validation; this build is not a "
+                    "formal global mechanism graph."
+                    if config.allow_degraded_coverage
+                    else "Formal indicator coverage gates passed."
+                ),
             },
         }
     ]
@@ -783,6 +834,13 @@ def _materialize_records(
                     "season": season,
                     "tile_degrees": config.tile_degrees,
                     "scope": config.scope_label,
+                    "indicator_file_coverage": {
+                        indicator: coverage[season]
+                        for indicator, coverage in (
+                            aggregated.seasonal_file_coverage.items()
+                        )
+                        if season in coverage
+                    },
                 },
             }
         )
@@ -1051,6 +1109,18 @@ def build_statistical_knowledge_graph(
 
     if not 0.0 < config.min_indicator_file_coverage <= 1.0:
         raise ValueError("min_indicator_file_coverage must be greater than 0 and at most 1")
+    if not 0.0 < config.min_indicator_season_coverage <= 1.0:
+        raise ValueError(
+            "min_indicator_season_coverage must be greater than 0 and at most 1"
+        )
+    if (
+        config.allow_degraded_coverage
+        and "validation-degraded" not in config.scope_label
+    ):
+        raise ValueError(
+            "allow_degraded_coverage requires a scope_label containing "
+            "'validation-degraded'"
+        )
 
     input_dir = Path(input_dir).resolve()
     database_file = Path(database_file)
@@ -1103,6 +1173,29 @@ def build_statistical_knowledge_graph(
             "Indicator file coverage is below "
             f"{config.min_indicator_file_coverage:.0%}: {insufficient_coverage}"
         )
+    insufficient_seasonal_coverage = {
+        indicator: {
+            season: coverage
+            for season, coverage in aggregated.seasonal_file_coverage[
+                indicator
+            ].items()
+            if coverage < config.min_indicator_season_coverage
+        }
+        for indicator in sorted(required_indicators)
+    }
+    insufficient_seasonal_coverage = {
+        indicator: seasons
+        for indicator, seasons in insufficient_seasonal_coverage.items()
+        if seasons
+    }
+    if insufficient_seasonal_coverage and not config.allow_degraded_coverage:
+        raise ValueError(
+            "Indicator seasonal file coverage is below "
+            f"{config.min_indicator_season_coverage:.0%}: "
+            f"{insufficient_seasonal_coverage}; use "
+            "--allow-degraded-coverage only for an explicitly labelled "
+            "validation graph"
+        )
     state_flags, availability, thresholds = _derive_states(aggregated, state_specs)
     episodes, episodes_by_state_season = _extract_episodes(
         aggregated.dates,
@@ -1150,6 +1243,16 @@ def build_statistical_knowledge_graph(
             "state_specs": [asdict(spec) for spec in state_specs],
             "input_fingerprint": "sha256(path,size,mtime_ns manifest)",
             "indicator_file_coverage": aggregated.file_coverage,
+            "seasonal_indicator_file_coverage": (
+                aggregated.seasonal_file_coverage
+            ),
+            "source_quality_counts": aggregated.source_quality_counts,
+            "quality_tier": (
+                "validation-degraded"
+                if config.allow_degraded_coverage
+                else "formal"
+            ),
+            "seasonal_coverage_issues": insufficient_seasonal_coverage,
         },
         "created_at": datetime.now(timezone.utc).isoformat(),
         "node_count": len(nodes),
