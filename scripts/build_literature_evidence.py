@@ -65,7 +65,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fetch",
         action="store_true",
-        help="Fetch only the publisher URLs declared in the versioned manifest.",
+        help=(
+            "Fetch the publisher URLs declared in the versioned manifest before "
+            "inspection or graph construction."
+        ),
     )
     parser.add_argument(
         "--overwrite-documents",
@@ -85,6 +88,50 @@ def parse_args() -> argparse.Namespace:
     if args.overwrite_documents and not args.fetch:
         parser.error("--overwrite-documents requires --fetch")
     return args
+
+
+def _preflight_failure(
+    *,
+    inspection: dict,
+    has_candidates: bool,
+    has_snapshots: bool,
+) -> dict | None:
+    """Return an actionable structured failure instead of hiding fetch diagnostics."""
+
+    if not has_candidates:
+        return {
+            "status": "blocked",
+            "reason": "no_statistical_candidates",
+            "message": (
+                "No cross-indicator lagged statistical assertions are available."
+            ),
+            "inspection": inspection,
+        }
+    if not has_snapshots:
+        return {
+            "status": "blocked",
+            "reason": "no_publication_snapshots",
+            "message": (
+                "No publication snapshots are available. Publisher HTTP 403/429 "
+                "responses are access restrictions, not missing API credentials."
+            ),
+            "next_steps": [
+                (
+                    "Review inspection.fetch_errors below; rerun with "
+                    "--fetch --dry-run to inspect without calling BigModel."
+                ),
+                (
+                    "Use a browser or institutional access to save a legally "
+                    "accessible HTML, TXT, or PDF snapshot."
+                ),
+                (
+                    "Name each file <source_id>.html/.txt/.pdf and place it in "
+                    f"{inspection['documents_dir']}."
+                ),
+            ],
+            "inspection": inspection,
+        }
+    return None
 
 
 def main() -> int:
@@ -139,19 +186,19 @@ def main() -> int:
         },
         "model": args.model,
         "api_key_environment_variable": args.api_key_env,
+        "documents_dir": str(args.documents_dir.resolve()),
     }
     if args.dry_run:
         print(json.dumps(inspection, ensure_ascii=False, indent=2))
         return 0
-    if not candidates:
-        raise RuntimeError(
-            "No cross-indicator lagged statistical assertions are available"
-        )
-    if not snapshots:
-        raise RuntimeError(
-            "No publication snapshots are available. Run with --fetch or place "
-            "reviewed HTML, TXT, or PDF files in --documents-dir."
-        )
+    failure = _preflight_failure(
+        inspection=inspection,
+        has_candidates=bool(candidates),
+        has_snapshots=bool(snapshots),
+    )
+    if failure is not None:
+        print(json.dumps(failure, ensure_ascii=False, indent=2), file=sys.stderr)
+        return 2
 
     client = CachedJsonClient(
         ZhipuJsonClient.from_environment(

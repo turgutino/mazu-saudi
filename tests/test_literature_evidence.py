@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import importlib.util
 import json
 from pathlib import Path
 
@@ -21,6 +22,18 @@ from mazu_saudi.ontology import materialize_ontology
 ROOT = Path(__file__).resolve().parents[1]
 ONTOLOGY = ROOT / "ontology" / "mazu_weather_ontology.jsonld"
 GUIDE = ROOT / "ontology" / "literature_evidence_build.md"
+
+
+def _load_build_script():
+    script_path = ROOT / "scripts" / "build_literature_evidence.py"
+    spec = importlib.util.spec_from_file_location(
+        "build_literature_evidence_script",
+        script_path,
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _write_statistical_build(database: Path) -> str:
@@ -363,3 +376,24 @@ def test_build_guide_documents_key_and_claim_boundaries():
     ):
         assert required in guide
     assert "YOUR_API_KEY" not in guide
+
+
+def test_missing_snapshots_report_fetch_errors_and_manual_recovery_path():
+    script = _load_build_script()
+    inspection = {
+        "documents_dir": "/tmp/literature/documents",
+        "fetch_errors": [
+            {"source_id": "paper", "error": "HTTPError: 403"}
+        ],
+    }
+
+    failure = script._preflight_failure(
+        inspection=inspection,
+        has_candidates=True,
+        has_snapshots=False,
+    )
+
+    assert failure["reason"] == "no_publication_snapshots"
+    assert failure["inspection"]["fetch_errors"][0]["error"] == "HTTPError: 403"
+    assert "/tmp/literature/documents" in failure["next_steps"][2]
+    assert "API credentials" in failure["message"]
