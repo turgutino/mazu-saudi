@@ -55,6 +55,7 @@ def create_app(
     knowledge_graph_service = KnowledgeGraphBrowserService(
         KnowledgeGraphStore(settings.ontology_database_file),
         ontology_service,
+        evidence_graph_file=settings.graph_file,
     )
     app = FastAPI(
         title="MAZU Saudi Historical Warning Console",
@@ -145,6 +146,20 @@ def create_app(
     ):
         try:
             return knowledge_graph_service.view(build_id=build_id, limit=limit)
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+
+    @app.get("/api/v1/knowledge-graph/explanations/{hazard}")
+    def knowledge_graph_explanation(hazard: Hazard):
+        try:
+            return knowledge_graph_service.explanation(hazard)
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+
+    @app.get("/api/v1/knowledge-graph/ablation")
+    def knowledge_graph_explanation_ablation():
+        try:
+            return knowledge_graph_service.explanation_ablation()
         except RuntimeError as exc:
             raise HTTPException(503, str(exc)) from exc
 

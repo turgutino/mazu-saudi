@@ -17,7 +17,7 @@ import {
   ruleNote,
   t,
 } from "./i18n";
-import type { Config, FieldData, FieldLayer, Health, KnowledgeGraphNode, KnowledgeGraphView, Locale, OntologyEdge, OntologyNode, OntologyRelationView, ReportItem, Run, Scenario } from "./types";
+import type { Config, FieldData, FieldLayer, GraphExplanationAblation, Hazard, HazardExplanation, Health, KnowledgeGraphNode, KnowledgeGraphView, Locale, OntologyEdge, OntologyNode, OntologyRelationView, ReportItem, Run, Scenario } from "./types";
 import agentExamples from "./data/agentExamples.json";
 
 type AppState = {
@@ -934,6 +934,126 @@ function collapsedRelationGeometry(
   };
 }
 
+function HazardExplanationPanel() {
+  const { locale } = useApp();
+  const [hazard, setHazard] = useState<Hazard>("flash_flood");
+  const [explanation, setExplanation] = useState<HazardExplanation | null>(null);
+  const [ablation, setAblation] = useState<GraphExplanationAblation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+    Promise.all([
+      api.hazardExplanation(hazard),
+      api.graphExplanationAblation(),
+    ])
+      .then(([nextExplanation, nextAblation]) => {
+        setExplanation(nextExplanation);
+        setAblation(nextAblation);
+      })
+      .catch(() => {
+        setExplanation(null);
+        setAblation(null);
+        setError(locale === "zh" ? "图谱解释包读取失败" : "Explanation package unavailable");
+      })
+      .finally(() => setLoading(false));
+  }, [hazard, locale]);
+
+  const featureStatus = explanation?.feature_selection.status;
+  const featureStatusLabel = featureStatus === "candidates_for_saudi_evaluation"
+    ? (locale === "zh" ? "存在待验证候选" : "Candidates await evaluation")
+    : featureStatus === "global_graph_unavailable"
+      ? (locale === "zh" ? "全球实例层尚未构建" : "Global instance layer unavailable")
+      : (locale === "zh" ? "暂无合格候选" : "No eligible candidate");
+  const gapLabel = (code: string) => {
+    if (locale !== "zh") return code.replaceAll("_", " ");
+    if (code === "original_publication_wording_not_verified") return "原论文措辞待核验";
+    if (code === "mechanism_without_literature_support") return "机制缺少文献记录";
+    if (code === "global_observational_graph_unavailable") return "全球实例图谱不可用";
+    return code.replaceAll("_", " ");
+  };
+
+  return (
+    <section className="graph-explanation-panel panel" aria-label={locale === "zh" ? "图谱解释包" : "Graph-grounded explanation package"}>
+      <div className="graph-explanation-heading">
+        <div>
+          <span>{locale === "zh" ? "解释证据层 / READ-ONLY" : "EXPLANATION EVIDENCE / READ-ONLY"}</span>
+          <h2>{locale === "zh" ? "图谱解释包" : "Graph-grounded explanation package"}</h2>
+          <p>{locale === "zh" ? "按灾种组合机制、指标、文献核验状态和离线特征候选；各层证据保持独立来源。" : "Compose mechanisms, indicators, citation status and offline feature candidates without flattening their provenance."}</p>
+        </div>
+        <div className="graph-explanation-hazards">
+          {(["flash_flood", "heatwave", "dust_storm"] as Hazard[]).map((item) => (
+            <button type="button" key={item} className={hazard === item ? "active" : ""} onClick={() => setHazard(item)}>
+              {hazardLabel(locale, item)}
+            </button>
+          ))}
+        </div>
+      </div>
+      {loading && <div className="graph-explanation-state">{locale === "zh" ? "正在组合证据层…" : "Composing evidence layers…"}</div>}
+      {error && <div className="graph-explanation-state error-message">{error}</div>}
+      {!loading && explanation && (
+        <>
+          <div className="graph-explanation-grid">
+            <article>
+              <span>01 / {locale === "zh" ? "指标映射" : "INDICATORS"}</span>
+              <strong>{explanation.indicators.length}</strong>
+              <div className="graph-explanation-tags">
+                {explanation.indicators.map((item) => <small key={item.id} title={item.id}>{indicatorLabel(locale, item.id)}</small>)}
+              </div>
+            </article>
+            <article>
+              <span>02 / {locale === "zh" ? "机制与文献" : "MECHANISMS"}</span>
+              <strong>{explanation.mechanisms.length}</strong>
+              <div className="graph-mechanism-list">
+                {explanation.mechanisms.map((item) => (
+                  <div key={item.id}>
+                    <b>{mechanismLabel(locale, item.id)}</b>
+                    <small className={item.literature_support_available ? "grounded" : "review"}>
+                      {item.literature_support_available ? (locale === "zh" ? "有限文献支持" : "Scoped support") : (locale === "zh" ? "待补文献" : "Evidence gap")}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            </article>
+            <article>
+              <span>03 / {locale === "zh" ? "证据缺口" : "EVIDENCE GAPS"}</span>
+              <strong>{explanation.evidence_gaps.length}</strong>
+              <div className="graph-gap-list">
+                {explanation.evidence_gaps.slice(0, 4).map((gap) => (
+                  <div key={`${gap.code}-${gap.subject_id}`}>
+                    <b>{gap.subject_id}</b><small>{gapLabel(gap.code)}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+            <article>
+              <span>04 / {locale === "zh" ? "沙特离线特征候选" : "OFFLINE FEATURE CANDIDATES"}</span>
+              <strong>{explanation.feature_selection.offline_candidates.length}</strong>
+              <p>{featureStatusLabel}</p>
+              {explanation.feature_selection.offline_candidates.slice(0, 3).map((candidate) => (
+                <small className="graph-feature-candidate" key={candidate.assertion_id}>
+                  {candidate.source_state.label || candidate.source_state.id} → {candidate.target_state.label || candidate.target_state.id}
+                </small>
+              ))}
+              <em>{locale === "zh" ? "生产特征：0（必须先做冻结离线实验）" : "Production features: 0; frozen offline evaluation required."}</em>
+            </article>
+          </div>
+          {ablation && (
+            <div className="graph-ablation">
+              <div><span>{locale === "zh" ? "解释覆盖消融" : "Explanation coverage ablation"}</span><strong>{ablation.with_graph.grounded_mechanism_count}</strong><small>{locale === "zh" ? "个有文献记录的机制" : "mechanisms with citation records"}</small></div>
+              <i>vs</i>
+              <div><span>{locale === "zh" ? "停用图谱" : "Graph disabled"}</span><strong>{ablation.without_graph.mechanism_count}</strong><small>{locale === "zh" ? "个可追溯机制" : "traceable mechanisms"}</small></div>
+              <p>{locale === "zh" ? "只衡量解释覆盖；不代表预测准确率提升或幻觉率测量。" : "Measures explanation coverage only; not forecast-skill improvement or a hallucination-rate measurement."}</p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 function KnowledgeGraphPage() {
   const { locale } = useApp();
   const [data, setData] = useState<KnowledgeGraphView | null>(null);
@@ -1315,6 +1435,7 @@ function KnowledgeGraphPage() {
     return (
       <>
         <PageHeading eyebrow={t(locale, "kgEyebrow")} title={t(locale, "kgTitle")} lead={t(locale, "kgLead")} truth={t(locale, "kgBuiltTruth")} context={`${data.build.scope_label} · ${data.build.start_date}–${data.build.end_date}`} archiveSensitive={false} />
+        <HazardExplanationPanel />
         <section className="kg-page">
           <article className="kg-canvas-panel panel">
             <div className="panel-label">
@@ -1561,6 +1682,7 @@ function KnowledgeGraphPage() {
   return (
     <>
       <PageHeading eyebrow={t(locale, "kgEyebrow")} title={t(locale, "kgTitle")} lead={t(locale, "kgLead")} truth={locale === "zh" ? "实例数据尚未生成" : "Instance data not generated"} context={t(locale, "kgTruthContext")} archiveSensitive={false} />
+      <HazardExplanationPanel />
       <section className="kg-pending panel">
         <div className="kg-pending-mark" aria-hidden="true"><span>◇</span><i /><i /><i /></div>
         <div className="kg-pending-copy">

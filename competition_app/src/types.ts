@@ -202,3 +202,74 @@ export interface KnowledgeGraphView {
   node_count: number;
   edge_count: number;
 }
+
+export interface HazardExplanation {
+  contract_version: string;
+  hazard: { id: Hazard; label: string; target_state_iri: string };
+  source_graph: { name: string; schema_version: string; purpose: string };
+  indicators: Array<{
+    id: string;
+    label: string;
+    description: string | null;
+    relation_audit: Record<string, unknown>;
+  }>;
+  mechanisms: Array<{
+    id: string;
+    label: string;
+    description: string | null;
+    relation_audit: Record<string, unknown>;
+    literature_support_available: boolean;
+    citations: Array<{
+      id: string;
+      citation: string;
+      title: string;
+      verification_scope: string;
+      review_status: string;
+    }>;
+  }>;
+  evidence_gaps: Array<{
+    code: string;
+    subject_id: string;
+    message: string;
+    required_action: string;
+  }>;
+  feature_selection: {
+    status: string;
+    global_build_id: string | null;
+    offline_candidates: Array<{
+      assertion_id: string;
+      label: string;
+      source_state: { id: string; label: string };
+      target_state: { id: string; label: string };
+      lift: number;
+      eligible_for_prediction_experiment: boolean;
+      eligible_for_production_prediction: boolean;
+      eligible_for_causal_explanation: boolean;
+    }>;
+    production_features: string[];
+    boundary: string;
+  };
+  eligible_for_causal_explanation: false;
+  boundaries: string[];
+}
+
+export interface GraphExplanationAblation {
+  contract_version: string;
+  scope: "explanation_coverage_only";
+  forecast_model_changed: false;
+  prediction_skill_evaluated: false;
+  hallucination_rate_evaluated: false;
+  with_graph: {
+    mechanism_count: number;
+    grounded_mechanism_count: number;
+    citation_count: number;
+    evidence_gap_count: number;
+  };
+  without_graph: {
+    mechanism_count: 0;
+    citation_count: 0;
+    evidence_gap_count: 0;
+    response_policy: string;
+  };
+  boundary: string;
+}

@@ -15,6 +15,7 @@ from .external_background import (
     run_kwg_enrichment,
     validate_kwg_snapshot,
 )
+from .explanation import HazardExplanationQuery
 
 __all__ = [
     "BuildConfig",
@@ -23,6 +24,7 @@ __all__ = [
     "DEFAULT_STATE_SPECS",
     "IndicatorStateSpec",
     "KnowledgeGraphStore",
+    "HazardExplanationQuery",
     "KWGBackgroundStore",
     "LiteratureEvidenceStore",
     "build_statistical_knowledge_graph",

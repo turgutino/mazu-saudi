@@ -207,6 +207,74 @@ const builtKnowledgeGraph = {
   node_count: 3,
   edge_count: 2,
 };
+const hazardExplanation = {
+  contract_version: "graph-grounded-explanation-v1",
+  hazard: {
+    id: "flash_flood",
+    label: "Flash Flood / Wadi Flooding",
+    target_state_iri: "urn:mazu-saudi:concept:ExtremeRainfallState",
+  },
+  source_graph: {
+    name: "MAZU Hazard Mechanism & Evidence Graph",
+    schema_version: "2.0",
+    purpose: "auditable explanation evidence",
+  },
+  indicators: [{
+    id: "ivt",
+    label: "ivt",
+    description: "Integrated vapour transport",
+    relation_audit: {},
+  }],
+  mechanisms: [{
+    id: "ARST",
+    label: "ARST",
+    description: "Active Red Sea Trough",
+    relation_audit: {},
+    literature_support_available: true,
+    citations: [{
+      id: "citation-1",
+      citation: "de Vries et al. (2013)",
+      title: "Extreme precipitation events",
+      verification_scope: "curated passage",
+      review_status: "scope limited",
+    }],
+  }],
+  evidence_gaps: [{
+    code: "original_publication_wording_not_verified",
+    subject_id: "citation-1",
+    message: "Original wording not verified",
+    required_action: "Verify the original publication",
+  }],
+  feature_selection: {
+    status: "global_graph_unavailable",
+    global_build_id: null,
+    offline_candidates: [],
+    production_features: [],
+    boundary: "Offline evaluation only.",
+  },
+  eligible_for_causal_explanation: false,
+  boundaries: ["No automatic causality."],
+};
+const graphExplanationAblation = {
+  contract_version: "graph-explanation-ablation-v1",
+  scope: "explanation_coverage_only",
+  forecast_model_changed: false,
+  prediction_skill_evaluated: false,
+  hallucination_rate_evaluated: false,
+  with_graph: {
+    mechanism_count: 5,
+    grounded_mechanism_count: 4,
+    citation_count: 6,
+    evidence_gap_count: 4,
+  },
+  without_graph: {
+    mechanism_count: 0,
+    citation_count: 0,
+    evidence_gap_count: 0,
+    response_policy: "state_that_no_graph_grounded_explanation_is_available",
+  },
+  boundary: "Explanation coverage only.",
+};
 
 function jsonResponse(payload: unknown, status = 200) {
   return Promise.resolve(new Response(JSON.stringify(payload), {
@@ -245,6 +313,12 @@ describe("historical warning application", () => {
       if (path.startsWith("/api/v1/ontology/view")) return jsonResponse(ontologyGraph);
       if (path.startsWith("/api/v1/knowledge-graph/view")) {
         return jsonResponse(graphBuilt ? builtKnowledgeGraph : emptyKnowledgeGraph);
+      }
+      if (path.startsWith("/api/v1/knowledge-graph/explanations/")) {
+        return jsonResponse(hazardExplanation);
+      }
+      if (path === "/api/v1/knowledge-graph/ablation") {
+        return jsonResponse(graphExplanationAblation);
       }
       throw new Error(`Unhandled request: ${path}`);
     }));
@@ -339,6 +413,9 @@ describe("historical warning application", () => {
       expect.stringContaining("/api/v1/ontology/view"),
       expect.anything(),
     );
+    expect(await screen.findByRole("heading", { name: "图谱解释包" })).toBeInTheDocument();
+    expect(await screen.findByText("全球实例层尚未构建")).toBeInTheDocument();
+    expect(await screen.findByText(/只衡量解释覆盖/)).toBeInTheDocument();
   });
 
   it("renders and inspects a built statistical knowledge graph", async () => {

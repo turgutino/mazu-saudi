@@ -79,6 +79,27 @@ def test_knowledge_graph_can_expand_literature_mechanism_evidence_chain():
     assert "literature_run?" in types
 
 
+def test_knowledge_graph_exposes_hazard_explanations_and_bounded_ablation():
+    app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
+    api = (FRONTEND / "src" / "api.ts").read_text(encoding="utf-8")
+    types = (FRONTEND / "src" / "types.ts").read_text(encoding="utf-8")
+
+    for contract in (
+        "图谱解释包",
+        "解释覆盖消融",
+        "证据缺口",
+        "沙特离线特征候选",
+        "不代表预测准确率提升或幻觉率测量",
+    ):
+        assert contract in app
+    assert "api.hazardExplanation(hazard)" in app
+    assert "api.graphExplanationAblation()" in app
+    assert "/api/v1/knowledge-graph/explanations/${hazard}" in api
+    assert '"/api/v1/knowledge-graph/ablation"' in api
+    assert "export interface HazardExplanation" in types
+    assert "export interface GraphExplanationAblation" in types
+
+
 def test_competition_frontend_excludes_future_research_and_operational_claims():
     public_sources = "\n".join(
         path.read_text(encoding="utf-8")

@@ -141,6 +141,8 @@ def test_ontology_is_materialized_and_exposed_as_a_read_only_graph(tmp_path):
     assert "/api/v1/ontology/graph" not in paths
     assert "/api/v1/knowledge-graph" in paths
     assert "/api/v1/knowledge-graph/view" in paths
+    assert "/api/v1/knowledge-graph/explanations/{hazard}" in paths
+    assert "/api/v1/knowledge-graph/ablation" in paths
     assert "/api/v1/knowledge-graph/background" in paths
     assert "/api/v1/knowledge-graph/background/view" in paths
 
@@ -173,6 +175,33 @@ def test_ontology_is_materialized_and_exposed_as_a_read_only_graph(tmp_path):
         params={"iri": "urn:mazu-saudi:concept:DoesNotExist"},
     )
     assert missing.status_code == 404
+
+
+def test_hazard_explanation_and_ablation_are_available_without_a_global_build(
+    tmp_path,
+):
+    client, _ = make_client(tmp_path)
+
+    explanation = client.get(
+        "/api/v1/knowledge-graph/explanations/flash_flood"
+    )
+    assert explanation.status_code == 200
+    payload = explanation.json()
+    assert payload["contract_version"] == "graph-grounded-explanation-v1"
+    assert payload["hazard"]["id"] == "flash_flood"
+    assert payload["feature_selection"]["status"] == "global_graph_unavailable"
+    assert payload["feature_selection"]["production_features"] == []
+    assert any(
+        gap["code"] == "mechanism_without_literature_support"
+        for gap in payload["evidence_gaps"]
+    )
+
+    ablation = client.get("/api/v1/knowledge-graph/ablation")
+    assert ablation.status_code == 200
+    result = ablation.json()
+    assert result["scope"] == "explanation_coverage_only"
+    assert result["forecast_model_changed"] is False
+    assert result["prediction_skill_evaluated"] is False
 
 
 def test_knowledge_graph_api_is_explicitly_empty_before_the_first_build(tmp_path):

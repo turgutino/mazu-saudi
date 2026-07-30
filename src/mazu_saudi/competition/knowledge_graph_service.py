@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from mazu_saudi.knowledge_graph import KnowledgeGraphStore, KWGBackgroundStore
+from mazu_saudi.knowledge_graph import (
+    HazardExplanationQuery,
+    KnowledgeGraphStore,
+    KWGBackgroundStore,
+)
 
 from .ontology_service import OntologyBrowserService
 
@@ -15,11 +19,17 @@ class KnowledgeGraphBrowserService:
         store: KnowledgeGraphStore,
         ontology_service: OntologyBrowserService,
         background_store: KWGBackgroundStore | None = None,
+        evidence_graph_file=None,
     ):
         self.store = store
         self.ontology_service = ontology_service
         self.background_store = background_store or KWGBackgroundStore(
             store.database_file
+        )
+        self.explanation_query = (
+            HazardExplanationQuery(evidence_graph_file, store)
+            if evidence_graph_file is not None
+            else None
         )
 
     def summary(self) -> dict[str, Any]:
@@ -57,3 +67,15 @@ class KnowledgeGraphBrowserService:
 
     def background_view(self, *, run_id: str | None = None) -> dict[str, Any]:
         return self.background_store.background_view(run_id)
+
+    def explanation(self, hazard: str) -> dict[str, Any]:
+        if self.explanation_query is None:
+            raise RuntimeError("Audited evidence graph is not configured")
+        self.ontology_service.ensure_ready()
+        return self.explanation_query.explain(hazard)
+
+    def explanation_ablation(self) -> dict[str, Any]:
+        if self.explanation_query is None:
+            raise RuntimeError("Audited evidence graph is not configured")
+        self.ontology_service.ensure_ready()
+        return self.explanation_query.ablation()
