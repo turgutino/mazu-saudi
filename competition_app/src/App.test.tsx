@@ -221,6 +221,15 @@ describe("historical warning application", () => {
   beforeEach(() => {
     created = false;
     graphBuilt = false;
+    class TestPointerEvent extends MouseEvent {
+      pointerId: number;
+
+      constructor(type: string, init: MouseEventInit & { pointerId?: number } = {}) {
+        super(type, init);
+        this.pointerId = init.pointerId ?? 0;
+      }
+    }
+    vi.stubGlobal("PointerEvent", TestPointerEvent);
     localStorage.clear();
     window.history.pushState({}, "", "/console");
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request, init?: RequestInit) => {
@@ -282,6 +291,28 @@ describe("historical warning application", () => {
     const highIvtNode = await screen.findByRole("button", { name: "高水汽输送状态" });
     expect(document.querySelectorAll(".kg-node-label")).toHaveLength(2);
     expect(document.querySelector("#ontology-arrow")).toBeInTheDocument();
+    const ontologySvg = document.querySelector<SVGSVGElement>('svg[aria-label="天气机制本体"]');
+    expect(ontologySvg).not.toBeNull();
+    if (!ontologySvg) throw new Error("Ontology SVG was not rendered");
+    vi.spyOn(ontologySvg, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 1000,
+      bottom: 600,
+      width: 1000,
+      height: 600,
+      toJSON: () => ({}),
+    });
+    const initialTransform = highIvtNode.getAttribute("transform");
+    const setPointerCapture = vi.fn();
+    Object.defineProperty(highIvtNode, "setPointerCapture", { value: setPointerCapture });
+    fireEvent.pointerDown(highIvtNode, { pointerId: 7, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(ontologySvg, { pointerId: 7, clientX: 300, clientY: 220 });
+    expect(setPointerCapture).toHaveBeenCalledWith(7);
+    expect(highIvtNode.getAttribute("transform")).not.toBe(initialTransform);
+    fireEvent.pointerUp(ontologySvg, { pointerId: 7 });
     fireEvent.click(highIvtNode);
     expect(screen.getByText("通过版本化阈值定义的高水汽输送状态。")).toBeInTheDocument();
     expect(screen.getAllByText("derivedFromIndicator").length).toBeGreaterThan(0);

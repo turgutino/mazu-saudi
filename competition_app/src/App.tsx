@@ -618,6 +618,8 @@ function OntologyPage() {
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const svgRef = useRef<SVGSVGElement>(null);
+  const dragRef = useRef<{ nodeId: string; dx: number; dy: number } | null>(null);
   const modules = ["observation", "indicator", "state", "episode", "context", "mechanism", "assertion", "provenance", "forecast"];
   const edgeTypes = useMemo(
     () => Array.from(new Set((data?.edges || []).map((edge) => edge.predicate_label))),
@@ -701,6 +703,30 @@ function OntologyPage() {
   const edgePeer = (edge: OntologyEdge) =>
     nodeByIri.get(edge.source === selected ? edge.target : edge.source);
 
+  const graphPoint = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect?.width || !rect.height) return null;
+    return {
+      x: ((clientX - rect.left) / rect.width) * 1000,
+      y: ((clientY - rect.top) / rect.height) * 600,
+    };
+  };
+  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (!dragRef.current) return;
+    const point = graphPoint(event.clientX, event.clientY);
+    if (!point) return;
+    const { nodeId, dx, dy } = dragRef.current;
+    setPositions((current) => ({
+      ...current,
+      [nodeId]: {
+        x: Math.max(28, Math.min(972, point.x + dx)),
+        y: Math.max(28, Math.min(572, point.y + dy)),
+      },
+    }));
+  };
+  const endPointerInteraction = () => {
+    dragRef.current = null;
+  };
   const handleCanvasClick = (event: MouseEvent<SVGSVGElement>) => {
     const svg = event.currentTarget;
     const rect = svg.getBoundingClientRect();
@@ -740,7 +766,7 @@ function OntologyPage() {
             {loading && <div className="kg-state-message"><i />{t(locale, "ontologyLoading")}</div>}
             {!loading && error && <div className="kg-state-message error-message">{error}</div>}
             {!loading && !error && !visibleNodes.length && <div className="kg-state-message">{t(locale, "ontologyEmpty")}</div>}
-            {!loading && !error && !!visibleNodes.length && <svg viewBox="0 0 1000 600" onClick={handleCanvasClick} aria-label={t(locale, "ontologyTitle")}>
+            {!loading && !error && !!visibleNodes.length && <svg ref={svgRef} viewBox="0 0 1000 600" onClick={handleCanvasClick} onPointerMove={handlePointerMove} onPointerUp={endPointerInteraction} onPointerCancel={endPointerInteraction} aria-label={t(locale, "ontologyTitle")}>
               <defs>
                 <marker id="ontology-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                   <path d="M 0 0 L 10 5 L 0 10 z" />
@@ -760,7 +786,28 @@ function OntologyPage() {
                 const width = nodeLabelWidth(node);
                 const labelX = point.x > 820 ? -width - 12 : 12;
                 return (
-                  <g key={node.iri} className={`kg-node ${selected === node.iri ? "selected" : ""}`} transform={`translate(${point.x}, ${point.y})`} tabIndex={0} role="button" aria-label={nodeLabel(node)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelected(node.iri); }} onClick={(event) => { event.stopPropagation(); setSelected(node.iri); }}>
+                  <g
+                    key={node.iri}
+                    className={`kg-node ${selected === node.iri ? "selected" : ""}`}
+                    transform={`translate(${point.x}, ${point.y})`}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={nodeLabel(node)}
+                    onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelected(node.iri); }}
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      const cursor = graphPoint(event.clientX, event.clientY);
+                      if (!cursor) return;
+                      dragRef.current = {
+                        nodeId: node.iri,
+                        dx: point.x - cursor.x,
+                        dy: point.y - cursor.y,
+                      };
+                      setSelected(node.iri);
+                    }}
+                    onClick={(event) => { event.stopPropagation(); setSelected(node.iri); }}
+                  >
                     <circle r={selected === node.iri ? 11 : 8} fill={kgTypeColor[node.module || ""] || "var(--muted)"} />
                     <rect className="kg-node-label-bg" x={labelX} y={-15} width={width} height={30} rx={7} />
                     <text className="kg-node-label" x={labelX + 10} y={5}>{visibleNodeLabel(node)}</text>
