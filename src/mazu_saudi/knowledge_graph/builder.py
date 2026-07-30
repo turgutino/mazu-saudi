@@ -30,6 +30,7 @@ AUXILIARY_INDICATORS = (
     "monthly_precip_total",
     "monthly_tmax_c",
 )
+DYNAMIC_INDICATORS = frozenset({"ivt", "cape", "pwat"})
 DATA_SOURCE_IRIS = {
     "ds1": f"{CONCEPT}NAFPMonthlyAtmosphericProduct",
     "ds2": f"{CONCEPT}NAFPDailyAtmosphericProduct",
@@ -62,6 +63,7 @@ class IndicatorStateSpec:
     indicators: tuple[str, ...]
     indicator_iris: tuple[str, ...]
     quantile: float
+    required_for_formal_graph: bool = True
 
 
 DEFAULT_STATE_SPECS = (
@@ -100,6 +102,25 @@ DEFAULT_STATE_SPECS = (
         ("daily_precip_total",),
         (f"{CONCEPT}DailyPrecipitation",),
         0.95,
+    ),
+    IndicatorStateSpec(
+        "high_satellite_rainfall",
+        "卫星高降水状态",
+        f"{MAZU}IndicatorState",
+        f"{CONCEPT}HighSatelliteRainfallState",
+        ("satellite_precip_total",),
+        (f"{CONCEPT}SatelliteDailyPrecipitation",),
+        0.95,
+        required_for_formal_graph=False,
+    ),
+    IndicatorStateSpec(
+        "warm_sea_surface",
+        "暖海温状态",
+        f"{MAZU}IndicatorState",
+        f"{CONCEPT}WarmSeaSurfaceState",
+        ("sst_c",),
+        (f"{CONCEPT}SeaSurfaceTemperature",),
+        0.90,
     ),
     IndicatorStateSpec(
         "extreme_heat",
@@ -358,9 +379,15 @@ def aggregate_daily_indicators(
             )
 
     active_ids = np.flatnonzero(active)
+    formally_required_indicator_names = {
+        indicator
+        for spec in state_specs
+        if spec.required_for_formal_graph
+        for indicator in spec.indicators
+    }
     absent = [
         indicator
-        for indicator in required_indicator_names
+        for indicator in formally_required_indicator_names
         if indicator_file_counts[indicator] == 0
     ]
     if absent:
@@ -535,6 +562,43 @@ def _episode_supports(
     return False
 
 
+def _state_layer(spec: IndicatorStateSpec) -> str:
+    dynamic_count = len(DYNAMIC_INDICATORS.intersection(spec.indicators))
+    if dynamic_count == 0:
+        return "observable"
+    if dynamic_count == len(spec.indicators):
+        return "dynamic"
+    return "mixed"
+
+
+def _state_season_coverage(
+    aggregated: AggregatedIndicators,
+    state_specs: tuple[IndicatorStateSpec, ...],
+    config: BuildConfig,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    coverage: dict[str, dict[str, dict[str, Any]]] = {}
+    for spec in state_specs:
+        coverage[spec.name] = {}
+        for season in ("DJF", "MAM", "JJA", "SON"):
+            indicator_coverage = {
+                indicator: aggregated.seasonal_file_coverage.get(
+                    indicator,
+                    {},
+                ).get(season, 0.0)
+                for indicator in spec.indicators
+            }
+            minimum = min(indicator_coverage.values(), default=0.0)
+            coverage[spec.name][season] = {
+                "layer": _state_layer(spec),
+                "indicator_coverage": indicator_coverage,
+                "minimum_coverage": minimum,
+                "coverage_gate_passed": (
+                    minimum >= config.min_indicator_season_coverage
+                ),
+            }
+    return coverage
+
+
 def _extract_associations(
     aggregated: AggregatedIndicators,
     state_specs: tuple[IndicatorStateSpec, ...],
@@ -542,13 +606,23 @@ def _extract_associations(
     availability: list[np.ndarray],
     episodes: list[Episode],
     episodes_by_state_season: dict[tuple[int, str], list[int]],
+    state_season_coverage: dict[str, dict[str, dict[str, Any]]],
     config: BuildConfig,
 ) -> list[Association]:
     seasons = np.asarray([_season(day) for day in aggregated.dates])
     associations: list[Association] = []
-    for source_index, _ in enumerate(state_specs):
-        for target_index, _ in enumerate(state_specs):
+    for source_index, source_spec in enumerate(state_specs):
+        for target_index, target_spec in enumerate(state_specs):
             for season in ("DJF", "MAM", "JJA", "SON"):
+                if not (
+                    state_season_coverage[source_spec.name][season][
+                        "coverage_gate_passed"
+                    ]
+                    and state_season_coverage[target_spec.name][season][
+                        "coverage_gate_passed"
+                    ]
+                ):
+                    continue
                 source_episode_indices = episodes_by_state_season.get(
                     (source_index, season),
                     [],
@@ -743,6 +817,7 @@ def _materialize_records(
     thresholds: dict[tuple[int, str, int, str], tuple[float, int]],
     episodes: list[Episode],
     associations: list[Association],
+    state_season_coverage: dict[str, dict[str, dict[str, Any]]],
     config: BuildConfig,
 ) -> tuple[
     list[dict[str, Any]],
@@ -768,6 +843,11 @@ def _materialize_records(
                     aggregated.seasonal_file_coverage
                 ),
                 "source_quality_counts": aggregated.source_quality_counts,
+                "state_season_coverage": state_season_coverage,
+                "association_coverage_policy": (
+                    "Suppress every state-pair season when either state's "
+                    "minimum indicator coverage is below the configured gate."
+                ),
                 "quality_tier": (
                     "validation-degraded"
                     if config.allow_degraded_coverage
@@ -840,6 +920,20 @@ def _materialize_records(
                             aggregated.seasonal_file_coverage.items()
                         )
                         if season in coverage
+                    },
+                    "available_relation_states": [
+                        spec.name
+                        for spec in state_specs
+                        if state_season_coverage[spec.name][season][
+                            "coverage_gate_passed"
+                        ]
+                    ],
+                    "suppressed_relation_states": {
+                        spec.name: state_season_coverage[spec.name][season]
+                        for spec in state_specs
+                        if not state_season_coverage[spec.name][season][
+                            "coverage_gate_passed"
+                        ]
                     },
                 },
             }
@@ -1007,6 +1101,14 @@ def _materialize_records(
     for association_index, association in enumerate(associations):
         source = state_specs[association.source_state_index]
         target = state_specs[association.target_state_index]
+        source_coverage = state_season_coverage[source.name][association.season]
+        target_coverage = state_season_coverage[target.name][association.season]
+        association_layers = {_state_layer(source), _state_layer(target)}
+        evidence_layer = (
+            next(iter(association_layers))
+            if len(association_layers) == 1
+            else "mixed"
+        )
         assertion_id = (
             f"urn:mazu-saudi:kg:{build_id}:assertion:{association_index:04d}:"
             f"{source.name}:{target.name}:{association.season}:lag{association.lag_days}"
@@ -1032,6 +1134,16 @@ def _materialize_records(
                         association.counterexample_episode_indices
                     ),
                     "evidence_class": "observational-statistical",
+                    "evidence_layer": evidence_layer,
+                    "source_indicator_coverage": source_coverage,
+                    "target_indicator_coverage": target_coverage,
+                    "coverage_gate_passed": True,
+                    "eligible_for_prediction_experiment": True,
+                    "eligible_for_production_prediction": False,
+                    "prediction_use": (
+                        "Candidate graph feature for offline Saudi evaluation; "
+                        "not a production rule."
+                    ),
                     "eligible_for_causal_explanation": False,
                 },
             }
@@ -1160,6 +1272,7 @@ def build_statistical_knowledge_graph(
     required_indicators = {
         indicator
         for spec in state_specs
+        if spec.required_for_formal_graph
         for indicator in spec.indicators
     }
     insufficient_coverage = {
@@ -1197,6 +1310,11 @@ def build_statistical_knowledge_graph(
             "validation graph"
         )
     state_flags, availability, thresholds = _derive_states(aggregated, state_specs)
+    state_season_coverage = _state_season_coverage(
+        aggregated,
+        state_specs,
+        config,
+    )
     episodes, episodes_by_state_season = _extract_episodes(
         aggregated.dates,
         state_flags,
@@ -1208,6 +1326,7 @@ def build_statistical_knowledge_graph(
         availability,
         episodes,
         episodes_by_state_season,
+        state_season_coverage,
         config,
     )
     build_id = (
@@ -1222,6 +1341,7 @@ def build_statistical_knowledge_graph(
         thresholds=thresholds,
         episodes=episodes,
         associations=associations,
+        state_season_coverage=state_season_coverage,
         config=config,
     )
     selected_episode_count = sum(
@@ -1247,6 +1367,11 @@ def build_statistical_knowledge_graph(
                 aggregated.seasonal_file_coverage
             ),
             "source_quality_counts": aggregated.source_quality_counts,
+            "state_season_coverage": state_season_coverage,
+            "association_coverage_policy": (
+                "state-pair seasons below min_indicator_season_coverage "
+                "are suppressed"
+            ),
             "quality_tier": (
                 "validation-degraded"
                 if config.allow_degraded_coverage

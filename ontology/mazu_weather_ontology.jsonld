@@ -88,7 +88,7 @@
   },
   "@id": "urn:mazu-saudi:ontology",
   "@type": "owl:Ontology",
-  "versionInfo": "1.1.0",
+  "versionInfo": "1.2.0",
   "labelEn": "MAZU Global Observational Mechanism Applicability Ontology",
   "labelZh": "MAZU 全球观测机制适用性本体",
   "claimBoundary": "The ontology separates observations, derived indicator states, observational assertions, expert or literature evidence, and forecast constraints. Data-derived associations are never causal by default and cannot be treated as observed hazard events.",
@@ -753,6 +753,28 @@
       "labelZh": "极端降水状态",
       "definitionEn": "Rainfall exceeding a versioned local percentile and minimum physical amount.",
       "definitionZh": "同时超过版本化当地百分位和最低物理量级的降水状态。"
+    },
+    {
+      "@id": "concept:HighSatelliteRainfallState",
+      "@type": "mazu:IndicatorState",
+      "module": "state",
+      "labelEn": "High satellite rainfall state",
+      "labelZh": "卫星高降水状态",
+      "definitionEn": "A high daily satellite precipitation state defined by a versioned local percentile and retained as an observational cross-source state.",
+      "definitionZh": "通过版本化当地百分位定义、作为跨源观测状态保留的卫星高日降水状态。",
+      "derivedFromIndicator": "concept:SatelliteDailyPrecipitation",
+      "thresholdDefinition": "Versioned local percentile supplied by each extraction run."
+    },
+    {
+      "@id": "concept:WarmSeaSurfaceState",
+      "@type": "mazu:IndicatorState",
+      "module": "state",
+      "labelEn": "Warm sea-surface state",
+      "labelZh": "暖海温状态",
+      "definitionEn": "A sea-surface temperature state exceeding a versioned local seasonal percentile.",
+      "definitionZh": "超过版本化当地逐季百分位的海表温度状态。",
+      "derivedFromIndicator": "concept:SeaSurfaceTemperature",
+      "thresholdDefinition": "Versioned local seasonal percentile supplied by each extraction run."
     },
     {
       "@id": "concept:ExtremeHeatState",

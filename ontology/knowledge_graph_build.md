@@ -10,6 +10,8 @@
 ```text
 evidence_class = observational-statistical
 eligible_for_causal_explanation = false
+eligible_for_prediction_experiment = true
+eligible_for_production_prediction = false
 ```
 
 它不生成 `MechanismApplicabilityAssertion`，不声称因果机制成立，也不把极端气象状态当作
@@ -25,6 +27,8 @@ eligible_for_causal_explanation = false
 | `cape` | `HighCAPEState` |
 | `pwat` | `MoistAtmosphereState` |
 | `daily_precip_total` | `ExtremeRainfallState` |
+| `satellite_precip_total` | `HighSatelliteRainfallState`（可选观测状态） |
+| `sst_c` | `WarmSeaSurfaceState` |
 | `tmax_c` | `ExtremeHeatState` |
 | `wind10_speed` + `vpd_kpa` | `StrongDryWindState` |
 
@@ -57,9 +61,11 @@ DS1 当月累计降水与最高温、DS4 每日四个海温文件，以及 DS10 
 
 四类数据不被简单拼接成同一种状态：
 
-- 只有 DS2 的日尺度动力、热力和地面指标参与 0–3 天状态滞后统计。
-- DS1 的月尺度值和 DS4 海温写入天气过程的 `multi_source_context`。
-- DS10 与 DS2 降水在时空对齐后计算差值、绝对差和比值，属于一致性诊断，不是真值标签。
+- DS2 的日尺度动力、热力和地面指标参与 0–3 天状态滞后统计。
+- DS4 海温除写入天气过程上下文外，还形成独立的 `WarmSeaSurfaceState`。
+- DS10 在逐季覆盖率达标时形成独立的 `HighSatelliteRainfallState`；与 DS2 降水的差值、
+  绝对差和比值仍只是一致性诊断，不把任一数据源当作真值标签。
+- DS1 的月尺度值只作为背景，不变成逐日事件状态。
 - 图谱提取运行通过 `prov:used` 连接四个 `DataSource` 概念；状态实例通过
   `prov:wasDerivedFrom` 保留来源。
 - 2025 年 10–12 月没有 DS10，明确记录为卫星证据不可用，不影响 DS2 日状态存在性。
@@ -91,8 +97,12 @@ DS1 当月累计降水与最高温、DS4 每日四个海温文件，以及 DS10 
 5. 同一空间块、同一状态、同一季节的连续日期合并成 `WeatherEpisode`。
 6. 对状态对统计 0–3 天滞后，计算机会数、源/目标出现数、共同出现数、条件发生率、基线发生率和 Lift。
 7. 默认至少 8 个支持天气过程且 `Lift ≥ 1.15` 才生成断言。
-8. 每条断言保存支持过程、反例过程和季节环境；为控制图谱规模，默认各只展开 12 个证据过程节点。
-9. 每个展开的天气过程附带 DS1 月背景、DS4 海温、DS10 可用性及 DS2–DS10 降水一致性摘要。
+8. 关系生成前检查源状态和目标状态全部指标的逐季覆盖率；任一侧低于默认 75%，该状态对
+   在该季节的全部关系直接抑制，不能靠 `--allow-degraded-coverage` 绕过。
+9. 每条断言标记为 `observable`、`dynamic` 或 `mixed` 层，保存两侧覆盖率；仅允许作为
+   沙特离线预测实验候选，默认不允许直接进入生产预测。
+10. 每条断言保存支持过程、反例过程和季节环境；为控制图谱规模，默认各只展开 12 个证据过程节点。
+11. 每个展开的天气过程附带 DS1 月背景、DS4 海温、DS10 可用性及 DS2–DS10 降水一致性摘要。
 
 Lift 定义为：
 
@@ -227,7 +237,14 @@ PYTHONPATH=src conda run -n ml python scripts/build_global_knowledge_graph.py \
 
 默认作用域会自动改为 `global-2025-excluding-saudi-validation-degraded`。提取运行节点和构建
 配置保存 `quality_tier=validation-degraded`、逐季指标覆盖率、源质量计数和覆盖问题；
-该图谱只用于数据库、接口与交互验证，不能作为正式全球机制规则。
+该图谱只用于数据库、接口、交互验证和沙特离线特征实验，不能作为正式全球机制规则。
+
+降级构建仍执行关系级硬门控：冬季 IVT、CAPE、PWAT 覆盖不足时，不生成涉及这些动力
+状态的 DJF 断言；地面降水、高温、风速/VPD 和覆盖达标的海温状态继续组成可观测层。
+卫星降水只在 FYMERG 逐季覆盖率达到门槛时参与关系，不会为了补足冬季关系而降低标准。
+`SeasonalContext` 会保存 `available_relation_states` 和
+`suppressed_relation_states`，每条已生成断言保存 `evidence_layer`、两侧指标覆盖率及
+预测实验/生产预测可用性标记。
 
 补齐原始分析文件后，重复运行指标阶段会依据源文件指纹只重算变更日期。随后不带
 `--allow-degraded-coverage` 执行构图，只有通过正式覆盖门槛才会写入正式图谱。

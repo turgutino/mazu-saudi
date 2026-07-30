@@ -31,7 +31,7 @@ def test_ontology_declares_standards_version_and_claim_boundary():
     context = payload["@context"]
 
     assert payload["@type"] == "owl:Ontology"
-    assert payload["versionInfo"] == "1.1.0"
+    assert payload["versionInfo"] == "1.2.0"
     assert "never causal by default" in payload["claimBoundary"]
     assert context["@vocab"] == MAZU
     for prefix in ("sosa", "geo", "time", "prov", "qudt", "uom"):
@@ -112,6 +112,14 @@ def test_multisource_products_and_context_indicators_are_explicit():
         "concept:MonthlyMaximumTemperatureBackground",
     ):
         assert nodes[indicator]["@type"] == "mazu:DerivedIndicator"
+    assert (
+        nodes["concept:HighSatelliteRainfallState"]["derivedFromIndicator"]
+        == "concept:SatelliteDailyPrecipitation"
+    )
+    assert (
+        nodes["concept:WarmSeaSurfaceState"]["derivedFromIndicator"]
+        == "concept:SeaSurfaceTemperature"
+    )
 
 
 def test_shacl_shapes_require_scope_provenance_and_causal_flag():
@@ -137,9 +145,9 @@ def test_materializer_builds_queryable_idempotent_database(tmp_path):
     first = materialize_ontology(SOURCE, database)
     second = materialize_ontology(SOURCE, database)
 
-    assert first["ontology"]["version"] == "1.1.0"
+    assert first["ontology"]["version"] == "1.2.0"
     assert first["ontology"]["source_sha256"] == second["ontology"]["source_sha256"]
-    assert first["resource_count"] == second["resource_count"] == 76
+    assert first["resource_count"] == second["resource_count"] == 78
     assert first["statement_count"] == second["statement_count"]
     assert first["statement_count"] >= 500
 

@@ -136,7 +136,7 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
     store = KnowledgeGraphStore(database)
     latest = store.latest_build()
     assert latest["build_id"] == result.build_id
-    assert latest["ontology_version"] == "1.1.0"
+    assert latest["ontology_version"] == "1.2.0"
     assert latest["scope_label"] == "synthetic-2025"
     view = store.graph_view()
     assert view["build"]["build_id"] == result.build_id
@@ -145,6 +145,23 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
         == "urn:mazu-saudi:ontology:LaggedAssociationAssertion"
         for node in view["nodes"]
     )
+    assertion_nodes = [
+        node
+        for node in view["nodes"]
+        if node["ontology_class_iri"]
+        == "urn:mazu-saudi:ontology:LaggedAssociationAssertion"
+    ]
+    assert all(
+        node["properties"]["coverage_gate_passed"]
+        and node["properties"]["eligible_for_prediction_experiment"]
+        and not node["properties"]["eligible_for_production_prediction"]
+        for node in assertion_nodes
+    )
+    assert {node["properties"]["evidence_layer"] for node in assertion_nodes} <= {
+        "observable",
+        "dynamic",
+        "mixed",
+    }
     assert any(
         edge["predicate_iri"] == "urn:mazu-saudi:ontology:sourceState"
         for edge in view["edges"]
@@ -253,6 +270,37 @@ def test_formal_graph_rejects_seasonal_gaps_but_validation_graph_records_them(
         "complete": 10,
         "missing_required_messages": 10,
     }
+    assert (
+        latest["config"]["state_season_coverage"]["high_ivt"]["MAM"][
+            "coverage_gate_passed"
+        ]
+        is False
+    )
+    assert (
+        latest["config"]["state_season_coverage"]["extreme_rainfall"]["MAM"][
+            "coverage_gate_passed"
+        ]
+        is True
+    )
+    assertions = [
+        node
+        for node in view["nodes"]
+        if node["ontology_class_iri"]
+        == "urn:mazu-saudi:ontology:LaggedAssociationAssertion"
+    ]
+    assert assertions
+    assert {node["properties"]["evidence_layer"] for node in assertions} == {
+        "observable"
+    }
+    context = next(
+        node
+        for node in view["nodes"]
+        if node["ontology_class_iri"]
+        == "urn:mazu-saudi:ontology:SeasonalContext"
+        and node["properties"]["season"] == "MAM"
+    )
+    assert "high_ivt" in context["properties"]["suppressed_relation_states"]
+    assert "extreme_rainfall" in context["properties"]["available_relation_states"]
 
 
 def test_degraded_coverage_requires_an_explicit_validation_scope(tmp_path):
