@@ -810,9 +810,74 @@ type KnowledgeGraphStage =
   | "candidate_for_saudi_evaluation"
   | "statistical_evidence"
   | "diagnostic_evidence";
+type KnowledgeGraphDisplayMode = "relations" | "audit";
 type GraphViewport = { x: number; y: number; width: number; height: number };
+type GraphPoint = { x: number; y: number };
+type CollapsedKnowledgeRelation = {
+  assertion: KnowledgeGraphNode;
+  source: KnowledgeGraphNode;
+  target: KnowledgeGraphNode;
+  curveOffset: number;
+};
 
 const KG_VIEWPORT: GraphViewport = { x: 0, y: 0, width: 1200, height: 760 };
+const isAssertionNode = (node: KnowledgeGraphNode) =>
+  node.ontology_class_iri.endsWith("LaggedAssociationAssertion");
+
+function collapsedRelationLabel(
+  relation: CollapsedKnowledgeRelation,
+  locale: Locale,
+) {
+  const { assertion } = relation;
+  const season = assertion.label.match(/\((DJF|MAM|JJA|SON),/)?.[1] || "—";
+  const lagDays = Number(assertion.properties.lag_hours) / 24
+    || Number(assertion.label.match(/\+(\d+)天/)?.[1])
+    || 0;
+  const stage = String(assertion.properties.validation_stage || "");
+  const stageLabel = stage === "candidate_for_saudi_evaluation"
+    ? (locale === "zh" ? "预测候选" : "candidate")
+    : stage === "diagnostic_evidence"
+      ? (locale === "zh" ? "诊断" : "diagnostic")
+      : (locale === "zh" ? "滞后统计" : "lagged statistic");
+  const lift = Number(assertion.properties.lift);
+  return `${season} · +${lagDays}${locale === "zh" ? "天" : "d"} · ${stageLabel}${Number.isFinite(lift) ? ` · Lift ${lift.toFixed(2)}` : ""}`;
+}
+
+function collapsedRelationGeometry(
+  source: GraphPoint,
+  target: GraphPoint,
+  curveOffset: number,
+) {
+  if (source.x === target.x && source.y === target.y) {
+    const loopHeight = 72 + Math.abs(curveOffset);
+    return {
+      path: `M ${source.x + 9} ${source.y - 9} C ${source.x + 76} ${source.y - loopHeight}, ${source.x - 76} ${source.y - loopHeight}, ${source.x - 9} ${source.y - 9}`,
+      label: { x: source.x, y: source.y - loopHeight + 4 },
+    };
+  }
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const length = Math.max(1, Math.hypot(dx, dy));
+  const unitX = dx / length;
+  const unitY = dy / length;
+  const start = { x: source.x + unitX * 13, y: source.y + unitY * 13 };
+  const end = { x: target.x - unitX * 18, y: target.y - unitY * 18 };
+  const midpoint = {
+    x: (start.x + end.x) / 2,
+    y: (start.y + end.y) / 2,
+  };
+  const control = {
+    x: midpoint.x - unitY * curveOffset,
+    y: midpoint.y + unitX * curveOffset,
+  };
+  return {
+    path: `M ${start.x} ${start.y} Q ${control.x} ${control.y}, ${end.x} ${end.y}`,
+    label: {
+      x: (start.x + 2 * control.x + end.x) / 4,
+      y: (start.y + 2 * control.y + end.y) / 4 - 7,
+    },
+  };
+}
 
 function KnowledgeGraphPage() {
   const { locale } = useApp();
@@ -826,6 +891,7 @@ function KnowledgeGraphPage() {
   const [season, setSeason] = useState<KnowledgeGraphSeason>("all");
   const [layer, setLayer] = useState<KnowledgeGraphLayer>("all");
   const [stage, setStage] = useState<KnowledgeGraphStage>("all");
+  const [displayMode, setDisplayMode] = useState<KnowledgeGraphDisplayMode>("relations");
   const [assertionLimit, setAssertionLimit] = useState(24);
   const [showEvidence, setShowEvidence] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
@@ -919,16 +985,62 @@ function KnowledgeGraphPage() {
     ),
     [data, visibleNodeIds],
   );
+  const collapsedRelations = useMemo(() => {
+    if (!data) return [];
+    const byId = new Map(data.nodes.map((node) => [node.node_id, node]));
+    const rows = visibleNodes
+      .filter(isAssertionNode)
+      .flatMap((assertion) => {
+        const assertionEdges = data.edges.filter((edge) => edge.source_id === assertion.node_id);
+        const sourceEdge = assertionEdges.find((edge) => edge.predicate_iri.endsWith("sourceState"));
+        const targetEdge = assertionEdges.find((edge) => edge.predicate_iri.endsWith("targetState"));
+        const source = sourceEdge ? byId.get(sourceEdge.target_id) : undefined;
+        const target = targetEdge ? byId.get(targetEdge.target_id) : undefined;
+        return source && target ? [{ assertion, source, target }] : [];
+      });
+    const grouped = new Map<string, typeof rows>();
+    rows.forEach((row) => {
+      const pair = [row.source.node_id, row.target.node_id].sort().join("|");
+      grouped.set(pair, [...(grouped.get(pair) || []), row]);
+    });
+    return rows.map((row) => {
+      const pair = [row.source.node_id, row.target.node_id].sort().join("|");
+      const group = grouped.get(pair) || [row];
+      const index = group.findIndex((candidate) => candidate.assertion.node_id === row.assertion.node_id);
+      return {
+        ...row,
+        curveOffset: (index - (group.length - 1) / 2) * 38,
+      };
+    });
+  }, [data, visibleNodes]);
+  const canvasNodes = useMemo(() => {
+    if (displayMode === "audit") return visibleNodes;
+    const endpoints = new Map<string, KnowledgeGraphNode>();
+    collapsedRelations.forEach((relation) => {
+      endpoints.set(relation.source.node_id, relation.source);
+      endpoints.set(relation.target.node_id, relation.target);
+    });
+    return [...endpoints.values()];
+  }, [collapsedRelations, displayMode, visibleNodes]);
+  const canvasNodeIds = useMemo(
+    () => new Set(canvasNodes.map((node) => node.node_id)),
+    [canvasNodes],
+  );
 
   useEffect(() => {
-    if (!visibleNodes.length) {
+    if (!canvasNodes.length) {
       setPositions({});
       return;
     }
     const next: Record<string, { x: number; y: number }> = {};
     if (layout === "force") {
-      const nodes = visibleNodes.map((node) => ({ ...node, id: node.node_id }));
-      const links = visibleEdges.map((edge) => ({ source: edge.source_id, target: edge.target_id }));
+      const nodes = canvasNodes.map((node) => ({ ...node, id: node.node_id }));
+      const links = displayMode === "relations"
+        ? collapsedRelations.map((relation) => ({
+          source: relation.source.node_id,
+          target: relation.target.node_id,
+        }))
+        : visibleEdges.map((edge) => ({ source: edge.source_id, target: edge.target_id }));
       const simulation = forceSimulation(nodes as never[])
         .force("charge", forceManyBody().strength(-310))
         .force("link", forceLink(links as never[]).id((node: unknown) => (node as { id: string }).id).distance(155).strength(0.3))
@@ -942,13 +1054,23 @@ function KnowledgeGraphPage() {
           y: Math.max(44, Math.min(716, (node as unknown as { y: number }).y)),
         };
       });
+    } else if (layout === "radial" && displayMode === "relations") {
+      canvasNodes.forEach((node, index) => {
+        const angle = canvasNodes.length === 1
+          ? 0
+          : (Math.PI * 2 * index) / canvasNodes.length - Math.PI / 2;
+        next[node.node_id] = {
+          x: 600 + Math.cos(angle) * 340,
+          y: 380 + Math.sin(angle) * 260,
+        };
+      });
     } else if (layout === "radial") {
       const groups = [
-        visibleNodes.filter((node) => node.ontology_class_iri.endsWith("ExtractionRun")),
-        visibleNodes.filter((node) => node.ontology_class_iri.endsWith("SeasonalContext")),
-        visibleNodes.filter((node) => node.properties.kind === "ontology-concept"),
-        visibleNodes.filter((node) => node.ontology_class_iri.endsWith("LaggedAssociationAssertion")),
-        visibleNodes.filter((node) => node.ontology_class_iri.endsWith("WeatherEpisode")),
+        canvasNodes.filter((node) => node.ontology_class_iri.endsWith("ExtractionRun")),
+        canvasNodes.filter((node) => node.ontology_class_iri.endsWith("SeasonalContext")),
+        canvasNodes.filter((node) => node.properties.kind === "ontology-concept"),
+        canvasNodes.filter(isAssertionNode),
+        canvasNodes.filter((node) => node.ontology_class_iri.endsWith("WeatherEpisode")),
       ];
       const radii = [0, 120, 235, 345, 465];
       groups.forEach((group, groupIndex) => {
@@ -960,6 +1082,20 @@ function KnowledgeGraphPage() {
           };
         });
       });
+    } else if (displayMode === "relations") {
+      const groups = [
+        canvasNodes.filter((node) => !node.ontology_class_iri.endsWith("ExtremeWeatherState")),
+        canvasNodes.filter((node) => node.ontology_class_iri.endsWith("ExtremeWeatherState")),
+      ];
+      const xPositions = [260, 940];
+      groups.forEach((group, column) => {
+        group.forEach((node, index) => {
+          next[node.node_id] = {
+            x: xPositions[column],
+            y: 70 + (index * 620) / Math.max(1, group.length - 1),
+          };
+        });
+      });
     } else {
       const groupIndex = (node: KnowledgeGraphNode) => {
         if (node.ontology_class_iri.endsWith("ExtractionRun") || node.ontology_class_iri.endsWith("SeasonalContext")) return 0;
@@ -967,7 +1103,7 @@ function KnowledgeGraphPage() {
         if (node.ontology_class_iri.endsWith("WeatherEpisode")) return 3;
         return 2;
       };
-      const groups = [0, 1, 2, 3].map((index) => visibleNodes.filter((node) => groupIndex(node) === index));
+      const groups = [0, 1, 2, 3].map((index) => canvasNodes.filter((node) => groupIndex(node) === index));
       const xPositions = [90, 340, 930, 1110];
       groups.forEach((group, column) => {
         const columnCount = column === 1 && group.length > 14 ? 2 : 1;
@@ -984,15 +1120,24 @@ function KnowledgeGraphPage() {
     }
     setPositions(next);
     setViewport(KG_VIEWPORT);
-  }, [layout, layoutRevision, visibleNodes, visibleEdges]);
+  }, [canvasNodes, collapsedRelations, displayMode, layout, layoutRevision, visibleEdges]);
 
   useEffect(() => {
-    if (selected && !visibleNodeIds.has(selected)) setSelected(null);
-  }, [selected, visibleNodeIds]);
+    const visibleAssertionIds = new Set(
+      collapsedRelations.map((relation) => relation.assertion.node_id),
+    );
+    if (
+      selected
+      && !canvasNodeIds.has(selected)
+      && !visibleAssertionIds.has(selected)
+    ) {
+      setSelected(null);
+    }
+  }, [canvasNodeIds, collapsedRelations, selected]);
 
   const selectedNode = data?.nodes.find((node) => node.node_id === selected) || null;
   const selectedEdges = selected
-    ? visibleEdges.filter((edge) => edge.source_id === selected || edge.target_id === selected)
+    ? (data?.edges || []).filter((edge) => edge.source_id === selected || edge.target_id === selected)
     : [];
   const nodeById = new Map((data?.nodes || []).map((node) => [node.node_id, node]));
   const color = (node: KnowledgeGraphNode) => {
@@ -1151,9 +1296,11 @@ function KnowledgeGraphPage() {
                     {[24, 40, 80, 160].map((value) => <option value={value} key={value}>{value}</option>)}
                   </select>
                 </label>
-                <button type="button" className={showEvidence ? "active" : ""} aria-pressed={showEvidence} onClick={() => setShowEvidence((value) => !value)}>{locale === "zh" ? "证据过程" : "Evidence"}</button>
-                <button type="button" className={showLabels ? "active" : ""} aria-pressed={showLabels} onClick={() => setShowLabels((value) => !value)}>{locale === "zh" ? "节点文字" : "Labels"}</button>
-                <span className="kg-visible-count">{visibleNodes.length} {locale === "zh" ? "节点" : "nodes"} · {visibleEdges.length} {locale === "zh" ? "关系" : "edges"}</span>
+                <button type="button" className={displayMode === "relations" ? "active" : ""} aria-pressed={displayMode === "relations"} onClick={() => setDisplayMode("relations")}>{locale === "zh" ? "关系视图" : "Relation view"}</button>
+                <button type="button" className={displayMode === "audit" ? "active" : ""} aria-pressed={displayMode === "audit"} onClick={() => setDisplayMode("audit")}>{locale === "zh" ? "审计结构" : "Audit structure"}</button>
+                {displayMode === "audit" && <button type="button" className={showEvidence ? "active" : ""} aria-pressed={showEvidence} onClick={() => setShowEvidence((value) => !value)}>{locale === "zh" ? "证据过程" : "Evidence"}</button>}
+                <button type="button" className={showLabels ? "active" : ""} aria-pressed={showLabels} onClick={() => setShowLabels((value) => !value)}>{locale === "zh" ? "文字标签" : "Labels"}</button>
+                <span className="kg-visible-count">{canvasNodes.length} {locale === "zh" ? "节点" : "nodes"} · {displayMode === "relations" ? collapsedRelations.length : visibleEdges.length} {locale === "zh" ? "关系" : "edges"}</span>
               </div>
             </div>
             <div className="kg-canvas">
@@ -1162,9 +1309,11 @@ function KnowledgeGraphPage() {
                 <button type="button" onClick={() => zoomAt(1.22)} aria-label={locale === "zh" ? "缩小图谱" : "Zoom out"}>−</button>
                 <button type="button" onClick={() => setViewport(KG_VIEWPORT)} aria-label={locale === "zh" ? "适配全部节点" : "Fit graph"}>⊙</button>
               </div>
-              <div className="kg-canvas-hint">{locale === "zh" ? "拖拽节点整理 · 拖动画布平移 · 滚轮缩放" : "Drag nodes · pan canvas · wheel to zoom"}</div>
-              {!visibleNodes.length && <div className="kg-state-message">{locale === "zh" ? "没有匹配的图谱节点" : "No matching graph nodes"}</div>}
-              {!!visibleNodes.length && (
+              <div className="kg-canvas-hint">{displayMode === "relations"
+                ? (locale === "zh" ? "点击关系检查证据 · 拖拽节点整理 · 滚轮缩放" : "Select a relation to inspect evidence · drag nodes · wheel to zoom")
+                : (locale === "zh" ? "原始断言结构 · 拖拽节点整理 · 滚轮缩放" : "Raw assertion structure · drag nodes · wheel to zoom")}</div>
+              {!canvasNodes.length && <div className="kg-state-message">{locale === "zh" ? "没有匹配的图谱节点" : "No matching graph nodes"}</div>}
+              {!!canvasNodes.length && (
                 <svg ref={svgRef} data-layout={layout} viewBox={`${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}`} aria-label={t(locale, "kgTitle")} onWheel={handleWheel} onPointerMove={handlePointerMove} onPointerUp={endPointerInteraction} onPointerCancel={endPointerInteraction}>
                   <defs>
                     <marker id="kg-instance-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -1183,7 +1332,7 @@ function KnowledgeGraphPage() {
                       setSelected(null);
                     }}
                   />
-                  {visibleEdges.map((edge) => {
+                  {displayMode === "audit" && visibleEdges.map((edge) => {
                     const source = positions[edge.source_id];
                     const target = positions[edge.target_id];
                     if (!source || !target) return null;
@@ -1195,7 +1344,56 @@ function KnowledgeGraphPage() {
                       </g>
                     );
                   })}
-                  {visibleNodes.map((node) => {
+                  {displayMode === "relations" && collapsedRelations.map((relation) => {
+                    const source = positions[relation.source.node_id];
+                    const target = positions[relation.target.node_id];
+                    if (!source || !target) return null;
+                    const geometry = collapsedRelationGeometry(
+                      source,
+                      target,
+                      relation.curveOffset,
+                    );
+                    const label = collapsedRelationLabel(relation, locale);
+                    const labelWidth = Math.min(280, Math.max(130, label.length * 7.4 + 18));
+                    const relationSelected = selected === relation.assertion.node_id;
+                    const related = relationSelected
+                      || selected === relation.source.node_id
+                      || selected === relation.target.node_id;
+                    const stageClass = String(
+                      relation.assertion.properties.validation_stage || "statistical_evidence",
+                    ).replaceAll("_", "-");
+                    return (
+                      <g
+                        className={`kg-collapsed-relation ${stageClass} ${related ? "related" : ""} ${relationSelected ? "selected" : ""}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={relation.assertion.label}
+                        data-assertion-id={relation.assertion.node_id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelected(relation.assertion.node_id);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelected(relation.assertion.node_id);
+                          }
+                        }}
+                        key={relation.assertion.node_id}
+                      >
+                        <path className="kg-relation-hit" d={geometry.path} />
+                        <path className="kg-edge kg-collapsed-edge" d={geometry.path} markerEnd="url(#kg-instance-arrow)" />
+                        {(showLabels || relationSelected) && (
+                          <g className="kg-relation-label" transform={`translate(${geometry.label.x}, ${geometry.label.y})`}>
+                            <rect x={-labelWidth / 2} y={-13} width={labelWidth} height={25} rx={7} />
+                            <text textAnchor="middle" y={4}>{label}</text>
+                          </g>
+                        )}
+                        <title>{relation.assertion.label}</title>
+                      </g>
+                    );
+                  })}
+                  {canvasNodes.map((node) => {
                     const position = positions[node.node_id];
                     if (!position) return null;
                     const width = nodeWidth(node);

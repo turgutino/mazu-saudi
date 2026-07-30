@@ -563,7 +563,22 @@ select:focus, input:focus, textarea:focus { border-color: #68aba5; background: w
 .kg-canvas-hint { position: absolute; z-index: 2; left: 12px; bottom: 10px; padding: 5px 8px; border-radius: 7px; background: rgba(255,255,255,.86); color: var(--muted); font-size: 10px; pointer-events: none; }
 .kg-edge { stroke: #9eb3ba; stroke-width: 1; opacity: .48; transition: opacity .15s, stroke .15s; }
 .kg-relation.related .kg-edge { stroke: var(--cyan); stroke-width: 1.8; opacity: .95; }
-.kg-canvas marker path { fill: #8aa3ac; }
+.kg-collapsed-relation { cursor: pointer; outline: none; }
+.kg-relation-hit { fill: none; stroke: transparent; stroke-width: 18; pointer-events: stroke; }
+.kg-collapsed-edge { fill: none; stroke-width: 2; opacity: .78; pointer-events: none; }
+.kg-collapsed-relation.candidate-for-saudi-evaluation .kg-collapsed-edge { stroke: #d38b1f; }
+.kg-collapsed-relation.diagnostic-evidence .kg-collapsed-edge { stroke: #7f8a9b; stroke-dasharray: 6 4; }
+.kg-collapsed-relation.statistical-evidence .kg-collapsed-edge { stroke: var(--cyan); }
+.kg-collapsed-relation.related .kg-collapsed-edge,
+.kg-collapsed-relation.selected .kg-collapsed-edge,
+.kg-collapsed-relation:focus .kg-collapsed-edge { stroke-width: 3.4; opacity: 1; }
+.kg-collapsed-relation:focus .kg-relation-label rect { stroke: var(--focus); stroke-width: 2; }
+.kg-relation-label { pointer-events: none; }
+.kg-relation-label rect { fill: rgba(255,255,255,.94); stroke: rgba(159,181,187,.82); stroke-width: 1; }
+.kg-relation-label text { fill: var(--navy-deep); font: 700 11px ui-monospace, monospace; }
+.kg-collapsed-relation.candidate-for-saudi-evaluation .kg-relation-label rect { fill: #fff8eb; stroke: rgba(211,139,31,.48); }
+.kg-collapsed-relation.diagnostic-evidence .kg-relation-label rect { fill: #f4f5f7; stroke: rgba(127,138,155,.45); }
+.kg-canvas marker path { fill: context-stroke; }
 .kg-edge-label { fill: var(--navy); font: 13px ui-monospace, monospace; paint-order: stroke; stroke: white; stroke-width: 5px; stroke-linejoin: round; pointer-events: none; }
 .kg-node { cursor: move; }
 .kg-node circle { stroke: white; stroke-width: 1.4; cursor: move; }

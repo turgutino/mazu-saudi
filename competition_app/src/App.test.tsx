@@ -317,12 +317,19 @@ describe("historical warning application", () => {
     expect(await screen.findByText(/1 分层证据断言 · 8 证据过程/)).toBeInTheDocument();
     expect(document.querySelector("#kg-instance-arrow")).toBeInTheDocument();
     const assertion = await screen.findByRole("button", { name: /高水汽输送状态 → 极端降水状态/ });
+    expect(assertion).toHaveClass("kg-collapsed-relation");
+    expect(document.querySelector('.kg-node[aria-label*="→"]')).not.toBeInTheDocument();
+    expect(screen.getByText("JJA · +1天 · 预测候选 · Lift 2.40")).toBeInTheDocument();
     fireEvent.click(assertion);
     expect(screen.getByText("lift")).toBeInTheDocument();
     expect(screen.getByText("2.4")).toBeInTheDocument();
     expect(screen.getByText("candidate_for_saudi_evaluation")).toBeInTheDocument();
     expect(screen.getAllByText("sourceState").length).toBeGreaterThan(0);
+    expect(screen.getByText(/2 节点 · 1 关系/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "审计结构" }));
     expect(screen.getByText(/3 节点 · 2 关系/)).toBeInTheDocument();
+    expect(document.querySelector('.kg-node[aria-label*="→"]')).toBeInTheDocument();
   });
 
   it("filters and rearranges a built graph without overwhelming the canvas", async () => {
