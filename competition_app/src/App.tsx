@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type WheelEvent as ReactWheelEvent } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation } from "d3-force";
 import { quadtree } from "d3-quadtree";
@@ -802,6 +802,13 @@ function OntologyPage() {
   );
 }
 
+type KnowledgeGraphLayout = "force" | "radial" | "columns";
+type KnowledgeGraphSeason = "all" | "DJF" | "MAM" | "JJA" | "SON";
+type KnowledgeGraphLayer = "all" | "observable" | "dynamic" | "mixed";
+type GraphViewport = { x: number; y: number; width: number; height: number };
+
+const KG_VIEWPORT: GraphViewport = { x: 0, y: 0, width: 1200, height: 760 };
+
 function KnowledgeGraphPage() {
   const { locale } = useApp();
   const [data, setData] = useState<KnowledgeGraphView | null>(null);
@@ -810,6 +817,17 @@ function KnowledgeGraphPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [layout, setLayout] = useState<KnowledgeGraphLayout>("force");
+  const [season, setSeason] = useState<KnowledgeGraphSeason>("all");
+  const [layer, setLayer] = useState<KnowledgeGraphLayer>("all");
+  const [assertionLimit, setAssertionLimit] = useState(24);
+  const [showEvidence, setShowEvidence] = useState(false);
+  const [showLabels, setShowLabels] = useState(true);
+  const [layoutRevision, setLayoutRevision] = useState(0);
+  const [viewport, setViewport] = useState<GraphViewport>(KG_VIEWPORT);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const dragRef = useRef<{ nodeId: string; dx: number; dy: number } | null>(null);
+  const panRef = useRef<{ clientX: number; clientY: number; viewport: GraphViewport } | null>(null);
 
   useEffect(() => {
     api.knowledgeGraphView()
@@ -827,33 +845,63 @@ function KnowledgeGraphPage() {
   const visibleNodes = useMemo(() => {
     if (!data?.build) return [];
     const normalized = search.trim().toLocaleLowerCase();
-    if (!normalized) {
-      const core = data.nodes.filter((node) =>
-        node.ontology_class_iri.endsWith("LaggedAssociationAssertion")
-        || node.ontology_class_iri.endsWith("SeasonalContext")
-        || node.ontology_class_iri.endsWith("ExtractionRun")
-        || node.properties.kind === "ontology-concept",
-      );
-      const episodes = data.nodes
-        .filter((node) => node.ontology_class_iri.endsWith("WeatherEpisode"))
-        .slice(0, 36);
-      return [...core, ...episodes].slice(0, 180);
-    }
-    const matched = new Set(
-      data.nodes
-        .filter((node) =>
-          `${node.label} ${node.spatial_key || ""} ${JSON.stringify(node.properties)}`
-            .toLocaleLowerCase()
-            .includes(normalized),
-        )
-        .map((node) => node.node_id),
+    const byId = new Map(data.nodes.map((node) => [node.node_id, node]));
+    const directMatches = new Set(
+      normalized
+        ? data.nodes
+          .filter((node) =>
+            `${node.label} ${node.spatial_key || ""} ${JSON.stringify(node.properties)}`
+              .toLocaleLowerCase()
+              .includes(normalized),
+          )
+          .map((node) => node.node_id)
+        : [],
     );
+    const neighbourMatches = new Set(directMatches);
+    if (normalized) {
+      data.edges.forEach((edge) => {
+        if (directMatches.has(edge.source_id)) neighbourMatches.add(edge.target_id);
+        if (directMatches.has(edge.target_id)) neighbourMatches.add(edge.source_id);
+      });
+    }
+    const assertions = data.nodes
+      .filter((node) => node.ontology_class_iri.endsWith("LaggedAssociationAssertion"))
+      .filter((node) => {
+        const nodeSeason = node.label.match(/\((DJF|MAM|JJA|SON),/)?.[1];
+        const nodeLayer = String(node.properties.evidence_layer || "observable");
+        return (season === "all" || nodeSeason === season)
+          && (layer === "all" || nodeLayer === layer)
+          && (!normalized || directMatches.has(node.node_id) || neighbourMatches.has(node.node_id));
+      })
+      .slice(0, assertionLimit);
+    const included = new Set(assertions.map((node) => node.node_id));
+    const expansionRoots = new Set(included);
+    if (normalized) {
+      let directPeerCount = 0;
+      directMatches.forEach((nodeId) => {
+        const node = byId.get(nodeId);
+        if (!node || node.ontology_class_iri.endsWith("LaggedAssociationAssertion") || directPeerCount >= 24) return;
+        included.add(nodeId);
+        expansionRoots.add(nodeId);
+        directPeerCount += 1;
+      });
+    }
+    let evidenceCount = 0;
     data.edges.forEach((edge) => {
-      if (matched.has(edge.source_id)) matched.add(edge.target_id);
-      if (matched.has(edge.target_id)) matched.add(edge.source_id);
+      const sourceSelected = expansionRoots.has(edge.source_id);
+      const targetSelected = expansionRoots.has(edge.target_id);
+      if (!sourceSelected && !targetSelected) return;
+      const peerId = sourceSelected ? edge.target_id : edge.source_id;
+      const peer = byId.get(peerId);
+      if (!peer) return;
+      if (peer.ontology_class_iri.endsWith("WeatherEpisode")) {
+        if (!showEvidence || evidenceCount >= 30) return;
+        evidenceCount += 1;
+      }
+      included.add(peerId);
     });
-    return data.nodes.filter((node) => matched.has(node.node_id)).slice(0, 180);
-  }, [data, search]);
+    return data.nodes.filter((node) => included.has(node.node_id));
+  }, [assertionLimit, data, layer, search, season, showEvidence]);
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.node_id)), [visibleNodes]);
   const visibleEdges = useMemo(
     () => (data?.edges || []).filter((edge) =>
@@ -867,28 +915,74 @@ function KnowledgeGraphPage() {
       setPositions({});
       return;
     }
-    const nodes = visibleNodes.map((node) => ({ ...node, id: node.node_id }));
-    const links = visibleEdges.map((edge) => ({ source: edge.source_id, target: edge.target_id }));
-    const simulation = forceSimulation(nodes as never[])
-      .force("charge", forceManyBody().strength(-210))
-      .force("link", forceLink(links as never[]).id((node: unknown) => (node as { id: string }).id).distance(125).strength(0.32))
-      .force("center", forceCenter(500, 300))
-      .force("collide", forceCollide(58))
-      .stop();
-    for (let index = 0; index < 260; index += 1) simulation.tick();
     const next: Record<string, { x: number; y: number }> = {};
-    nodes.forEach((node) => {
-      next[node.id] = {
-        x: Math.max(32, Math.min(968, (node as unknown as { x: number }).x)),
-        y: Math.max(32, Math.min(568, (node as unknown as { y: number }).y)),
+    if (layout === "force") {
+      const nodes = visibleNodes.map((node) => ({ ...node, id: node.node_id }));
+      const links = visibleEdges.map((edge) => ({ source: edge.source_id, target: edge.target_id }));
+      const simulation = forceSimulation(nodes as never[])
+        .force("charge", forceManyBody().strength(-310))
+        .force("link", forceLink(links as never[]).id((node: unknown) => (node as { id: string }).id).distance(155).strength(0.3))
+        .force("center", forceCenter(600, 380))
+        .force("collide", forceCollide(70))
+        .stop();
+      for (let index = 0; index < 320; index += 1) simulation.tick();
+      nodes.forEach((node) => {
+        next[node.id] = {
+          x: Math.max(44, Math.min(1156, (node as unknown as { x: number }).x)),
+          y: Math.max(44, Math.min(716, (node as unknown as { y: number }).y)),
+        };
+      });
+    } else if (layout === "radial") {
+      const groups = [
+        visibleNodes.filter((node) => node.ontology_class_iri.endsWith("ExtractionRun")),
+        visibleNodes.filter((node) => node.ontology_class_iri.endsWith("SeasonalContext")),
+        visibleNodes.filter((node) => node.properties.kind === "ontology-concept"),
+        visibleNodes.filter((node) => node.ontology_class_iri.endsWith("LaggedAssociationAssertion")),
+        visibleNodes.filter((node) => node.ontology_class_iri.endsWith("WeatherEpisode")),
+      ];
+      const radii = [0, 120, 235, 345, 465];
+      groups.forEach((group, groupIndex) => {
+        group.forEach((node, index) => {
+          const angle = group.length === 1 ? 0 : (Math.PI * 2 * index) / group.length - Math.PI / 2;
+          next[node.node_id] = {
+            x: 600 + Math.cos(angle) * radii[groupIndex],
+            y: 380 + Math.sin(angle) * radii[groupIndex] * 0.76,
+          };
+        });
+      });
+    } else {
+      const groupIndex = (node: KnowledgeGraphNode) => {
+        if (node.ontology_class_iri.endsWith("ExtractionRun") || node.ontology_class_iri.endsWith("SeasonalContext")) return 0;
+        if (node.ontology_class_iri.endsWith("LaggedAssociationAssertion")) return 1;
+        if (node.ontology_class_iri.endsWith("WeatherEpisode")) return 3;
+        return 2;
       };
-    });
+      const groups = [0, 1, 2, 3].map((index) => visibleNodes.filter((node) => groupIndex(node) === index));
+      const xPositions = [90, 340, 930, 1110];
+      groups.forEach((group, column) => {
+        const columnCount = column === 1 && group.length > 14 ? 2 : 1;
+        group.forEach((node, index) => {
+          const subColumn = index % columnCount;
+          const row = Math.floor(index / columnCount);
+          const rows = Math.ceil(group.length / columnCount);
+          next[node.node_id] = {
+            x: xPositions[column] + subColumn * 250,
+            y: 54 + (row * 650) / Math.max(1, rows - 1),
+          };
+        });
+      });
+    }
     setPositions(next);
-  }, [visibleNodes, visibleEdges]);
+    setViewport(KG_VIEWPORT);
+  }, [layout, layoutRevision, visibleNodes, visibleEdges]);
+
+  useEffect(() => {
+    if (selected && !visibleNodeIds.has(selected)) setSelected(null);
+  }, [selected, visibleNodeIds]);
 
   const selectedNode = data?.nodes.find((node) => node.node_id === selected) || null;
   const selectedEdges = selected
-    ? (data?.edges || []).filter((edge) => edge.source_id === selected || edge.target_id === selected)
+    ? visibleEdges.filter((edge) => edge.source_id === selected || edge.target_id === selected)
     : [];
   const nodeById = new Map((data?.nodes || []).map((node) => [node.node_id, node]));
   const color = (node: KnowledgeGraphNode) => {
@@ -902,6 +996,47 @@ function KnowledgeGraphPage() {
   };
   const shortLabel = (node: KnowledgeGraphNode) => node.label.length > 16 ? `${node.label.slice(0, 15)}…` : node.label;
   const nodeWidth = (node: KnowledgeGraphNode) => Math.min(210, Math.max(78, shortLabel(node).length * 14 + 22));
+  const graphPoint = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect?.width || !rect.height) return { x: 0, y: 0 };
+    return {
+      x: viewport.x + ((clientX - rect.left) / rect.width) * viewport.width,
+      y: viewport.y + ((clientY - rect.top) / rect.height) * viewport.height,
+    };
+  };
+  const zoomAt = (factor: number, clientX?: number, clientY?: number) => {
+    const center = clientX === undefined || clientY === undefined
+      ? { x: viewport.x + viewport.width / 2, y: viewport.y + viewport.height / 2 }
+      : graphPoint(clientX, clientY);
+    const width = Math.max(420, Math.min(2400, viewport.width * factor));
+    const height = width * (KG_VIEWPORT.height / KG_VIEWPORT.width);
+    const xRatio = (center.x - viewport.x) / viewport.width;
+    const yRatio = (center.y - viewport.y) / viewport.height;
+    setViewport({ x: center.x - width * xRatio, y: center.y - height * yRatio, width, height });
+  };
+  const handleWheel = (event: ReactWheelEvent<SVGSVGElement>) => {
+    event.preventDefault();
+    zoomAt(event.deltaY > 0 ? 1.12 : 0.88, event.clientX, event.clientY);
+  };
+  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (dragRef.current) {
+      const point = graphPoint(event.clientX, event.clientY);
+      const { nodeId, dx, dy } = dragRef.current;
+      setPositions((current) => ({ ...current, [nodeId]: { x: point.x + dx, y: point.y + dy } }));
+      return;
+    }
+    if (panRef.current) {
+      const rect = svgRef.current?.getBoundingClientRect();
+      if (!rect?.width || !rect.height) return;
+      const dx = ((event.clientX - panRef.current.clientX) / rect.width) * panRef.current.viewport.width;
+      const dy = ((event.clientY - panRef.current.clientY) / rect.height) * panRef.current.viewport.height;
+      setViewport({ ...panRef.current.viewport, x: panRef.current.viewport.x - dx, y: panRef.current.viewport.y - dy });
+    }
+  };
+  const endPointerInteraction = () => {
+    dragRef.current = null;
+    panRef.current = null;
+  };
 
   if (loading) {
     return (
@@ -936,15 +1071,72 @@ function KnowledgeGraphPage() {
               <input className="kg-search-bar" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t(locale, "kgSearchPlaceholder")} />
               {search && <button type="button" onClick={() => setSearch("")} aria-label={locale === "zh" ? "清除搜索" : "Clear search"}>×</button>}
             </label>
+            <div className="kg-control-deck">
+              <div className="kg-control-row">
+                <span>{locale === "zh" ? "季节" : "Season"}</span>
+                {(["all", "DJF", "MAM", "JJA", "SON"] as KnowledgeGraphSeason[]).map((value) => (
+                  <button key={value} type="button" className={season === value ? "active" : ""} aria-pressed={season === value} onClick={() => setSeason(value)}>
+                    {value === "all" ? (locale === "zh" ? "全部季节" : "All") : value}
+                  </button>
+                ))}
+              </div>
+              <div className="kg-control-row">
+                <span>{locale === "zh" ? "关系层" : "Layer"}</span>
+                {(["all", "observable", "dynamic", "mixed"] as KnowledgeGraphLayer[]).map((value) => (
+                  <button key={value} type="button" className={layer === value ? "active" : ""} aria-pressed={layer === value} onClick={() => setLayer(value)}>
+                    {value === "all" ? (locale === "zh" ? "全部关系" : "All") : value}
+                  </button>
+                ))}
+              </div>
+              <div className="kg-control-row kg-layout-row">
+                <span>{locale === "zh" ? "布局" : "Layout"}</span>
+                {([
+                  ["force", locale === "zh" ? "力导向" : "Force"],
+                  ["radial", locale === "zh" ? "径向" : "Radial"],
+                  ["columns", locale === "zh" ? "分层布局" : "Columns"],
+                ] as Array<[KnowledgeGraphLayout, string]>).map(([value, label]) => (
+                  <button key={value} type="button" className={layout === value ? "active" : ""} aria-pressed={layout === value} onClick={() => setLayout(value)}>{label}</button>
+                ))}
+                <button type="button" onClick={() => setLayoutRevision((value) => value + 1)}>{locale === "zh" ? "重新排布" : "Re-layout"}</button>
+              </div>
+              <div className="kg-control-row kg-view-row">
+                <label>{locale === "zh" ? "关系数" : "Assertions"}
+                  <select aria-label={locale === "zh" ? "显示关系数" : "Visible assertions"} value={assertionLimit} onChange={(event) => setAssertionLimit(Number(event.target.value))}>
+                    {[24, 40, 80, 160].map((value) => <option value={value} key={value}>{value}</option>)}
+                  </select>
+                </label>
+                <button type="button" className={showEvidence ? "active" : ""} aria-pressed={showEvidence} onClick={() => setShowEvidence((value) => !value)}>{locale === "zh" ? "证据过程" : "Evidence"}</button>
+                <button type="button" className={showLabels ? "active" : ""} aria-pressed={showLabels} onClick={() => setShowLabels((value) => !value)}>{locale === "zh" ? "节点文字" : "Labels"}</button>
+                <span className="kg-visible-count">{visibleNodes.length} {locale === "zh" ? "节点" : "nodes"} · {visibleEdges.length} {locale === "zh" ? "关系" : "edges"}</span>
+              </div>
+            </div>
             <div className="kg-canvas">
+              <div className="kg-viewport-tools" aria-label={locale === "zh" ? "图谱视图控制" : "Graph viewport controls"}>
+                <button type="button" onClick={() => zoomAt(0.82)} aria-label={locale === "zh" ? "放大图谱" : "Zoom in"}>＋</button>
+                <button type="button" onClick={() => zoomAt(1.22)} aria-label={locale === "zh" ? "缩小图谱" : "Zoom out"}>−</button>
+                <button type="button" onClick={() => setViewport(KG_VIEWPORT)} aria-label={locale === "zh" ? "适配全部节点" : "Fit graph"}>⊙</button>
+              </div>
+              <div className="kg-canvas-hint">{locale === "zh" ? "拖拽节点整理 · 拖动画布平移 · 滚轮缩放" : "Drag nodes · pan canvas · wheel to zoom"}</div>
               {!visibleNodes.length && <div className="kg-state-message">{locale === "zh" ? "没有匹配的图谱节点" : "No matching graph nodes"}</div>}
               {!!visibleNodes.length && (
-                <svg viewBox="0 0 1000 600" aria-label={t(locale, "kgTitle")}>
+                <svg ref={svgRef} data-layout={layout} viewBox={`${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}`} aria-label={t(locale, "kgTitle")} onWheel={handleWheel} onPointerMove={handlePointerMove} onPointerUp={endPointerInteraction} onPointerCancel={endPointerInteraction}>
                   <defs>
                     <marker id="kg-instance-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                       <path d="M 0 0 L 10 5 L 0 10 z" />
                     </marker>
                   </defs>
+                  <rect
+                    className="kg-pan-surface"
+                    x={viewport.x}
+                    y={viewport.y}
+                    width={viewport.width}
+                    height={viewport.height}
+                    onPointerDown={(event) => {
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      panRef.current = { clientX: event.clientX, clientY: event.clientY, viewport };
+                      setSelected(null);
+                    }}
+                  />
                   {visibleEdges.map((edge) => {
                     const source = positions[edge.source_id];
                     const target = positions[edge.target_id];
@@ -961,12 +1153,30 @@ function KnowledgeGraphPage() {
                     const position = positions[node.node_id];
                     if (!position) return null;
                     const width = nodeWidth(node);
-                    const offset = position.x > 810 ? -width - 12 : 12;
+                    const offset = position.x > 980 ? -width - 12 : 12;
                     return (
-                      <g className={`kg-node ${selected === node.node_id ? "selected" : ""}`} transform={`translate(${position.x}, ${position.y})`} tabIndex={0} role="button" aria-label={node.label} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelected(node.node_id); }} onClick={() => setSelected(node.node_id)} key={node.node_id}>
+                      <g
+                        className={`kg-node ${selected === node.node_id ? "selected" : ""}`}
+                        transform={`translate(${position.x}, ${position.y})`}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={node.label}
+                        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelected(node.node_id); }}
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                          event.currentTarget.setPointerCapture(event.pointerId);
+                          const point = graphPoint(event.clientX, event.clientY);
+                          dragRef.current = { nodeId: node.node_id, dx: position.x - point.x, dy: position.y - point.y };
+                          setSelected(node.node_id);
+                        }}
+                        onClick={() => setSelected(node.node_id)}
+                        key={node.node_id}
+                      >
                         <circle r={selected === node.node_id ? 11 : 8} fill={color(node)} />
-                        <rect className="kg-node-label-bg" x={offset} y={-15} width={width} height={30} rx={7} />
-                        <text className="kg-node-label" x={offset + 10} y={5}>{shortLabel(node)}</text>
+                        {(showLabels || selected === node.node_id) && <>
+                          <rect className="kg-node-label-bg" x={offset} y={-15} width={width} height={30} rx={7} />
+                          <text className="kg-node-label" x={offset + 10} y={5}>{shortLabel(node)}</text>
+                        </>}
                         <title>{node.label}</title>
                       </g>
                     );

@@ -152,7 +152,12 @@ const builtKnowledgeGraph = {
       spatial_key: "global-2025",
       start_time: "2025-01-01",
       end_time: "2025-12-31",
-      properties: { lift: 2.4, support_episode_count: 8, eligible_for_causal_explanation: false },
+      properties: {
+        lift: 2.4,
+        support_episode_count: 8,
+        evidence_layer: "mixed",
+        eligible_for_causal_explanation: false,
+      },
     },
     {
       node_id: "urn:mazu-saudi:concept:HighIVTState",
@@ -312,5 +317,36 @@ describe("historical warning application", () => {
     expect(screen.getByText("lift")).toBeInTheDocument();
     expect(screen.getByText("2.4")).toBeInTheDocument();
     expect(screen.getAllByText("sourceState").length).toBeGreaterThan(0);
+    expect(screen.getByText(/3 节点 · 2 关系/)).toBeInTheDocument();
+  });
+
+  it("filters and rearranges a built graph without overwhelming the canvas", async () => {
+    graphBuilt = true;
+    window.history.pushState({}, "", "/knowledge-graph");
+    render(<BrowserRouter><App /></BrowserRouter>);
+
+    await screen.findByText(/1 统计断言 · 8 证据过程/);
+    const graph = document.querySelector<SVGSVGElement>('svg[aria-label="全球观测机制适用性知识图谱"]');
+    expect(graph).not.toBeNull();
+    if (!graph) throw new Error("Knowledge graph SVG was not rendered");
+    expect(graph).toHaveAttribute("data-layout", "force");
+    fireEvent.click(screen.getByRole("button", { name: "分层布局" }));
+    expect(graph).toHaveAttribute("data-layout", "columns");
+
+    fireEvent.click(screen.getByRole("button", { name: "DJF" }));
+    expect(screen.queryByRole("button", { name: /高水汽输送状态 → 极端降水状态/ })).not.toBeInTheDocument();
+    expect(screen.getByText("没有匹配的图谱节点")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "全部季节" }));
+    expect(await screen.findByRole("button", { name: /高水汽输送状态 → 极端降水状态/ })).toBeInTheDocument();
+
+    const restoredGraph = document.querySelector<SVGSVGElement>('svg[aria-label="全球观测机制适用性知识图谱"]');
+    expect(restoredGraph).not.toBeNull();
+    if (!restoredGraph) throw new Error("Knowledge graph SVG was not restored");
+    const initialViewBox = restoredGraph.getAttribute("viewBox");
+    fireEvent.click(screen.getByRole("button", { name: "放大图谱" }));
+    expect(restoredGraph.getAttribute("viewBox")).not.toBe(initialViewBox);
+    fireEvent.click(screen.getByRole("button", { name: "适配全部节点" }));
+    expect(restoredGraph).toHaveAttribute("viewBox", "0 0 1200 760");
   });
 });
