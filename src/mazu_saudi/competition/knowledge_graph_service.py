@@ -1,4 +1,4 @@
-"""Read-only service for browsing built statistical knowledge-graph instances."""
+"""Read-only service for browsing staged knowledge-graph evidence."""
 
 from __future__ import annotations
 
@@ -25,8 +25,10 @@ class KnowledgeGraphBrowserService:
             "build": build,
             "available": build is not None,
             "boundary": (
-                "Data-derived lagged associations are observational statistics, "
-                "not causal mechanisms or independently observed hazard events."
+                "Data-derived relations are classified as diagnostic evidence, "
+                "statistical evidence, or Saudi offline-evaluation candidates. "
+                "They are not causal mechanisms; no automatic relation is "
+                "transferable or production-ready."
             ),
         }
 

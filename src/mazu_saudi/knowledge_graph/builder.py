@@ -16,6 +16,7 @@ import warnings
 import numpy as np
 
 from .store import KnowledgeGraphStore, PROV_WAS_GENERATED_BY
+from .relation_policy import RELATION_POLICY_VERSION, assess_relation
 
 
 MAZU = "urn:mazu-saudi:ontology:"
@@ -64,6 +65,7 @@ class IndicatorStateSpec:
     indicator_iris: tuple[str, ...]
     quantile: float
     required_for_formal_graph: bool = True
+    phenomenon_family: str = "unspecified"
 
 
 DEFAULT_STATE_SPECS = (
@@ -75,6 +77,7 @@ DEFAULT_STATE_SPECS = (
         ("ivt",),
         (f"{CONCEPT}IntegratedVaporTransport",),
         0.90,
+        phenomenon_family="moisture_transport",
     ),
     IndicatorStateSpec(
         "high_cape",
@@ -84,6 +87,7 @@ DEFAULT_STATE_SPECS = (
         ("cape",),
         (f"{CONCEPT}CAPE",),
         0.90,
+        phenomenon_family="convection_instability",
     ),
     IndicatorStateSpec(
         "moist_atmosphere",
@@ -93,6 +97,7 @@ DEFAULT_STATE_SPECS = (
         ("pwat",),
         (f"{CONCEPT}PrecipitableWater",),
         0.90,
+        phenomenon_family="atmospheric_moisture",
     ),
     IndicatorStateSpec(
         "extreme_rainfall",
@@ -102,6 +107,7 @@ DEFAULT_STATE_SPECS = (
         ("daily_precip_total",),
         (f"{CONCEPT}DailyPrecipitation",),
         0.95,
+        phenomenon_family="precipitation",
     ),
     IndicatorStateSpec(
         "high_satellite_rainfall",
@@ -112,6 +118,7 @@ DEFAULT_STATE_SPECS = (
         (f"{CONCEPT}SatelliteDailyPrecipitation",),
         0.95,
         required_for_formal_graph=False,
+        phenomenon_family="precipitation",
     ),
     IndicatorStateSpec(
         "warm_sea_surface",
@@ -121,6 +128,7 @@ DEFAULT_STATE_SPECS = (
         ("sst_c",),
         (f"{CONCEPT}SeaSurfaceTemperature",),
         0.90,
+        phenomenon_family="sea_surface_temperature",
     ),
     IndicatorStateSpec(
         "extreme_heat",
@@ -130,6 +138,7 @@ DEFAULT_STATE_SPECS = (
         ("tmax_c",),
         (f"{CONCEPT}MaximumAirTemperature",),
         0.95,
+        phenomenon_family="air_temperature",
     ),
     IndicatorStateSpec(
         "strong_dry_wind",
@@ -139,6 +148,7 @@ DEFAULT_STATE_SPECS = (
         ("wind10_speed", "vpd_kpa"),
         (f"{CONCEPT}TenMetreWindSpeed", f"{CONCEPT}VaporPressureDeficit"),
         0.90,
+        phenomenon_family="dry_wind",
     ),
 )
 
@@ -152,6 +162,7 @@ class BuildConfig:
     max_lag_days: int = 3
     min_support_episodes: int = 8
     min_lift: float = 1.15
+    min_candidate_support_rate: float = 0.25
     max_assertions: int = 160
     evidence_episode_limit: int = 12
     min_indicator_file_coverage: float = 0.50
@@ -169,6 +180,8 @@ class BuildResult:
     node_count: int
     edge_count: int
     assertion_count: int
+    prediction_candidate_count: int
+    diagnostic_assertion_count: int
     episode_count: int
     threshold_count: int
     start_date: str
@@ -699,11 +712,70 @@ def _extract_associations(
                             lift=lift,
                         )
                     )
-    associations.sort(
-        key=lambda row: ((row.lift - 1.0) * math.log1p(len(row.support_episode_indices))),
-        reverse=True,
+    return _select_associations(
+        associations,
+        state_specs=state_specs,
+        config=config,
     )
-    return associations[: config.max_assertions]
+
+
+def _association_score(association: Association) -> float:
+    return (association.lift - 1.0) * math.log1p(
+        len(association.support_episode_indices)
+    )
+
+
+def _assess_association(
+    association: Association,
+    *,
+    state_specs: tuple[IndicatorStateSpec, ...],
+    config: BuildConfig,
+):
+    source = state_specs[association.source_state_index]
+    target = state_specs[association.target_state_index]
+    return assess_relation(
+        source_concept_iri=source.concept_iri,
+        target_concept_iri=target.concept_iri,
+        source_phenomenon_family=source.phenomenon_family,
+        target_phenomenon_family=target.phenomenon_family,
+        target_is_extreme_weather=(
+            target.ontology_class_iri == f"{MAZU}ExtremeWeatherState"
+        ),
+        lag_days=association.lag_days,
+        support_episode_count=len(association.support_episode_indices),
+        counterexample_episode_count=len(
+            association.counterexample_episode_indices
+        ),
+        lift=association.lift,
+        coverage_gate_passed=True,
+        min_support_episodes=config.min_support_episodes,
+        min_lift=config.min_lift,
+        min_candidate_support_rate=config.min_candidate_support_rate,
+    )
+
+
+def _select_associations(
+    associations: list[Association],
+    *,
+    state_specs: tuple[IndicatorStateSpec, ...],
+    config: BuildConfig,
+) -> list[Association]:
+    """Keep qualified hazard candidates from being crowded out by persistence."""
+
+    ranked = sorted(associations, key=_association_score, reverse=True)
+    candidates: list[Association] = []
+    remaining: list[Association] = []
+    for association in ranked:
+        assessment = _assess_association(
+            association,
+            state_specs=state_specs,
+            config=config,
+        )
+        if assessment.eligible_for_prediction_experiment:
+            candidates.append(association)
+        else:
+            remaining.append(association)
+    return (candidates + remaining)[: config.max_assertions]
 
 
 def _local_name(iri: str) -> str:
@@ -1109,6 +1181,13 @@ def _materialize_records(
             if len(association_layers) == 1
             else "mixed"
         )
+        support_count = len(association.support_episode_indices)
+        counterexample_count = len(association.counterexample_episode_indices)
+        assessment = _assess_association(
+            association,
+            state_specs=state_specs,
+            config=config,
+        )
         assertion_id = (
             f"urn:mazu-saudi:kg:{build_id}:assertion:{association_index:04d}:"
             f"{source.name}:{target.name}:{association.season}:lag{association.lag_days}"
@@ -1129,20 +1208,29 @@ def _materialize_records(
                 "properties": {
                     "lag_hours": association.lag_days * 24,
                     "lift": association.lift,
-                    "support_episode_count": len(association.support_episode_indices),
-                    "counterexample_episode_count": len(
-                        association.counterexample_episode_indices
-                    ),
+                    "support_episode_count": support_count,
+                    "counterexample_episode_count": counterexample_count,
+                    "support_rate": assessment.support_rate,
                     "evidence_class": "observational-statistical",
                     "evidence_layer": evidence_layer,
+                    "relation_policy_version": RELATION_POLICY_VERSION,
+                    "relation_role": assessment.relation_role,
+                    "validation_stage": assessment.validation_stage,
+                    "transferability_status": assessment.transferability_status,
+                    "promotion_checks": assessment.promotion_checks,
                     "source_indicator_coverage": source_coverage,
                     "target_indicator_coverage": target_coverage,
                     "coverage_gate_passed": True,
-                    "eligible_for_prediction_experiment": True,
-                    "eligible_for_production_prediction": False,
+                    "eligible_for_prediction_experiment": (
+                        assessment.eligible_for_prediction_experiment
+                    ),
+                    "eligible_for_production_prediction": (
+                        assessment.eligible_for_production_prediction
+                    ),
                     "prediction_use": (
-                        "Candidate graph feature for offline Saudi evaluation; "
-                        "not a production rule."
+                        "Candidate for offline Saudi evaluation."
+                        if assessment.eligible_for_prediction_experiment
+                        else "Retained as evidence; not eligible as a prediction feature."
                     ),
                     "eligible_for_causal_explanation": False,
                 },
@@ -1196,14 +1284,23 @@ def _materialize_records(
                 "source_occurrence_count": association.source_occurrence_count,
                 "target_occurrence_count": association.target_occurrence_count,
                 "joint_occurrence_count": association.joint_occurrence_count,
-                "support_episode_count": len(association.support_episode_indices),
-                "counterexample_episode_count": len(
-                    association.counterexample_episode_indices
-                ),
+                "support_episode_count": support_count,
+                "counterexample_episode_count": counterexample_count,
                 "baseline_rate": association.baseline_rate,
                 "conditional_rate": association.conditional_rate,
                 "lift": association.lift,
+                "support_rate": assessment.support_rate,
                 "evidence_class": "observational-statistical",
+                "relation_policy_version": RELATION_POLICY_VERSION,
+                "relation_role": assessment.relation_role,
+                "validation_stage": assessment.validation_stage,
+                "transferability_status": assessment.transferability_status,
+                "eligible_for_prediction_experiment": int(
+                    assessment.eligible_for_prediction_experiment
+                ),
+                "eligible_for_production_prediction": int(
+                    assessment.eligible_for_production_prediction
+                ),
                 "eligible_for_causal_explanation": 0,
             }
         )
@@ -1224,6 +1321,10 @@ def build_statistical_knowledge_graph(
     if not 0.0 < config.min_indicator_season_coverage <= 1.0:
         raise ValueError(
             "min_indicator_season_coverage must be greater than 0 and at most 1"
+        )
+    if not 0.0 <= config.min_candidate_support_rate <= 1.0:
+        raise ValueError(
+            "min_candidate_support_rate must be between 0 and 1"
         )
     if (
         config.allow_degraded_coverage
@@ -1344,6 +1445,15 @@ def build_statistical_knowledge_graph(
         state_season_coverage=state_season_coverage,
         config=config,
     )
+    validation_stage_counts: dict[str, int] = {}
+    relation_role_counts: dict[str, int] = {}
+    for row in evidence:
+        validation_stage_counts[row["validation_stage"]] = (
+            validation_stage_counts.get(row["validation_stage"], 0) + 1
+        )
+        relation_role_counts[row["relation_role"]] = (
+            relation_role_counts.get(row["relation_role"], 0) + 1
+        )
     selected_episode_count = sum(
         1 for node in nodes if node["ontology_class_iri"] == f"{MAZU}WeatherEpisode"
     )
@@ -1372,6 +1482,23 @@ def build_statistical_knowledge_graph(
                 "state-pair seasons below min_indicator_season_coverage "
                 "are suppressed"
             ),
+            "association_selection_policy": (
+                "eligible Saudi evaluation candidates are ranked first, then "
+                "remaining evidence by lift-support score, up to max_assertions"
+            ),
+            "relation_policy": {
+                "version": RELATION_POLICY_VERSION,
+                "principle": (
+                    "Preserve all selected observational evidence, but only "
+                    "cross-indicator lagged relations targeting an extreme-weather "
+                    "state may become Saudi offline-evaluation candidates."
+                ),
+                "min_candidate_support_rate": config.min_candidate_support_rate,
+                "automatic_causal_promotion": False,
+                "automatic_production_promotion": False,
+            },
+            "relation_role_counts": relation_role_counts,
+            "validation_stage_counts": validation_stage_counts,
             "quality_tier": (
                 "validation-degraded"
                 if config.allow_degraded_coverage
@@ -1400,6 +1527,14 @@ def build_statistical_knowledge_graph(
         node_count=len(nodes),
         edge_count=len(edges),
         assertion_count=len(associations),
+        prediction_candidate_count=validation_stage_counts.get(
+            "candidate_for_saudi_evaluation",
+            0,
+        ),
+        diagnostic_assertion_count=validation_stage_counts.get(
+            "diagnostic_evidence",
+            0,
+        ),
         episode_count=selected_episode_count,
         threshold_count=len(threshold_rows),
         start_date=files[0][0].isoformat(),

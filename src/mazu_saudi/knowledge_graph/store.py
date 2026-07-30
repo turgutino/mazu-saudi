@@ -93,7 +93,16 @@ class KnowledgeGraphStore:
                     baseline_rate REAL NOT NULL,
                     conditional_rate REAL NOT NULL,
                     lift REAL NOT NULL,
+                    support_rate REAL NOT NULL,
                     evidence_class TEXT NOT NULL,
+                    relation_policy_version TEXT NOT NULL,
+                    relation_role TEXT NOT NULL,
+                    validation_stage TEXT NOT NULL,
+                    transferability_status TEXT NOT NULL,
+                    eligible_for_prediction_experiment INTEGER NOT NULL
+                        CHECK(eligible_for_prediction_experiment IN (0, 1)),
+                    eligible_for_production_prediction INTEGER NOT NULL
+                        CHECK(eligible_for_production_prediction IN (0, 1)),
                     eligible_for_causal_explanation INTEGER NOT NULL
                         CHECK(eligible_for_causal_explanation IN (0, 1))
                 );
@@ -127,6 +136,42 @@ class KnowledgeGraphStore:
                     ON kg_evidence(source_state_iri, target_state_iri);
                 """
             )
+            self._ensure_evidence_columns(connection)
+
+    @staticmethod
+    def _ensure_evidence_columns(connection: sqlite3.Connection) -> None:
+        """Add policy columns without rewriting immutable legacy graph builds."""
+
+        existing = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(kg_evidence)")
+        }
+        additions = {
+            "support_rate": "REAL NOT NULL DEFAULT 0.0",
+            "relation_policy_version": (
+                "TEXT NOT NULL DEFAULT 'legacy-unclassified'"
+            ),
+            "relation_role": "TEXT NOT NULL DEFAULT 'legacy_unclassified'",
+            "validation_stage": (
+                "TEXT NOT NULL DEFAULT 'legacy_statistical_evidence'"
+            ),
+            "transferability_status": (
+                "TEXT NOT NULL DEFAULT 'not_evaluated_on_saudi'"
+            ),
+            "eligible_for_prediction_experiment": (
+                "INTEGER NOT NULL DEFAULT 0 "
+                "CHECK(eligible_for_prediction_experiment IN (0, 1))"
+            ),
+            "eligible_for_production_prediction": (
+                "INTEGER NOT NULL DEFAULT 0 "
+                "CHECK(eligible_for_production_prediction IN (0, 1))"
+            ),
+        }
+        for column, declaration in additions.items():
+            if column not in existing:
+                connection.execute(
+                    f"ALTER TABLE kg_evidence ADD COLUMN {column} {declaration}"
+                )
 
     def ontology_identity(self) -> dict[str, str]:
         with self._connect() as connection:
@@ -228,6 +273,18 @@ class KnowledgeGraphStore:
             raise ValueError("Every evidence row must reference a graph assertion node")
         if any(row["eligible_for_causal_explanation"] for row in evidence):
             raise ValueError("Automatically extracted assertions cannot be causal explanations")
+        if any(row["eligible_for_production_prediction"] for row in evidence):
+            raise ValueError(
+                "Automatically extracted assertions cannot be production prediction rules"
+            )
+        if any(
+            row["eligible_for_prediction_experiment"]
+            and row["validation_stage"] != "candidate_for_saudi_evaluation"
+            for row in evidence
+        ):
+            raise ValueError(
+                "Prediction-experiment eligibility requires the Saudi evaluation stage"
+            )
 
         required_predicates = {
             "urn:mazu-saudi:ontology:sourceState",
@@ -306,6 +363,10 @@ class KnowledgeGraphStore:
                     joint_occurrence_count, support_episode_count,
                     counterexample_episode_count, baseline_rate,
                     conditional_rate, lift, evidence_class,
+                    support_rate, relation_policy_version, relation_role,
+                    validation_stage, transferability_status,
+                    eligible_for_prediction_experiment,
+                    eligible_for_production_prediction,
                     eligible_for_causal_explanation
                 ) VALUES (
                     :assertion_id, :build_id, :source_state_iri, :target_state_iri,
@@ -314,6 +375,10 @@ class KnowledgeGraphStore:
                     :joint_occurrence_count, :support_episode_count,
                     :counterexample_episode_count, :baseline_rate,
                     :conditional_rate, :lift, :evidence_class,
+                    :support_rate, :relation_policy_version, :relation_role,
+                    :validation_stage, :transferability_status,
+                    :eligible_for_prediction_experiment,
+                    :eligible_for_production_prediction,
                     :eligible_for_causal_explanation
                 )
                 """,

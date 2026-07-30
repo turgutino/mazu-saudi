@@ -805,6 +805,11 @@ function OntologyPage() {
 type KnowledgeGraphLayout = "force" | "radial" | "columns";
 type KnowledgeGraphSeason = "all" | "DJF" | "MAM" | "JJA" | "SON";
 type KnowledgeGraphLayer = "all" | "observable" | "dynamic" | "mixed";
+type KnowledgeGraphStage =
+  | "all"
+  | "candidate_for_saudi_evaluation"
+  | "statistical_evidence"
+  | "diagnostic_evidence";
 type GraphViewport = { x: number; y: number; width: number; height: number };
 
 const KG_VIEWPORT: GraphViewport = { x: 0, y: 0, width: 1200, height: 760 };
@@ -820,6 +825,7 @@ function KnowledgeGraphPage() {
   const [layout, setLayout] = useState<KnowledgeGraphLayout>("force");
   const [season, setSeason] = useState<KnowledgeGraphSeason>("all");
   const [layer, setLayer] = useState<KnowledgeGraphLayer>("all");
+  const [stage, setStage] = useState<KnowledgeGraphStage>("all");
   const [assertionLimit, setAssertionLimit] = useState(24);
   const [showEvidence, setShowEvidence] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
@@ -869,8 +875,12 @@ function KnowledgeGraphPage() {
       .filter((node) => {
         const nodeSeason = node.label.match(/\((DJF|MAM|JJA|SON),/)?.[1];
         const nodeLayer = String(node.properties.evidence_layer || "observable");
+        const nodeStage = String(
+          node.properties.validation_stage || "legacy_statistical_evidence",
+        );
         return (season === "all" || nodeSeason === season)
           && (layer === "all" || nodeLayer === layer)
+          && (stage === "all" || nodeStage === stage)
           && (!normalized || directMatches.has(node.node_id) || neighbourMatches.has(node.node_id));
       })
       .slice(0, assertionLimit);
@@ -901,7 +911,7 @@ function KnowledgeGraphPage() {
       included.add(peerId);
     });
     return data.nodes.filter((node) => included.has(node.node_id));
-  }, [assertionLimit, data, layer, search, season, showEvidence]);
+  }, [assertionLimit, data, layer, search, season, showEvidence, stage]);
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((node) => node.node_id)), [visibleNodes]);
   const visibleEdges = useMemo(
     () => (data?.edges || []).filter((edge) =>
@@ -987,7 +997,15 @@ function KnowledgeGraphPage() {
   const nodeById = new Map((data?.nodes || []).map((node) => [node.node_id, node]));
   const color = (node: KnowledgeGraphNode) => {
     const type = node.ontology_class_iri;
-    if (type.endsWith("LaggedAssociationAssertion")) return "var(--amber)";
+    if (type.endsWith("LaggedAssociationAssertion")) {
+      if (node.properties.validation_stage === "candidate_for_saudi_evaluation") {
+        return "var(--amber)";
+      }
+      if (node.properties.validation_stage === "diagnostic_evidence") {
+        return "#7f8a9b";
+      }
+      return "var(--cyan)";
+    }
     if (type.endsWith("SeasonalContext")) return "var(--mint)";
     if (type.endsWith("WeatherEpisode")) return "#8c6ed3";
     if (type.endsWith("ExtractionRun")) return "var(--navy)";
@@ -1085,6 +1103,34 @@ function KnowledgeGraphPage() {
                 {(["all", "observable", "dynamic", "mixed"] as KnowledgeGraphLayer[]).map((value) => (
                   <button key={value} type="button" className={layer === value ? "active" : ""} aria-pressed={layer === value} onClick={() => setLayer(value)}>
                     {value === "all" ? (locale === "zh" ? "全部关系" : "All") : value}
+                  </button>
+                ))}
+              </div>
+              <div className="kg-control-row">
+                <span>{locale === "zh" ? "证据用途" : "Evidence use"}</span>
+                {([
+                  ["all", locale === "zh" ? "全部证据" : "All evidence"],
+                  [
+                    "candidate_for_saudi_evaluation",
+                    locale === "zh" ? "预测候选" : "Evaluation candidates",
+                  ],
+                  [
+                    "statistical_evidence",
+                    locale === "zh" ? "滞后统计" : "Lagged statistics",
+                  ],
+                  [
+                    "diagnostic_evidence",
+                    locale === "zh" ? "诊断关系" : "Diagnostic relations",
+                  ],
+                ] as Array<[KnowledgeGraphStage, string]>).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={stage === value ? "active" : ""}
+                    aria-pressed={stage === value}
+                    onClick={() => setStage(value)}
+                  >
+                    {label}
                   </button>
                 ))}
               </div>

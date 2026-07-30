@@ -12,7 +12,12 @@ from mazu_saudi.knowledge_graph import (
     KnowledgeGraphStore,
     build_statistical_knowledge_graph,
 )
-from mazu_saudi.knowledge_graph.builder import discover_indicator_files
+from mazu_saudi.knowledge_graph.builder import (
+    Association,
+    DEFAULT_STATE_SPECS,
+    _select_associations,
+    discover_indicator_files,
+)
 from mazu_saudi.ontology import materialize_ontology
 
 
@@ -105,6 +110,99 @@ def test_complete_year_is_required_by_default(tmp_path):
     assert [day.isoformat() for day, _ in files] == ["2025-03-01", "2025-03-02"]
 
 
+def test_prediction_candidate_is_not_crowded_out_by_stronger_persistence():
+    candidate = Association(
+        source_state_index=0,
+        target_state_index=3,
+        season="MAM",
+        lag_days=1,
+        opportunity_count=100,
+        source_occurrence_count=30,
+        target_occurrence_count=20,
+        joint_occurrence_count=10,
+        support_episode_indices=tuple(range(10)),
+        counterexample_episode_indices=tuple(range(10, 20)),
+        baseline_rate=0.2,
+        conditional_rate=1 / 3,
+        lift=1.67,
+    )
+    persistence = replace(
+        candidate,
+        source_state_index=6,
+        target_state_index=6,
+        support_episode_indices=tuple(range(40)),
+        counterexample_episode_indices=tuple(range(40, 45)),
+        lift=8.0,
+    )
+
+    selected = _select_associations(
+        [persistence, candidate],
+        state_specs=DEFAULT_STATE_SPECS,
+        config=BuildConfig(
+            max_assertions=1,
+            min_support_episodes=8,
+            min_lift=1.15,
+            min_candidate_support_rate=0.25,
+        ),
+    )
+
+    assert selected == [candidate]
+
+
+def test_store_adds_policy_columns_without_reclassifying_legacy_builds(tmp_path):
+    database = tmp_path / "legacy.sqlite3"
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE kg_evidence (
+                assertion_id TEXT PRIMARY KEY,
+                build_id TEXT NOT NULL,
+                source_state_iri TEXT NOT NULL,
+                target_state_iri TEXT NOT NULL,
+                context_id TEXT NOT NULL,
+                lag_days INTEGER NOT NULL,
+                opportunity_count INTEGER NOT NULL,
+                source_occurrence_count INTEGER NOT NULL,
+                target_occurrence_count INTEGER NOT NULL,
+                joint_occurrence_count INTEGER NOT NULL,
+                support_episode_count INTEGER NOT NULL,
+                counterexample_episode_count INTEGER NOT NULL,
+                baseline_rate REAL NOT NULL,
+                conditional_rate REAL NOT NULL,
+                lift REAL NOT NULL,
+                evidence_class TEXT NOT NULL,
+                eligible_for_causal_explanation INTEGER NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO kg_evidence VALUES (
+                'legacy-assertion', 'legacy-build', 'urn:source', 'urn:target',
+                'urn:context', 1, 10, 4, 3, 2, 2, 2, 0.3, 0.5, 1.67,
+                'observational-statistical', 0
+            )
+            """
+        )
+
+    KnowledgeGraphStore(database).initialize()
+
+    with sqlite3.connect(database) as connection:
+        migrated = connection.execute(
+            """
+            SELECT relation_policy_version, relation_role, validation_stage,
+                   eligible_for_prediction_experiment
+            FROM kg_evidence
+            """
+        ).fetchone()
+    assert migrated == (
+        "legacy-unclassified",
+        "legacy_unclassified",
+        "legacy_statistical_evidence",
+        0,
+    )
+
+
 def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
     indicators = tmp_path / "indicators"
     indicators.mkdir()
@@ -153,8 +251,31 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
     ]
     assert all(
         node["properties"]["coverage_gate_passed"]
-        and node["properties"]["eligible_for_prediction_experiment"]
         and not node["properties"]["eligible_for_production_prediction"]
+        and not node["properties"]["eligible_for_causal_explanation"]
+        for node in assertion_nodes
+    )
+    assert all(
+        node["properties"]["eligible_for_prediction_experiment"]
+        == (
+            node["properties"]["validation_stage"]
+            == "candidate_for_saudi_evaluation"
+        )
+        for node in assertion_nodes
+    )
+    assert {
+        node["properties"]["validation_stage"] for node in assertion_nodes
+    } <= {
+        "diagnostic_evidence",
+        "statistical_evidence",
+        "candidate_for_saudi_evaluation",
+    }
+    assert any(
+        node["properties"]["relation_role"] == "measurement_agreement"
+        for node in assertion_nodes
+    )
+    assert result.prediction_candidate_count == sum(
+        node["properties"]["eligible_for_prediction_experiment"]
         for node in assertion_nodes
     )
     assert {node["properties"]["evidence_layer"] for node in assertion_nodes} <= {
@@ -183,7 +304,9 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
     with sqlite3.connect(database) as connection:
         evidence = connection.execute(
             """
-            SELECT eligible_for_causal_explanation, lift
+            SELECT eligible_for_causal_explanation, lift, relation_role,
+                   validation_stage, eligible_for_prediction_experiment,
+                   transferability_status
             FROM kg_evidence
             WHERE source_state_iri='urn:mazu-saudi:concept:HighIVTState'
               AND target_state_iri='urn:mazu-saudi:concept:ExtremeRainfallState'
@@ -193,6 +316,10 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
         assert evidence is not None
         assert evidence[0] == 0
         assert evidence[1] > 1.0
+        assert evidence[2] == "lagged_cross_indicator"
+        assert evidence[3] == "candidate_for_saudi_evaluation"
+        assert evidence[4] == 1
+        assert evidence[5] == "not_evaluated_on_saudi"
         assert connection.execute("SELECT COUNT(*) FROM kg_thresholds").fetchone()[0] > 0
 
     # Ontology rematerialization only replaces ontology tables; graph builds stay immutable.

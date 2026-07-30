@@ -156,6 +156,10 @@ const builtKnowledgeGraph = {
         lift: 2.4,
         support_episode_count: 8,
         evidence_layer: "mixed",
+        relation_role: "lagged_cross_indicator",
+        validation_stage: "candidate_for_saudi_evaluation",
+        transferability_status: "not_evaluated_on_saudi",
+        eligible_for_prediction_experiment: true,
         eligible_for_causal_explanation: false,
       },
     },
@@ -310,12 +314,13 @@ describe("historical warning application", () => {
     window.history.pushState({}, "", "/knowledge-graph");
     render(<BrowserRouter><App /></BrowserRouter>);
 
-    expect(await screen.findByText(/1 统计断言 · 8 证据过程/)).toBeInTheDocument();
+    expect(await screen.findByText(/1 分层证据断言 · 8 证据过程/)).toBeInTheDocument();
     expect(document.querySelector("#kg-instance-arrow")).toBeInTheDocument();
     const assertion = await screen.findByRole("button", { name: /高水汽输送状态 → 极端降水状态/ });
     fireEvent.click(assertion);
     expect(screen.getByText("lift")).toBeInTheDocument();
     expect(screen.getByText("2.4")).toBeInTheDocument();
+    expect(screen.getByText("candidate_for_saudi_evaluation")).toBeInTheDocument();
     expect(screen.getAllByText("sourceState").length).toBeGreaterThan(0);
     expect(screen.getByText(/3 节点 · 2 关系/)).toBeInTheDocument();
   });
@@ -325,7 +330,7 @@ describe("historical warning application", () => {
     window.history.pushState({}, "", "/knowledge-graph");
     render(<BrowserRouter><App /></BrowserRouter>);
 
-    await screen.findByText(/1 统计断言 · 8 证据过程/);
+    await screen.findByText(/1 分层证据断言 · 8 证据过程/);
     const graph = document.querySelector<SVGSVGElement>('svg[aria-label="全球观测机制适用性知识图谱"]');
     expect(graph).not.toBeNull();
     if (!graph) throw new Error("Knowledge graph SVG was not rendered");
@@ -338,6 +343,11 @@ describe("historical warning application", () => {
     expect(screen.getByText("没有匹配的图谱节点")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "全部季节" }));
+    expect(await screen.findByRole("button", { name: /高水汽输送状态 → 极端降水状态/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "诊断关系" }));
+    expect(screen.getByText("没有匹配的图谱节点")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "预测候选" }));
     expect(await screen.findByRole("button", { name: /高水汽输送状态 → 极端降水状态/ })).toBeInTheDocument();
 
     const restoredGraph = document.querySelector<SVGSVGElement>('svg[aria-label="全球观测机制适用性知识图谱"]');

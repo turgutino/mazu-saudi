@@ -48,6 +48,15 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--max-lag-days", type=int, default=3)
     result.add_argument("--min-support-episodes", type=int, default=8)
     result.add_argument("--min-lift", type=float, default=1.15)
+    result.add_argument(
+        "--min-candidate-support-rate",
+        type=float,
+        default=0.25,
+        help=(
+            "Minimum supporting source-episode fraction required before a "
+            "lagged hazard relation may enter offline Saudi evaluation."
+        ),
+    )
     result.add_argument("--max-assertions", type=int, default=160)
     result.add_argument(
         "--min-indicator-season-coverage",
@@ -128,6 +137,7 @@ def main(argv: list[str] | None = None) -> int:
             max_lag_days=args.max_lag_days,
             min_support_episodes=args.min_support_episodes,
             min_lift=args.min_lift,
+            min_candidate_support_rate=args.min_candidate_support_rate,
             max_assertions=args.max_assertions,
             min_indicator_season_coverage=(
                 args.min_indicator_season_coverage
