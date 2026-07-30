@@ -28,6 +28,7 @@ def test_ontology_view_reads_the_versioned_ontology_service():
     app = (FRONTEND / "src" / "App.tsx").read_text(encoding="utf-8")
     api = (FRONTEND / "src" / "api.ts").read_text(encoding="utf-8")
     types = (FRONTEND / "src" / "types.ts").read_text(encoding="utf-8")
+    styles = (FRONTEND / "src" / "styles.css").read_text(encoding="utf-8")
 
     assert "api.ontologyView(search, module)" in app
     assert 'request<OntologyRelationView>(`/api/v1/ontology/view${suffix}`)' in api
@@ -41,6 +42,8 @@ def test_ontology_view_reads_the_versioned_ontology_service():
         "ontology-arrow",
     ):
         assert interaction in app
+    assert 'className="ontology-canvas"' in app
+    assert ".ontology-canvas .kg-node-label { font-size: 12px; }" in styles
 
 
 def test_global_knowledge_graph_reads_instance_service_without_fabricating_pending_data():

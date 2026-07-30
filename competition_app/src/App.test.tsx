@@ -294,6 +294,7 @@ describe("historical warning application", () => {
     const ontologySvg = document.querySelector<SVGSVGElement>('svg[aria-label="天气机制本体"]');
     expect(ontologySvg).not.toBeNull();
     if (!ontologySvg) throw new Error("Ontology SVG was not rendered");
+    expect(ontologySvg).toHaveClass("ontology-canvas");
     vi.spyOn(ontologySvg, "getBoundingClientRect").mockReturnValue({
       x: 0,
       y: 0,

@@ -766,7 +766,7 @@ function OntologyPage() {
             {loading && <div className="kg-state-message"><i />{t(locale, "ontologyLoading")}</div>}
             {!loading && error && <div className="kg-state-message error-message">{error}</div>}
             {!loading && !error && !visibleNodes.length && <div className="kg-state-message">{t(locale, "ontologyEmpty")}</div>}
-            {!loading && !error && !!visibleNodes.length && <svg ref={svgRef} viewBox="0 0 1000 600" onClick={handleCanvasClick} onPointerMove={handlePointerMove} onPointerUp={endPointerInteraction} onPointerCancel={endPointerInteraction} aria-label={t(locale, "ontologyTitle")}>
+            {!loading && !error && !!visibleNodes.length && <svg ref={svgRef} className="ontology-canvas" viewBox="0 0 1000 600" onClick={handleCanvasClick} onPointerMove={handlePointerMove} onPointerUp={endPointerInteraction} onPointerCancel={endPointerInteraction} aria-label={t(locale, "ontologyTitle")}>
               <defs>
                 <marker id="ontology-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                   <path d="M 0 0 L 10 5 L 0 10 z" />

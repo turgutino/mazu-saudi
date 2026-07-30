@@ -585,6 +585,7 @@ select:focus, input:focus, textarea:focus { border-color: #68aba5; background: w
 .kg-node.selected circle { stroke: var(--navy); stroke-width: 2.4; }
 .kg-node-label-bg { fill: rgba(255,255,255,.92); stroke: rgba(196,211,215,.9); stroke-width: 1; cursor: pointer; }
 .kg-node-label { fill: #243d52; font-size: 14px; font-weight: 700; cursor: pointer; }
+.ontology-canvas .kg-node-label { font-size: 12px; }
 .kg-node.selected .kg-node-label-bg { fill: #eef8f8; stroke: var(--teal); }
 .kg-node.selected .kg-node-label { fill: var(--navy-deep); }
 .kg-node:focus { outline: none; }.kg-node:focus circle { stroke: var(--focus); stroke-width: 3; }
