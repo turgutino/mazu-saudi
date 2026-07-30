@@ -148,6 +148,16 @@ def create_app(
         except RuntimeError as exc:
             raise HTTPException(503, str(exc)) from exc
 
+    @app.get("/api/v1/knowledge-graph/background")
+    def knowledge_graph_background_summary():
+        return knowledge_graph_service.background_summary()
+
+    @app.get("/api/v1/knowledge-graph/background/view")
+    def knowledge_graph_background_view(
+        run_id: Annotated[str | None, Query(max_length=120)] = None,
+    ):
+        return knowledge_graph_service.background_view(run_id=run_id)
+
     @app.get("/api/v1/ontology/resource")
     def ontology_resource(iri: Annotated[str, Query(min_length=1, max_length=500)]):
         try:

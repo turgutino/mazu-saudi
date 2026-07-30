@@ -1,0 +1,155 @@
+{
+  "alignment_id": "mazu-sweet-2026-07-31",
+  "source": {
+    "name": "SWEET Ontologies",
+    "ontology_iri": "http://sweetontology.net/sweetAll",
+    "repository": "https://github.com/ESIPFed/sweet",
+    "commit": "db60c8ddb1b781fbadae176f69286a2cdd5099a0",
+    "license": "CC0-1.0"
+  },
+  "review_policy": {
+    "allowed_relations": [
+      "skos:exactMatch",
+      "skos:closeMatch",
+      "skos:broadMatch",
+      "skos:relatedMatch"
+    ],
+    "exact_match_requires_equal_extension": true,
+    "same_label_is_not_sufficient": true
+  },
+  "mappings": [
+    {
+      "local_iri": "urn:mazu-saudi:concept:DailyPrecipitation",
+      "relation": "skos:closeMatch",
+      "target_iri": "http://sweetontology.net/propSpaceThickness/Precipitation",
+      "source_module": "src/propSpaceThickness.ttl",
+      "rationale": "MAZU adds a daily accumulation window to the SWEET precipitation-depth property."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:SatelliteDailyPrecipitation",
+      "relation": "skos:closeMatch",
+      "target_iri": "http://sweetontology.net/propSpaceThickness/Precipitation",
+      "source_module": "src/propSpaceThickness.ttl",
+      "rationale": "MAZU adds satellite provenance and a daily accumulation window."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:MonthlyPrecipitationBackground",
+      "relation": "skos:closeMatch",
+      "target_iri": "http://sweetontology.net/propSpaceThickness/Precipitation",
+      "source_module": "src/propSpaceThickness.ttl",
+      "rationale": "MAZU narrows the property to a monthly background aggregate."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:SeaSurfaceTemperature",
+      "relation": "skos:broadMatch",
+      "target_iri": "http://sweetontology.net/propTemperature/Temperature",
+      "source_module": "src/propTemperature.ttl",
+      "rationale": "SWEET temperature is broader than the MAZU sea-surface observable property."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:MonthlyMaximumTemperatureBackground",
+      "relation": "skos:broadMatch",
+      "target_iri": "http://sweetontology.net/propTemperature/Temperature",
+      "source_module": "src/propTemperature.ttl",
+      "rationale": "SWEET temperature is broader than a monthly maximum near-surface aggregate."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:MaximumAirTemperature",
+      "relation": "skos:broadMatch",
+      "target_iri": "http://sweetontology.net/propTemperature/Temperature",
+      "source_module": "src/propTemperature.ttl",
+      "rationale": "SWEET temperature is broader than daily maximum near-surface air temperature."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:IntegratedVaporTransport",
+      "relation": "skos:relatedMatch",
+      "target_iri": "http://sweetontology.net/phenFluidTransport/Advection",
+      "source_module": "src/phenFluidTransport.ttl",
+      "rationale": "IVT quantifies vertically integrated transport; generic advection is related but not equivalent."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:IntegratedVaporTransport",
+      "relation": "skos:relatedMatch",
+      "target_iri": "http://sweetontology.net/matrWater/WaterVapor",
+      "source_module": "src/matrWater.ttl",
+      "rationale": "Water vapour is the transported substance, not the IVT observable property itself."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:CAPE",
+      "relation": "skos:broadMatch",
+      "target_iri": "http://sweetontology.net/propEnergy/AvailablePotentialEnergy",
+      "source_module": "src/propEnergy.ttl",
+      "rationale": "SWEET available potential energy is broader than convective available potential energy."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:PrecipitableWater",
+      "relation": "skos:exactMatch",
+      "target_iri": "http://sweetontology.net/propSpaceThickness/PrecipitableWater",
+      "source_module": "src/propSpaceThickness.ttl",
+      "rationale": "Both denote vertically integrated atmospheric water vapour as an equivalent water column."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:TenMetreWindSpeed",
+      "relation": "skos:closeMatch",
+      "target_iri": "http://sweetontology.net/propSpeed/WindSpeed",
+      "source_module": "src/propSpeed.ttl",
+      "rationale": "MAZU fixes the measurement height at ten metres while SWEET is height-agnostic."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:Orography",
+      "relation": "skos:closeMatch",
+      "target_iri": "http://sweetontology.net/realmLandOrographic/Orography",
+      "source_module": "src/realmLandOrographic.ttl",
+      "rationale": "MAZU operationalizes orography as elevation and slope indicators."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:MoistureAdvection",
+      "relation": "skos:closeMatch",
+      "target_iri": "http://sweetontology.net/phenFluidTransport/Advection",
+      "source_module": "src/phenFluidTransport.ttl",
+      "rationale": "MAZU narrows generic advection to horizontal moisture transport into a target environment."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:LocalConvection",
+      "relation": "skos:closeMatch",
+      "target_iri": "http://sweetontology.net/phenFluidTransport/Convection",
+      "source_module": "src/phenFluidTransport.ttl",
+      "rationale": "MAZU adds locality, initiation and meteorological applicability conditions."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:OrographicLift",
+      "relation": "skos:exactMatch",
+      "target_iri": "http://sweetontology.net/phenAtmo/OrographicLifting",
+      "source_module": "src/phenAtmo.ttl",
+      "rationale": "Both denote terrain-forced ascent of airflow."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:FlashFloodFavourableState",
+      "relation": "skos:relatedMatch",
+      "target_iri": "http://sweetontology.net/phenHydro/FlashFlood",
+      "source_module": "src/phenHydro.ttl",
+      "rationale": "A favourable meteorological state is related to, but is not, an observed flash-flood event."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:DustStormFavourableState",
+      "relation": "skos:relatedMatch",
+      "target_iri": "http://sweetontology.net/phenAtmoWind/DustStorm",
+      "source_module": "src/phenAtmoWind.ttl",
+      "rationale": "A dust-mobilization screening state is related to, but is not, a dust-storm event."
+    }
+  ],
+  "unmapped": [
+    {
+      "local_iri": "urn:mazu-saudi:concept:VaporPressureDeficit",
+      "reason": "No verified SWEET concept with the same saturation-minus-actual-vapour-pressure semantics was found."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:ThermalPersistence",
+      "reason": "This is a project mechanism concept rather than a direct SWEET physical-process match."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:HeatwaveFavourableState",
+      "reason": "A favourable screening state must not be collapsed into a heat-event concept."
+    }
+  ]
+}

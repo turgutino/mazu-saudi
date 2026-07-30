@@ -9,6 +9,7 @@ from mazu_saudi.ontology import OntologyStore, materialize_ontology
 
 ROOT = Path(__file__).parents[1]
 SOURCE = ROOT / "ontology/mazu_weather_ontology.jsonld"
+SWEET_ALIGNMENT = ROOT / "ontology/sweet_alignment.json"
 SHAPES = ROOT / "ontology/mazu_weather_shapes.ttl"
 DESIGN = ROOT / "ontology/ontology_design.md"
 CONTEXT = ROOT / "CONTEXT.md"
@@ -31,7 +32,7 @@ def test_ontology_declares_standards_version_and_claim_boundary():
     context = payload["@context"]
 
     assert payload["@type"] == "owl:Ontology"
-    assert payload["versionInfo"] == "1.3.0"
+    assert payload["versionInfo"] == "1.4.0"
     assert "never causal by default" in payload["claimBoundary"]
     assert context["@vocab"] == MAZU
     for prefix in ("sosa", "geo", "time", "prov", "qudt", "uom"):
@@ -150,7 +151,7 @@ def test_materializer_builds_queryable_idempotent_database(tmp_path):
     first = materialize_ontology(SOURCE, database)
     second = materialize_ontology(SOURCE, database)
 
-    assert first["ontology"]["version"] == "1.3.0"
+    assert first["ontology"]["version"] == "1.4.0"
     assert first["ontology"]["source_sha256"] == second["ontology"]["source_sha256"]
     assert first["resource_count"] == second["resource_count"] == 88
     assert first["statement_count"] == second["statement_count"]
@@ -240,6 +241,9 @@ def test_design_document_covers_database_extraction_and_saudi_usage():
         "/ontology",
         "kg_builds",
         "本体关系视图不是知识图谱",
+        "SWEET概念对齐",
+        "KWG外部背景",
+        "skos:relatedMatch",
     ):
         assert required in design
 
@@ -253,6 +257,9 @@ def test_domain_glossary_separates_ontology_relation_view_and_knowledge_graph():
         "全球观测机制适用性图谱",
         "文献证据记录（Literature Evidence Record）",
         "文献支持的机制适用性断言",
+        "SWEET概念对齐（SWEET Concept Alignment）",
+        "KWG背景事实（KWG Background Fact）",
+        "KWG背景增强运行（KWG Background Enrichment Run）",
     ):
         assert term in glossary
     assert "它是本体的可视化，不是知识图谱" in glossary

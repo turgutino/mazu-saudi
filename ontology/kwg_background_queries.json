@@ -1,0 +1,17 @@
+{
+  "manifest_id": "mazu-kwg-background-v1",
+  "provider": "KnowWhereGraph",
+  "endpoint": "https://stko-kwg.geog.ucsb.edu/sparql",
+  "country_iso3": "SAU",
+  "scope_note": "Queries are restricted to GADM identifiers beginning with SAU. Historical results require a linked Saudi administrative region and an explicit source dataset.",
+  "queries": [
+    {
+      "role": "geography",
+      "sparql": "PREFIX kwgo: <http://stko-kwg.geog.ucsb.edu/lod/ontology/> PREFIX geo: <http://www.opengis.net/ont/geosparql#> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> SELECT DISTINCT ?entity ?type ?label ?gid ?parent ?geometry WHERE { VALUES ?type { kwgo:AdministrativeRegion_0 kwgo:AdministrativeRegion_1 kwgo:AdministrativeRegion_2 } ?entity a ?type ; kwgo:hasGID ?gid . FILTER(STRSTARTS(STR(?gid), \"SAU\")) OPTIONAL { ?entity rdfs:label ?labelValue . } BIND(COALESCE(?labelValue, ?gid) AS ?label) OPTIONAL { ?entity kwgo:administrativePartOf ?parent . } OPTIONAL { ?entity geo:hasGeometry/geo:asWKT ?geometry . } } ORDER BY ?gid LIMIT 500"
+    },
+    {
+      "role": "history",
+      "sparql": "PREFIX kwgo: <http://stko-kwg.geog.ucsb.edu/lod/ontology/> PREFIX geo: <http://www.opengis.net/ont/geosparql#> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX sosa: <http://www.w3.org/ns/sosa/> PREFIX prov: <http://www.w3.org/ns/prov#> PREFIX time: <http://www.w3.org/2006/time#> SELECT DISTINCT ?entity ?type ?label ?start ?end ?region ?dataset ?geometry WHERE { ?region a ?regionType ; kwgo:hasGID ?gid . VALUES ?regionType { kwgo:AdministrativeRegion_0 kwgo:AdministrativeRegion_1 kwgo:AdministrativeRegion_2 } FILTER(STRSTARTS(STR(?gid), \"SAU\")) ?entity a ?type ; sosa:hasFeatureOfInterest ?region ; prov:wasDerivedFrom ?dataset ; time:hasTime/time:inXSDDateTime ?start . FILTER(REGEX(STR(?type), \"hazard|disaster|earthquake|wildfire|hurricane|flood|storm\", \"i\")) OPTIONAL { ?entity rdfs:label ?labelValue . } BIND(COALESCE(?labelValue, STR(?entity)) AS ?label) OPTIONAL { ?entity time:hasTime/time:hasEnd/time:inXSDDateTime ?end . } OPTIONAL { ?entity geo:hasGeometry/geo:asWKT ?geometry . } } ORDER BY DESC(?start) LIMIT 500"
+    }
+  ]
+}

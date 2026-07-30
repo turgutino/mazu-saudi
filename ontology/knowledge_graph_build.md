@@ -128,8 +128,35 @@ Lift 只是限定样本内的关联强度。第一阶段不计算显著性因果
 | `kg_edges` | 本体谓词约束的实例关系 |
 | `kg_evidence` | 每条统计断言的机会数、支持数、反例数、发生率和 Lift |
 | `kg_thresholds` | 每个空间块、季节、状态和指标的分位数阈值及样本数 |
+| `kg_external_background_runs` | KWG增强范围、查询指纹、快照指纹、状态和错误 |
+| `kg_external_background_entities` | KWG行政区与有来源历史事件 |
+| `kg_external_background_relations` | KWG背景实体之间的行政或空间关系 |
 
 本体物化只替换 `ontology_documents/namespaces/resources/statements`，不会删除已经构建的图谱。
+KWG背景表与全球观测构建批次分离，不会把外部历史记录冒充统计证据。
+
+### 4.1 KWG背景增强
+
+在线增强命令：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/enrich_kwg_background.py \
+  --country-iso3 SAU
+```
+
+查询由 `ontology/kwg_background_queries.json` 固定并限制到500条行政区和500条历史背景。
+历史事件必须同时返回时间、关联行政区和 `prov:wasDerivedFrom` 数据集；缺少任一字段的
+行不会进入快照。
+
+如果在线端点不可用，脚本以退出码2结束并写入 `source_unavailable` 运行，不创建背景实体。
+也可以在端点恢复后保存规范化响应，再离线导入：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/enrich_kwg_background.py \
+  --snapshot /path/to/kwg_saudi_snapshot.json
+```
+
+快照导入仍执行官方主机、ISO3范围、时间、数据集来源和关系端点完整性校验。
 
 ## 5. 构建命令
 
@@ -256,6 +283,8 @@ PYTHONPATH=src conda run -n ml python scripts/build_global_knowledge_graph.py \
 ```text
 GET /api/v1/knowledge-graph
 GET /api/v1/knowledge-graph/view?limit=500
+GET /api/v1/knowledge-graph/background
+GET /api/v1/knowledge-graph/background/view
 ```
 
 前端 `/knowledge-graph` 会从实例表读取真实节点和关系。没有正式构建批次时继续显示待构建

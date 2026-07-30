@@ -60,6 +60,18 @@
       "@id": "skos:exactMatch",
       "@type": "@id"
     },
+    "closeMatch": {
+      "@id": "skos:closeMatch",
+      "@type": "@id"
+    },
+    "broadMatch": {
+      "@id": "skos:broadMatch",
+      "@type": "@id"
+    },
+    "relatedMatch": {
+      "@id": "skos:relatedMatch",
+      "@type": "@id"
+    },
     "broader": {
       "@id": "skos:broader",
       "@type": "@id"
@@ -100,7 +112,7 @@
   },
   "@id": "urn:mazu-saudi:ontology",
   "@type": "owl:Ontology",
-  "versionInfo": "1.3.0",
+  "versionInfo": "1.4.0",
   "labelEn": "MAZU Global Observational Mechanism Applicability Ontology",
   "labelZh": "MAZU 全球观测机制适用性本体",
   "claimBoundary": "The ontology separates observations, derived indicator states, observational assertions, expert or literature evidence, and forecast constraints. Data-derived associations are never causal by default and cannot be treated as observed hazard events.",
@@ -111,7 +123,8 @@
     "http://www.w3.org/2006/time",
     "http://www.w3.org/ns/prov",
     "http://qudt.org/schema/qudt/",
-    "https://cfconventions.org/"
+    "https://cfconventions.org/",
+    "http://sweetontology.net/sweetAll"
   ],
   "@graph": [
     {
@@ -703,7 +716,8 @@
       "definitionZh": "逐日累计降水量。",
       "cfStandardName": "precipitation_amount",
       "quantityKind": "quantitykind:Length",
-      "unit": "uom:MilliM"
+      "unit": "uom:MilliM",
+      "closeMatch": "http://sweetontology.net/propSpaceThickness/Precipitation"
     },
     {
       "@id": "concept:SatelliteDailyPrecipitation",
@@ -715,7 +729,8 @@
       "definitionZh": "由可用FYMERG半小时降水率观测累计得到的逐日降水量。",
       "cfStandardName": "precipitation_amount",
       "quantityKind": "quantitykind:Length",
-      "unit": "uom:MilliM"
+      "unit": "uom:MilliM",
+      "closeMatch": "http://sweetontology.net/propSpaceThickness/Precipitation"
     },
     {
       "@id": "concept:SeaSurfaceTemperature",
@@ -727,7 +742,8 @@
       "definitionZh": "作为环境上下文使用的逐日平均分析海表温度。",
       "cfStandardName": "sea_surface_temperature",
       "quantityKind": "quantitykind:Temperature",
-      "unit": "uom:DEG_C"
+      "unit": "uom:DEG_C",
+      "broadMatch": "http://sweetontology.net/propTemperature/Temperature"
     },
     {
       "@id": "concept:MonthlyPrecipitationBackground",
@@ -738,7 +754,8 @@
       "definitionEn": "Monthly accumulated precipitation used to describe background wetness without becoming a daily event state.",
       "definitionZh": "用于描述背景湿润程度、但不作为逐日事件状态的月累计降水。",
       "quantityKind": "quantitykind:Length",
-      "unit": "uom:MilliM"
+      "unit": "uom:MilliM",
+      "closeMatch": "http://sweetontology.net/propSpaceThickness/Precipitation"
     },
     {
       "@id": "concept:MonthlyMaximumTemperatureBackground",
@@ -749,7 +766,8 @@
       "definitionEn": "Monthly maximum near-surface temperature used as thermal background without becoming a daily event state.",
       "definitionZh": "用于描述热力背景、但不作为逐日事件状态的月最高近地面气温。",
       "quantityKind": "quantitykind:Temperature",
-      "unit": "uom:DEG_C"
+      "unit": "uom:DEG_C",
+      "broadMatch": "http://sweetontology.net/propTemperature/Temperature"
     },
     {
       "@id": "concept:IntegratedVaporTransport",
@@ -760,7 +778,11 @@
       "definitionEn": "Magnitude of vertically integrated horizontal water-vapour transport.",
       "definitionZh": "垂直积分水平水汽输送的模长。",
       "cfStandardName": "atmosphere_water_vapor_transport_across_unit_distance",
-      "quantityKind": "quantitykind:MassFlowRate"
+      "quantityKind": "quantitykind:MassFlowRate",
+      "relatedMatch": [
+        "http://sweetontology.net/phenFluidTransport/Advection",
+        "http://sweetontology.net/matrWater/WaterVapor"
+      ]
     },
     {
       "@id": "concept:CAPE",
@@ -772,7 +794,8 @@
       "definitionZh": "折算到水平预报网格的对流有效位能。",
       "cfStandardName": "atmosphere_convective_available_potential_energy",
       "quantityKind": "quantitykind:SpecificEnergy",
-      "unit": "uom:J-PER-KiloGM"
+      "unit": "uom:J-PER-KiloGM",
+      "broadMatch": "http://sweetontology.net/propEnergy/AvailablePotentialEnergy"
     },
     {
       "@id": "concept:PrecipitableWater",
@@ -783,7 +806,8 @@
       "definitionEn": "Vertically integrated atmospheric water vapour per unit area.",
       "definitionZh": "单位面积大气柱中的垂直积分水汽量。",
       "quantityKind": "quantitykind:AreaDensity",
-      "unit": "uom:KiloGM-PER-M2"
+      "unit": "uom:KiloGM-PER-M2",
+      "alignsWith": "http://sweetontology.net/propSpaceThickness/PrecipitableWater"
     },
     {
       "@id": "concept:MaximumAirTemperature",
@@ -795,7 +819,8 @@
       "definitionZh": "近地面空气温度的逐日最大值。",
       "cfStandardName": "air_temperature",
       "quantityKind": "quantitykind:Temperature",
-      "unit": "uom:DEG_C"
+      "unit": "uom:DEG_C",
+      "broadMatch": "http://sweetontology.net/propTemperature/Temperature"
     },
     {
       "@id": "concept:VaporPressureDeficit",
@@ -818,7 +843,8 @@
       "definitionZh": "10米高度近地面风速模长。",
       "cfStandardName": "wind_speed",
       "quantityKind": "quantitykind:Speed",
-      "unit": "uom:M-PER-SEC"
+      "unit": "uom:M-PER-SEC",
+      "closeMatch": "http://sweetontology.net/propSpeed/WindSpeed"
     },
     {
       "@id": "concept:Orography",
@@ -829,7 +855,8 @@
       "definitionEn": "Static terrain elevation and derived slope context.",
       "definitionZh": "静态地形高程及其派生坡度环境。",
       "quantityKind": "quantitykind:Length",
-      "unit": "uom:M"
+      "unit": "uom:M",
+      "closeMatch": "http://sweetontology.net/realmLandOrographic/Orography"
     },
     {
       "@id": "concept:HighIVTState",
@@ -925,7 +952,8 @@
       "labelEn": "Moisture advection",
       "labelZh": "水汽平流",
       "definitionEn": "Horizontal transport of moisture into a target environment.",
-      "definitionZh": "向目标环境输送水汽的水平输送过程。"
+      "definitionZh": "向目标环境输送水汽的水平输送过程。",
+      "closeMatch": "http://sweetontology.net/phenFluidTransport/Advection"
     },
     {
       "@id": "concept:LocalConvection",
@@ -934,7 +962,8 @@
       "labelEn": "Local convection",
       "labelZh": "局地对流",
       "definitionEn": "Local convective initiation and intensification supported by instability and moisture.",
-      "definitionZh": "由不稳定能量和水汽支持的局地对流初生与增强。"
+      "definitionZh": "由不稳定能量和水汽支持的局地对流初生与增强。",
+      "closeMatch": "http://sweetontology.net/phenFluidTransport/Convection"
     },
     {
       "@id": "concept:OrographicLift",
@@ -943,7 +972,8 @@
       "labelEn": "Orographic lift",
       "labelZh": "地形抬升",
       "definitionEn": "Forced ascent associated with airflow encountering terrain.",
-      "definitionZh": "气流遇到地形后产生的强迫上升。"
+      "definitionZh": "气流遇到地形后产生的强迫上升。",
+      "alignsWith": "http://sweetontology.net/phenAtmo/OrographicLifting"
     },
     {
       "@id": "concept:ThermalPersistence",
@@ -997,7 +1027,8 @@
       "labelEn": "Flash-flood-favourable state",
       "labelZh": "山洪有利状态",
       "definitionEn": "A meteorological screening state favourable for flash flooding, not an observed flash-flood event.",
-      "definitionZh": "有利于山洪形成的气象筛查状态，不是观测山洪事件。"
+      "definitionZh": "有利于山洪形成的气象筛查状态，不是观测山洪事件。",
+      "relatedMatch": "http://sweetontology.net/phenHydro/FlashFlood"
     },
     {
       "@id": "concept:HeatwaveFavourableState",
@@ -1015,7 +1046,8 @@
       "labelEn": "Dust-storm-favourable state",
       "labelZh": "沙尘暴有利状态",
       "definitionEn": "A meteorological screening state favourable for dust mobilization, not an observed dust-storm impact.",
-      "definitionZh": "有利于起沙的气象筛查状态，不是观测沙尘灾害影响。"
+      "definitionZh": "有利于起沙的气象筛查状态，不是观测沙尘灾害影响。",
+      "relatedMatch": "http://sweetontology.net/phenAtmoWind/DustStorm"
     }
   ]
 }

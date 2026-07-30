@@ -141,6 +141,8 @@ def test_ontology_is_materialized_and_exposed_as_a_read_only_graph(tmp_path):
     assert "/api/v1/ontology/graph" not in paths
     assert "/api/v1/knowledge-graph" in paths
     assert "/api/v1/knowledge-graph/view" in paths
+    assert "/api/v1/knowledge-graph/background" in paths
+    assert "/api/v1/knowledge-graph/background/view" in paths
 
     graph = client.get(
         "/api/v1/ontology/view",
@@ -180,6 +182,7 @@ def test_knowledge_graph_api_is_explicitly_empty_before_the_first_build(tmp_path
     assert summary.status_code == 200
     assert summary.json()["available"] is False
     assert summary.json()["build"] is None
+    assert summary.json()["external_background"] is None
     assert "not causal mechanisms" in summary.json()["boundary"]
 
     view = client.get("/api/v1/knowledge-graph/view")
@@ -190,6 +193,21 @@ def test_knowledge_graph_api_is_explicitly_empty_before_the_first_build(tmp_path
         "edges": [],
         "node_count": 0,
         "edge_count": 0,
+    }
+
+    background = client.get("/api/v1/knowledge-graph/background")
+    assert background.status_code == 200
+    assert background.json()["available"] is False
+    assert background.json()["run"] is None
+    assert background.json()["active_run"] is None
+    assert "not MAZU observation truth" in background.json()["boundary"]
+
+    background_view = client.get("/api/v1/knowledge-graph/background/view")
+    assert background_view.status_code == 200
+    assert background_view.json() == {
+        "run": None,
+        "entities": [],
+        "relations": [],
     }
 
 

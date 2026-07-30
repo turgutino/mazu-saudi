@@ -43,6 +43,44 @@ SOSA 与 OMS 概念接近。本体 RDF 表达以 SOSA 为主，不复制一套 `
 用于概念校验。GeoSPARQL、OWL-Time、PROV-O 和 QUDT 只复用所需部分，避免导入不必要的
 完整推理负担。
 
+### 2.1 SWEET概念对齐
+
+SWEET作为外部中层地球系统本体使用，不通过 `sweetAll` 导入完整类层次。MAZU概念保持
+自己的稳定URN和业务边界，只在 `ontology/sweet_alignment.json` 中记录审核过的映射，
+并在JSON-LD真源中物化对应SKOS关系。
+
+| 关系 | 用法 |
+|---|---|
+| `skos:exactMatch` | 两侧概念外延一致，例如MAZU可降水量与SWEET可降水量 |
+| `skos:closeMatch` | 概念接近，但MAZU增加时间窗、高度或业务限定 |
+| `skos:broadMatch` | SWEET目标比MAZU概念更宽泛，例如一般温度之于海表温度 |
+| `skos:relatedMatch` | 只存在主题或机制联系，不能互换 |
+
+固定来源为ESIPFed SWEET提交
+`db60c8ddb1b781fbadae176f69286a2cdd5099a0`。同名不是等价证据；没有安全对应项的概念
+保持未对齐并记录原因。尤其不能把 `FlashFloodFavourableState` 对齐成已经发生的
+`FlashFlood`，两者只能使用 `relatedMatch`。
+
+验证命令：
+
+```bash
+PYTHONPATH=src python scripts/validate_sweet_alignment.py \
+  --sweet-root /path/to/ESIPFed/sweet
+```
+
+### 2.2 KWG外部背景
+
+KnowWhereGraph只用于补充行政区、空间关系和具有明确外部数据集来源的历史背景，不进入
+天气机制本体，也不改变全球统计关系的验证阶段。每次增强必须保存国家范围、时间范围、
+查询清单指纹、检索时间、响应快照指纹和运行状态；如果查询声明时间范围，还必须保存起止时间。
+
+- `region` 必须具有与请求国家前缀一致的GADM标识；
+- `historical_event` 必须具有事件时间和外部数据集IRI；
+- 背景关系的两端都必须在同一响应快照中，不能自动补造缺失节点。
+
+在线查询失败时写入 `source_unavailable` 运行，实体数和关系数保持零。空结果写入
+`empty`，不能解释成“历史上没有灾害”。KWG背景不是观测真值、因果证据或生产预测规则。
+
 ## 3. 命名空间与制品
 
 | 制品 | 路径 | 职责 |
@@ -77,7 +115,7 @@ urn:mazu-saudi:concept:    指标、状态、机制和环境受控概念
 全球数值数组仍保存在 NetCDF/Zarr。图数据库保存变量定义、状态、过程摘要、断言和源制品
 指针，不为每个全球格点复制一条 RDF 记录。
 
-本体 `1.3.0` 保留四个受控 `DataSource` 概念。DS2 日产品派生动力和地面状态；DS4
+本体 `1.4.0` 保留四个受控 `DataSource` 概念。DS2 日产品派生动力和地面状态；DS4
 海温与 DS10 卫星降水在逐季覆盖率达标时可以形成独立观测状态，同时继续提供天气过程
 背景和跨源一致性证据。DS1 月背景不变成逐日事件状态，任何单一降水源也不能冒充独立真值。
 
@@ -400,7 +438,7 @@ print(store.statements_for("urn:mazu-saudi:concept:HighIVTState"))
 
 ## 9. 当前版本和后续里程碑
 
-本体 `1.3.0` 完成语义骨架、标准映射、首批指标/状态/机制/环境概念、四类数据源、多源
+本体 `1.4.0` 完成语义骨架、标准映射、首批指标/状态/机制/环境概念、四类数据源、多源
 观测状态、SHACL 约束及 SQLite 物化。第一阶段统计构图脚本已经实现，读取每日指标 NetCDF
 后生成天气过程、滞后关联断言、支持证据和反例；关系级逐季覆盖门控会抑制缺测动力状态，
 但保留覆盖达标的可观测状态。全球原始数据到空间块指标的流式脚本也已实现，并在原始格点
