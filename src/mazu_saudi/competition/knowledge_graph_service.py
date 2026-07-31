@@ -35,9 +35,20 @@ class KnowledgeGraphBrowserService:
     def summary(self) -> dict[str, Any]:
         self.ontology_service.ensure_ready()
         build = self.store.latest_build()
+        compatible = (
+            build is not None
+            and self.store.build_matches_current_ontology(build)
+        )
         return {
             "build": build,
-            "available": build is not None,
+            "available": compatible,
+            "status": (
+                "available"
+                if compatible
+                else "ontology_mismatch"
+                if build is not None
+                else "not_built"
+            ),
             "external_background": self.background_store.latest_run(),
             "boundary": (
                 "Data-derived relations are classified as diagnostic evidence, "

@@ -1,5 +1,6 @@
 from dataclasses import replace
 from datetime import date, timedelta
+import json
 from pathlib import Path
 import sqlite3
 
@@ -335,6 +336,16 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
     # Ontology rematerialization only replaces ontology tables; graph builds stay immutable.
     materialize_ontology(ONTOLOGY, database)
     assert KnowledgeGraphStore(database).latest_build()["build_id"] == result.build_id
+
+    changed_ontology = tmp_path / "ontology-2.0.1.jsonld"
+    payload = json.loads(ONTOLOGY.read_text(encoding="utf-8"))
+    payload["versionInfo"] = "2.0.1"
+    changed_ontology.write_text(json.dumps(payload), encoding="utf-8")
+    materialize_ontology(changed_ontology, database)
+    incompatible = KnowledgeGraphStore(database).graph_view()
+    assert incompatible["status"] == "ontology_mismatch"
+    assert incompatible["nodes"] == []
+    assert incompatible["compatibility"]["compatible"] is False
 
 
 def test_builder_rejects_indicator_files_that_do_not_match_the_contract(tmp_path):

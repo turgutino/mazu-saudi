@@ -186,6 +186,16 @@ class KnowledgeGraphStore:
             raise RuntimeError("Ontology must be materialized before building the knowledge graph")
         return dict(row)
 
+    def build_matches_current_ontology(self, build: dict[str, Any]) -> bool:
+        """Return whether a frozen graph build matches the materialized ontology."""
+
+        ontology = self.ontology_identity()
+        return (
+            build.get("ontology_iri") == ontology["ontology_iri"]
+            and build.get("ontology_version") == ontology["version"]
+            and build.get("ontology_sha256") == ontology["source_sha256"]
+        )
+
     def validate_ontology_resources(self, iris: Iterable[str]) -> None:
         required = sorted(set(iris))
         if not required:
@@ -414,6 +424,21 @@ class KnowledgeGraphStore:
         build = self.latest_build() if build_id is None else self._build(build_id)
         if build is None:
             return {"build": None, "nodes": [], "edges": [], "node_count": 0, "edge_count": 0}
+        if not self.build_matches_current_ontology(build):
+            return {
+                "build": build,
+                "status": "ontology_mismatch",
+                "compatibility": {
+                    "compatible": False,
+                    "required_action": (
+                        "Rebuild the observational graph with the current ontology."
+                    ),
+                },
+                "nodes": [],
+                "edges": [],
+                "node_count": 0,
+                "edge_count": 0,
+            }
         with self._connect() as connection:
             node_rows = connection.execute(
                 """

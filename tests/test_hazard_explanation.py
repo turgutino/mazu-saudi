@@ -80,6 +80,18 @@ class ObservationalGraphStore:
         }
 
 
+class IncompatibleGraphStore:
+    def graph_view(self, build_id=None, *, limit=500):
+        return {
+            "build": {"build_id": "kg-old"},
+            "status": "ontology_mismatch",
+            "nodes": [],
+            "edges": [],
+            "node_count": 0,
+            "edge_count": 0,
+        }
+
+
 def test_explanation_package_preserves_evidence_gaps_and_layer_boundaries():
     query = HazardExplanationQuery(EVIDENCE_GRAPH, EmptyGraphStore())
 
@@ -141,3 +153,16 @@ def test_explanation_ablation_measures_coverage_not_model_skill_or_hallucination
         "response_policy": "state_that_no_graph_grounded_explanation_is_available",
     }
     assert len(result["cases"]) == 3
+
+
+def test_explanation_excludes_an_ontology_mismatched_observational_graph():
+    query = HazardExplanationQuery(EVIDENCE_GRAPH, IncompatibleGraphStore())
+
+    result = query.explain("flash_flood")
+
+    assert result["observational_context"]["status"] == "ontology_mismatch"
+    assert result["observational_context"]["related_assertions"] == []
+    assert any(
+        gap["code"] == "observational_graph_ontology_mismatch"
+        for gap in result["evidence_gaps"]
+    )

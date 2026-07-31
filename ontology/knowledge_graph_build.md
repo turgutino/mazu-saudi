@@ -200,6 +200,10 @@ PYTHONPATH=src conda run -n ml python scripts/validate_ontology_semantics.py
 `runtime/evidence_graph/rebuild_manifest.json`。文献抽取涉及独立正文快照、模型调用和人工
 审核，继续使用 `scripts/build_literature_evidence.py`，统一重建脚本不会伪造该层。
 
+读取服务会同时比较统计构建记录的本体IRI、版本和SHA-256与当前物化本体。任一项不一致
+时返回 `ontology_mismatch`，不展示旧节点，也不把旧统计关系加入解释包；必须用当前本体
+重新构建观测图谱。
+
 如果正式全球指标的某个季节低于覆盖门槛，应优先修复源数据或重新计算缺失日。只为验证
 接口与展示链路时，可以显式生成带 `validation-degraded` 范围标记的降级图谱：
 

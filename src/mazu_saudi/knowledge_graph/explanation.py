@@ -241,7 +241,22 @@ class HazardExplanationQuery:
 
         graph_view = self.store.graph_view(limit=2000)
         observational_evidence = self._observational_evidence(hazard, graph_view)
-        if graph_view.get("build") is None:
+        if graph_view.get("status") == "ontology_mismatch":
+            observational_status = "ontology_mismatch"
+            evidence_gaps.append(
+                {
+                    "code": "observational_graph_ontology_mismatch",
+                    "subject_id": HAZARD_SCREENING_STATES[hazard],
+                    "message": (
+                        "The observational graph was built with a different "
+                        "ontology version and is excluded from this explanation."
+                    ),
+                    "required_action": (
+                        "Rebuild the observational graph with the current ontology."
+                    ),
+                }
+            )
+        elif graph_view.get("build") is None:
             observational_status = "global_graph_unavailable"
             evidence_gaps.append(
                 {

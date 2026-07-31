@@ -187,6 +187,11 @@ export interface KnowledgeGraphEdge {
 
 export interface KnowledgeGraphView {
   build: KnowledgeGraphBuild | null;
+  status?: "ontology_mismatch";
+  compatibility?: {
+    compatible: false;
+    required_action: string;
+  };
   literature_run?: {
     run_id: string;
     build_id: string;
