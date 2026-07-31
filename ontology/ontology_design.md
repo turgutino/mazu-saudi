@@ -107,9 +107,14 @@ KnowWhereGraph只用于补充行政区、空间关系和具有明确外部数据
 |---|---|---|
 | JSON-LD 本体真源 | `ontology/mazu_weather_ontology.jsonld` | 类、属性、标准映射和首批受控概念 |
 | SHACL 约束 | `ontology/mazu_weather_shapes.ttl` | 断言、指标状态和文献证据的最小完整性要求 |
+| 确定性语义门禁 | `mazu_saudi.ontology.semantics` | 物化前检查类层次和受控概念，写图前检查状态、断言及非因果资格 |
 | SQLite 物化库 | `runtime/ontology/mazu_weather.sqlite3` | 本体物化表；后续知识图谱使用同一数据库中的独立实例表，不进入 Git |
 | 构建脚本 | `scripts/build_ontology_db.py` | 校验 JSON-LD 并原子重建数据库 |
 | 查询接口 | `mazu_saudi.ontology.OntologyStore` | 资源、模块、三元组和邻接查询 |
+
+当前运行环境不把SHACL文件当作已经执行的证明。无可选RDF依赖时，物化和统计构图仍强制
+执行项目内确定性语义门禁；在部署环境安装SHACL引擎后，可在此基础上增加标准SHACL验证，
+但不能绕过现有门禁。
 
 本项目命名空间使用稳定的本地 URN：
 

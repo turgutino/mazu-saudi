@@ -10,7 +10,10 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
-from mazu_saudi.ontology import materialize_ontology
+from mazu_saudi.ontology import (
+    materialize_ontology,
+    validate_ontology_semantics,
+)
 from mazu_saudi.ontology.alignment import validate_alignment_manifest
 from mazu_saudi.ontology.cf_alignment import validate_cf_alignment_manifest
 
@@ -92,6 +95,8 @@ def rebuild_explanation_graph(
     if kwg_snapshot is not None and not kwg_snapshot.is_file():
         raise FileNotFoundError(f"KWG snapshot does not exist: {kwg_snapshot}")
 
+    ontology_payload = json.loads(ontology_source.read_text(encoding="utf-8"))
+    ontology_semantics = validate_ontology_semantics(ontology_payload)
     alignment = validate_alignment_manifest(
         alignment_manifest,
         ontology_source,
@@ -109,6 +114,7 @@ def rebuild_explanation_graph(
         "stage": stage,
         "database": str(database.resolve()),
         "ontology": ontology["ontology"],
+        "ontology_semantics": asdict(ontology_semantics),
         "sweet_alignment": asdict(alignment),
         "cf_standard_name_alignment": asdict(cf_alignment),
         "observational_graph": {"status": "not_requested"},

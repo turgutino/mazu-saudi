@@ -15,6 +15,8 @@ import warnings
 
 import numpy as np
 
+from mazu_saudi.ontology.semantics import validate_graph_semantics
+
 from .store import KnowledgeGraphStore, PROV_WAS_GENERATED_BY
 from .relation_policy import RELATION_POLICY_VERSION, assess_relation
 
@@ -1432,6 +1434,7 @@ def build_statistical_knowledge_graph(
         state_season_coverage=state_season_coverage,
         config=config,
     )
+    validate_graph_semantics(nodes, edges, evidence)
     validation_stage_counts: dict[str, int] = {}
     relation_role_counts: dict[str, int] = {}
     for row in evidence:

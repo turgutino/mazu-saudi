@@ -171,7 +171,8 @@ PYTHONPATH=src conda run -n ml python scripts/migrate_legacy_evidence_graph.py
 直接边升级为本体机制断言。
 
 推荐使用解释型证据图谱统一重建入口。它会先验证固定版本SWEET与CF Standard Names对齐
-并重新物化本体，再生成不可变观测图谱批次；KWG快照可在同一次运行中导入：
+以及本体2.0领域语义，重新物化本体，再生成不可变观测图谱批次；统计图写库前还会验证
+状态指标来源、断言必要边和非因果资格。KWG快照可在同一次运行中导入：
 
 ```bash
 PYTHONPATH=src conda run -n ml python scripts/rebuild_explanation_graph.py \
@@ -185,6 +186,12 @@ PYTHONPATH=src conda run -n ml python scripts/rebuild_explanation_graph.py \
 ```bash
 PYTHONPATH=src conda run -n ml python scripts/rebuild_explanation_graph.py \
   --stage ontology
+```
+
+也可以只执行无外部依赖的本体领域语义检查：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/validate_ontology_semantics.py
 ```
 
 脚本不会猜测指标目录，避免把

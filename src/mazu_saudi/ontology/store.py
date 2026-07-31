@@ -9,6 +9,8 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Iterable
 
+from .semantics import validate_ontology_semantics
+
 
 RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
 OWL_CLASS = "http://www.w3.org/2002/07/owl#Class"
@@ -297,6 +299,7 @@ def materialize_ontology(source_file: Path, database_file: Path) -> dict[str, An
         raise ValueError("ontology source must contain object @context and list @graph")
     if not payload.get("@id") or payload.get("@type") != "owl:Ontology":
         raise ValueError("ontology source must declare one owl:Ontology document")
+    validate_ontology_semantics(payload)
 
     subjects: set[str] = set()
     statement_rows: list[tuple[str, str, str, str, str | None, str | None]] = []

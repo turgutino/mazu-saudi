@@ -133,7 +133,7 @@ def test_ontology_is_materialized_and_exposed_as_a_read_only_graph(tmp_path):
 
     summary = client.get("/api/v1/ontology")
     assert summary.status_code == 200
-    assert summary.json()["resource_count"] == 90
+    assert summary.json()["resource_count"] == 94
     assert "not automatically discovered causality" in summary.json()["boundary"]
     assert settings.ontology_database_file.is_file()
     paths = client.get("/openapi.json").json()["paths"]

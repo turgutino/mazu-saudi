@@ -419,6 +419,50 @@
       "subClassOf": "prov:Activity"
     },
     {
+      "@id": "mazu:cfStandardName",
+      "@type": "owl:DatatypeProperty",
+      "module": "indicator",
+      "labelEn": "CF standard name",
+      "labelZh": "CF标准名称",
+      "definitionEn": "The reviewed CF Standard Name identifying the physical quantity represented by a derived indicator.",
+      "definitionZh": "标识派生指标所表示物理量的已审核CF标准名称。",
+      "domain": "mazu:DerivedIndicator",
+      "range": "xsd:string"
+    },
+    {
+      "@id": "mazu:cfCellMethods",
+      "@type": "owl:DatatypeProperty",
+      "module": "indicator",
+      "labelEn": "CF cell methods",
+      "labelZh": "CF单元方法",
+      "definitionEn": "The CF cell_methods expression that states temporal or spatial aggregation separately from the standard name.",
+      "definitionZh": "与标准名称分开声明时间或空间聚合方式的CF cell_methods表达式。",
+      "domain": "mazu:DerivedIndicator",
+      "range": "xsd:string"
+    },
+    {
+      "@id": "mazu:cfCoordinateConstraint",
+      "@type": "owl:DatatypeProperty",
+      "module": "indicator",
+      "labelEn": "CF coordinate constraint",
+      "labelZh": "CF坐标限定",
+      "definitionEn": "A reviewed coordinate constraint, such as sampling height, that qualifies a CF quantity.",
+      "definitionZh": "对CF物理量进行限定的已审核坐标条件，例如采样高度。",
+      "domain": "mazu:DerivedIndicator",
+      "range": "xsd:string"
+    },
+    {
+      "@id": "mazu:cfSupportingStandardName",
+      "@type": "owl:DatatypeProperty",
+      "module": "indicator",
+      "labelEn": "supporting CF standard name",
+      "labelZh": "辅助CF标准名称",
+      "definitionEn": "A CF Standard Name for a component used to construct a derived quantity that has no direct standard name.",
+      "definitionZh": "用于构造没有直接标准名称的派生量之组成分量CF标准名称。",
+      "domain": "mazu:DerivedIndicator",
+      "range": "xsd:string"
+    },
+    {
       "@id": "mazu:derivedFromIndicator",
       "@type": "owl:ObjectProperty",
       "module": "state",

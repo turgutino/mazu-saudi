@@ -17,7 +17,7 @@ def test_curated_sweet_alignment_is_declared_in_the_ontology():
     assert summary.source_commit == "db60c8ddb1b781fbadae176f69286a2cdd5099a0"
     assert summary.mapping_count == 17
     assert summary.local_concept_count == 16
-    assert summary.unmapped_count == 3
+    assert summary.unmapped_count == 6
 
 
 def test_sweet_alignment_uses_relation_strength_to_protect_domain_boundaries():
