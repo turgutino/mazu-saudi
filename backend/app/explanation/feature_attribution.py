@@ -20,14 +20,24 @@ from app.schemas.prediction import FeatureContribution
 def build_feature_contributions(
     prediction: RawPrediction, indicators: dict[str, float]
 ) -> list[FeatureContribution]:
-    """Rank indicators by |contribution| and format them as FeatureContribution."""
+    """Rank indicators by |contribution| and format them as FeatureContribution.
+
+    Only features with a known ``INDICATOR_SPECS`` entry are included: a real
+    trained model's ``important_features`` (see models/joblib_model.py) uses
+    raw NetCDF variable names (e.g. ``t2m_c``, ``pwat``) that have no display
+    spec, so those are skipped here rather than raising -- they are still
+    exposed to downstream physics via the model itself, just not surfaced as
+    a labeled UI contribution row.
+    """
 
     ranked = sorted(
         prediction.important_features.items(), key=lambda kv: abs(kv[1]), reverse=True
     )
     contributions: list[FeatureContribution] = []
     for key, contribution in ranked:
-        spec = INDICATOR_SPECS[key]
+        spec = INDICATOR_SPECS.get(key)
+        if spec is None or key not in indicators:
+            continue
         contributions.append(
             FeatureContribution(
                 feature=key,

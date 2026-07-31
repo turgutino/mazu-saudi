@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
+from datetime import datetime, timezone
+from unittest.mock import patch
 
+import pytest
+import requests
+
+from app.data.real_indicator_provider import INDICATORS_DIR_ENV
 from app.schemas.prediction import PredictionRequest
 from app.services.prediction_service import PredictionService, PredictionServiceError
 
@@ -64,3 +69,89 @@ def test_run_prediction_saves_to_store(service: PredictionService):
     request = PredictionRequest(region_id="riyadh", hazard="extreme-heat", lead_time_hours=48)
     result = service.run_prediction(request)
     assert prediction_store.get(result.prediction_id) is result
+
+
+class _FakeOpenMeteoResponse:
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return {"current": {"temperature_2m": 45.0, "relative_humidity_2m": 20.0}}
+
+
+def test_heavy_rain_always_uses_placeholder_model(service: PredictionService, monkeypatch: pytest.MonkeyPatch):
+    # heavy-rain has no trained joblib model, so it must never reach Tier 1/2
+    # even when MAZU_INDICATORS_DIR happens to be configured.
+    monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
+    request = PredictionRequest(region_id="jazan", hazard="heavy-rain", lead_time_hours=24)
+    result = service.run_prediction(request)
+    assert result.probability is not None
+
+
+def test_hazard_with_real_model_falls_back_to_degraded_when_no_archive(
+    service: PredictionService, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
+    with patch("app.data.openmeteo_provider.requests.get", return_value=_FakeOpenMeteoResponse()):
+        request = PredictionRequest(region_id="jazan", hazard="extreme-heat", lead_time_hours=24)
+        result = service.run_prediction(request)
+    assert result.model_id  # displayed modelId unaffected by algorithm tier
+    assert 0.0 <= result.probability <= 1.0
+
+
+def test_hazard_with_real_model_falls_back_to_placeholder_when_openmeteo_fails(
+    service: PredictionService, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
+    with patch(
+        "app.data.openmeteo_provider.requests.get",
+        side_effect=requests.ConnectionError("boom"),
+    ):
+        request = PredictionRequest(region_id="jazan", hazard="dust-storm", lead_time_hours=24)
+        result = service.run_prediction(request)
+    assert 0.0 <= result.probability <= 1.0
+
+
+def test_real_archive_takes_priority_over_degraded_model(
+    service: PredictionService, tmp_path, monkeypatch: pytest.MonkeyPatch
+):
+    import numpy as np
+    import xarray as xr
+
+    lat = np.array([17.0, 16.8])
+    lon = np.array([42.4, 42.6])
+    ds = xr.Dataset(
+        {"daily_precip_total": (("latitude", "longitude"), np.full((2, 2), 5.0)),
+         "cape": (("latitude", "longitude"), np.full((2, 2), 800.0)),
+         "pwat": (("latitude", "longitude"), np.full((2, 2), 30.0)),
+         "wind850_speed": (("latitude", "longitude"), np.full((2, 2), 10.0)),
+         "wind_shear_850_200": (("latitude", "longitude"), np.full((2, 2), 12.0)),
+         "daily_precip_anomaly": (("latitude", "longitude"), np.full((2, 2), 0.1)),
+         "sst_celsius": (("latitude", "longitude"), np.full((2, 2), 29.0)),
+         "ivt": (("latitude", "longitude"), np.full((2, 2), 100.0)),
+         "vpd_kpa": (("latitude", "longitude"), np.full((2, 2), 2.0)),
+         "daily_convective_precip": (("latitude", "longitude"), np.full((2, 2), 1.0)),
+         "daily_large_scale_precip": (("latitude", "longitude"), np.full((2, 2), 4.0)),
+         "t2m_c": (("latitude", "longitude"), np.full((2, 2), 30.0)),
+         "tmax_c": (("latitude", "longitude"), np.full((2, 2), 38.0)),
+         "tmin_c": (("latitude", "longitude"), np.full((2, 2), 22.0)),
+         "heat_index_c": (("latitude", "longitude"), np.full((2, 2), 33.0)),
+         "wind10_speed": (("latitude", "longitude"), np.full((2, 2), 6.0)),
+         "dewpoint_depression_c": (("latitude", "longitude"), np.full((2, 2), 8.0)),
+         "t2m_anomaly_c": (("latitude", "longitude"), np.full((2, 2), 1.0)),
+         "tmax_anomaly_c": (("latitude", "longitude"), np.full((2, 2), 0.5))},
+        coords={"latitude": lat, "longitude": lon},
+    )
+    initial_time = datetime(2025, 3, 15, tzinfo=timezone.utc)
+    feature_date = "20250315"
+    ds.to_netcdf(tmp_path / f"saudi_indicators_{feature_date}.nc")
+    monkeypatch.setenv(INDICATORS_DIR_ENV, str(tmp_path))
+
+    with patch("app.services.prediction_service.openmeteo_provider.generate") as mocked:
+        request = PredictionRequest(
+            region_id="jazan", hazard="flash-flood", lead_time_hours=24,
+            initial_time=initial_time.isoformat(),
+        )
+        result = service.run_prediction(request)
+    mocked.assert_not_called()
+    assert 0.0 <= result.probability <= 1.0

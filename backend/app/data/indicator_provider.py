@@ -74,3 +74,28 @@ class IndicatorProvider:
 
 
 indicator_provider = IndicatorProvider()
+
+
+def normalized_severity(key: str, actual: float) -> float:
+    """Map an indicator's actual value to a signed severity in roughly [-1, 1]
+    around its ``normal_value``, using ``INDICATOR_SPECS``. Shared by every
+    ForecastModel implementation (rule-based, joblib, degraded) so their
+    ``important_features`` explanations stay directly comparable regardless
+    of which algorithm produced the probability.
+    """
+    spec = INDICATOR_SPECS[key]
+    span = spec.max_value - spec.min_value
+    return spec.direction * (actual - spec.normal_value) / span
+
+
+def with_overrides(case: ForecastCase, overrides: dict[str, float]) -> dict[str, float]:
+    """Deterministic placeholder indicators for ``case``, with ``overrides``
+    merged on top. Real/degraded providers use this so every narrow indicator
+    key required by RiskPolicy/explanation modules is always present (falling
+    back to the synthetic placeholder value when no real data source exists
+    for that key), while additional keys (e.g. raw model feature names) are
+    simply added.
+    """
+    merged = indicator_provider.generate(case)
+    merged.update(overrides)
+    return merged

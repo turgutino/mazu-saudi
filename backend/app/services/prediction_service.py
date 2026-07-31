@@ -14,12 +14,17 @@ from datetime import datetime, timezone
 from app.data.hazards import get_hazard
 from app.data.indicator_provider import indicator_provider
 from app.data.models import DEFAULT_MODEL_ID, get_model
+from app.data.openmeteo_provider import OpenMeteoUnavailableError, openmeteo_provider
+from app.data.real_indicator_provider import available_for as real_data_available
+from app.data.real_indicator_provider import real_indicator_provider
 from app.data.regions import get_region
 from app.domain.forecast_case import ForecastCase
 from app.explanation.feature_attribution import build_feature_contributions
 from app.explanation.mechanism_explanation import build_mechanisms
 from app.explanation.rule_explanation import build_rule_hits
 from app.explanation.similar_events import find_similar_events
+from app.models.degraded_model import degraded_model
+from app.models.joblib_model import get_joblib_model
 from app.models.rule_based_model import rule_based_model
 from app.repositories.prediction_store import prediction_store
 from app.risk.calibration import calibrate
@@ -29,6 +34,31 @@ from app.schemas.prediction import PredictionRequest, PredictionResult
 
 class PredictionServiceError(ValueError):
     """Raised when a prediction request references unknown region/hazard/model."""
+
+
+def _resolve_indicators_and_model(case: ForecastCase) -> tuple[dict[str, float], object]:
+    """Three-tier resolution (see 初步设计.md real-data integration notes):
+
+    Tier 1 (best): a real trained joblib model exists for this hazard AND the
+    archived 2025 NetCDF indicators cover the feature date -> real data +
+    real model.
+    Tier 2 (degraded): a real trained model exists but the date falls outside
+    the archive -> live Open-Meteo indicators + DegradedForecastModel (the
+    joblib models cannot run on Open-Meteo's much smaller feature set).
+    Tier 3 (placeholder): heavy-rain (no trained model at all), or Tier 2's
+    live API call fails -> synthetic IndicatorProvider + RuleBasedForecastModel.
+    """
+    joblib_model = get_joblib_model(case.hazard)
+    if joblib_model is not None and real_data_available(case):
+        return real_indicator_provider.generate(case), joblib_model
+
+    if joblib_model is not None:
+        try:
+            return openmeteo_provider.generate(case), degraded_model
+        except OpenMeteoUnavailableError:
+            pass
+
+    return indicator_provider.generate(case), rule_based_model
 
 
 class PredictionService:
@@ -61,10 +91,14 @@ class PredictionService:
             initial_time=initial_time,
         )
 
-        indicators = indicator_provider.generate(case)
-        # v1: a single deterministic algorithm backs every modelId; only the
-        # displayed model metadata (name/version) differs (see app/data/models.py).
-        raw = rule_based_model.predict(case, indicators)
+        # Three-tier resolution: real trained model + archived NetCDF data
+        # when available, else a degraded live-data model, else the fully
+        # synthetic placeholder (see _resolve_indicators_and_model above).
+        # The requested/displayed modelId (model_info) only affects
+        # PredictionResult's model_id/version/name metadata below -- it does
+        # not select the algorithm, matching v1's existing modelId semantics.
+        indicators, active_model = _resolve_indicators_and_model(case)
+        raw = active_model.predict(case, indicators)
         calibrated_probability = calibrate(raw.probability, case.hazard, model_info.id)
 
         risk = risk_policy.assess(case, calibrated_probability, indicators, region)

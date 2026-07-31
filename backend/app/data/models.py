@@ -1,11 +1,13 @@
 """Static model registry.
 
 Metadata (metrics, versions, descriptions) mirrors frontend/src/mocks/models.ts
-for presentation purposes only. Every model id below is served in v1 by the
-very same RuleBasedForecastModel (see models/rule_based_model.py) — different
-modelId values do not (yet) select different algorithms, only different
-displayed metadata. supportedHazards is restricted to the 4 hazards
-implemented in v1 (severe-convection dropped from the original frontend mock).
+for presentation purposes only. The requested/displayed modelId here does NOT
+select the prediction algorithm — PredictionService (services/prediction_service.py)
+independently routes to RuleBasedForecastModel / DegradedForecastModel /
+JoblibForecastModel based on hazard + real-data availability (see
+_resolve_indicators_and_model). supportedHazards is restricted to the 4
+hazards implemented in v1 (severe-convection dropped from the original
+frontend mock).
 """
 
 from __future__ import annotations
