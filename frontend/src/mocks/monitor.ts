@@ -6,6 +6,7 @@ export interface MonitorReading {
   pressure: number;
   cape: number;
   pw: number;
+  precipitation: number;
   visibility: number;
   windGust: number;
   fireIndex: number;
@@ -60,7 +61,7 @@ export const monitorRegions: MonitorRegionData[] = [
     lon: 42.5511,
     mapX: 38.9,
     mapY: 94.4,
-    readings: { temperature: 33, humidity: 78, windSpeed: 8, windDir: 220, pressure: 1008, cape: 2350, pw: 58, visibility: 12, windGust: 14, fireIndex: 2, thunderstormProb: 68 },
+    readings: { temperature: 33, humidity: 78, windSpeed: 8, windDir: 220, pressure: 1008, cape: 2350, pw: 58, precipitation: 4, visibility: 12, windGust: 14, fireIndex: 2, thunderstormProb: 68 },
     hazards: [
       { hazardId: 'heavy-rain', hazardName: '暴雨', riskLevel: 'yellow', probability: 0.65, trend: 'rising' },
       { hazardId: 'extreme-heat', hazardName: '极端高温', riskLevel: 'green', probability: 0.15, trend: 'stable' },
@@ -80,7 +81,7 @@ export const monitorRegions: MonitorRegionData[] = [
     lon: 46.6753,
     mapX: 57.6,
     mapY: 45.5,
-    readings: { temperature: 46, humidity: 8, windSpeed: 12, windDir: 350, pressure: 1012, cape: 450, pw: 22, visibility: 8, windGust: 18, fireIndex: 5, thunderstormProb: 12 },
+    readings: { temperature: 46, humidity: 8, windSpeed: 12, windDir: 350, pressure: 1012, cape: 450, pw: 22, precipitation: 0, visibility: 8, windGust: 18, fireIndex: 5, thunderstormProb: 12 },
     hazards: [
       { hazardId: 'heavy-rain', hazardName: '暴雨', riskLevel: 'green', probability: 0.12, trend: 'falling' },
       { hazardId: 'extreme-heat', hazardName: '极端高温', riskLevel: 'yellow', probability: 0.68, trend: 'rising' },
@@ -100,7 +101,7 @@ export const monitorRegions: MonitorRegionData[] = [
     lon: 39.1728,
     mapX: 23.5,
     mapY: 65.4,
-    readings: { temperature: 38, humidity: 62, windSpeed: 10, windDir: 200, pressure: 1006, cape: 1850, pw: 52, visibility: 10, windGust: 16, fireIndex: 3, thunderstormProb: 69 },
+    readings: { temperature: 38, humidity: 62, windSpeed: 10, windDir: 200, pressure: 1006, cape: 1850, pw: 52, precipitation: 3, visibility: 10, windGust: 16, fireIndex: 3, thunderstormProb: 69 },
     hazards: [
       { hazardId: 'heavy-rain', hazardName: '暴雨', riskLevel: 'yellow', probability: 0.69, trend: 'rising' },
       { hazardId: 'extreme-heat', hazardName: '极端高温', riskLevel: 'green', probability: 0.22, trend: 'stable' },
@@ -120,7 +121,7 @@ export const monitorRegions: MonitorRegionData[] = [
     lon: 39.8579,
     mapX: 26.6,
     mapY: 66.3,
-    readings: { temperature: 44, humidity: 25, windSpeed: 6, windDir: 180, pressure: 1009, cape: 520, pw: 30, visibility: 15, windGust: 10, fireIndex: 4, thunderstormProb: 28 },
+    readings: { temperature: 44, humidity: 25, windSpeed: 6, windDir: 180, pressure: 1009, cape: 520, pw: 30, precipitation: 0, visibility: 15, windGust: 10, fireIndex: 4, thunderstormProb: 28 },
     hazards: [
       { hazardId: 'heavy-rain', hazardName: '暴雨', riskLevel: 'green', probability: 0.28, trend: 'stable' },
       { hazardId: 'extreme-heat', hazardName: '极端高温', riskLevel: 'green', probability: 0.48, trend: 'stable' },
@@ -140,7 +141,7 @@ export const monitorRegions: MonitorRegionData[] = [
     lon: 50.0888,
     mapX: 73.1,
     mapY: 34.9,
-    readings: { temperature: 41, humidity: 45, windSpeed: 18, windDir: 310, pressure: 1010, cape: 380, pw: 28, visibility: 5, windGust: 22, fireIndex: 6, thunderstormProb: 15 },
+    readings: { temperature: 41, humidity: 45, windSpeed: 18, windDir: 310, pressure: 1010, cape: 380, pw: 28, precipitation: 0, visibility: 5, windGust: 22, fireIndex: 6, thunderstormProb: 15 },
     hazards: [
       { hazardId: 'heavy-rain', hazardName: '暴雨', riskLevel: 'green', probability: 0.15, trend: 'stable' },
       { hazardId: 'extreme-heat', hazardName: '极端高温', riskLevel: 'green', probability: 0.38, trend: 'stable' },
@@ -160,7 +161,7 @@ export const monitorRegions: MonitorRegionData[] = [
     lon: 42.5053,
     mapX: 38.7,
     mapY: 86.1,
-    readings: { temperature: 28, humidity: 55, windSpeed: 5, windDir: 210, pressure: 1015, cape: 680, pw: 38, visibility: 18, windGust: 9, fireIndex: 1, thunderstormProb: 22 },
+    readings: { temperature: 28, humidity: 55, windSpeed: 5, windDir: 210, pressure: 1015, cape: 680, pw: 38, precipitation: 1, visibility: 18, windGust: 9, fireIndex: 1, thunderstormProb: 22 },
     hazards: [
       { hazardId: 'heavy-rain', hazardName: '暴雨', riskLevel: 'green', probability: 0.22, trend: 'stable' },
       { hazardId: 'extreme-heat', hazardName: '极端高温', riskLevel: 'green', probability: 0.08, trend: 'stable' },
@@ -180,7 +181,7 @@ export const monitorRegions: MonitorRegionData[] = [
     lon: 39.5692,
     mapX: 25.3,
     mapY: 46.7,
-    readings: { temperature: 42, humidity: 18, windSpeed: 9, windDir: 340, pressure: 1011, cape: 410, pw: 24, visibility: 14, windGust: 13, fireIndex: 3, thunderstormProb: 18 },
+    readings: { temperature: 42, humidity: 18, windSpeed: 9, windDir: 340, pressure: 1011, cape: 410, pw: 24, precipitation: 0, visibility: 14, windGust: 13, fireIndex: 3, thunderstormProb: 18 },
     hazards: [
       { hazardId: 'heavy-rain', hazardName: '暴雨', riskLevel: 'green', probability: 0.18, trend: 'stable' },
       { hazardId: 'extreme-heat', hazardName: '极端高温', riskLevel: 'green', probability: 0.42, trend: 'stable' },
@@ -200,7 +201,7 @@ export const monitorRegions: MonitorRegionData[] = [
     lon: 36.5771,
     mapX: 11.7,
     mapY: 22.6,
-    readings: { temperature: 39, humidity: 22, windSpeed: 14, windDir: 300, pressure: 1014, cape: 290, pw: 18, visibility: 6, windGust: 20, fireIndex: 5, thunderstormProb: 8 },
+    readings: { temperature: 39, humidity: 22, windSpeed: 14, windDir: 300, pressure: 1014, cape: 290, pw: 18, precipitation: 0, visibility: 6, windGust: 20, fireIndex: 5, thunderstormProb: 8 },
     hazards: [
       { hazardId: 'heavy-rain', hazardName: '暴雨', riskLevel: 'green', probability: 0.08, trend: 'stable' },
       { hazardId: 'extreme-heat', hazardName: '极端高温', riskLevel: 'green', probability: 0.35, trend: 'stable' },

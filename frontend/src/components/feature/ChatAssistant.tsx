@@ -27,7 +27,7 @@ export default function ChatAssistant() {
       setMessages([]);
       initialMessageSent.current = false;
     }
-  }, [context?.predictionId]);
+  }, [context?.predictionId, isOpen]);
 
   // Send initial welcome message when opened
   useEffect(() => {

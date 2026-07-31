@@ -37,6 +37,8 @@ const riskSize: Record<string, string> = {
   red: 'w-4.5 h-4.5',
 };
 
+const riskOrder: Record<string, number> = { red: 4, orange: 3, yellow: 2, green: 1 };
+
 // Google Maps embed URL — 沙特全境, zoom 6, 地形图, 无 UI
 const MAP_SRC = 'https://www.google.com/maps?q=Saudi+Arabia&z=6&t=m&output=embed';
 
@@ -62,9 +64,14 @@ export default function SaudiMap({
     return !hazard || hazard.riskLevel === 'green';
   };
 
-  const riskOrder: Record<string, number> = { red: 4, orange: 3, yellow: 2, green: 1 };
   const sortedForRender = useMemo(
-    () => [...regions].sort((a, b) => riskOrder[getEffectiveRisk(b)] - riskOrder[getEffectiveRisk(a)]),
+    () => [...regions].sort((a, b) => {
+      const effectiveRisk = (region: MonitorRegionData) => {
+        if (!activeHazardId) return region.highestRiskLevel;
+        return region.hazards.find((hazard) => hazard.hazardId === activeHazardId)?.riskLevel ?? 'green';
+      };
+      return riskOrder[effectiveRisk(b)] - riskOrder[effectiveRisk(a)];
+    }),
     [regions, activeHazardId],
   );
 

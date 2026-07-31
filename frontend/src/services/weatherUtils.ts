@@ -43,6 +43,7 @@ export function mapReading(c: GenericCurrentReading): MonitorReading {
     pressure: Math.round(c.surface_pressure),
     cape: c.cape != null ? Math.round(c.cape) : 0,
     pw: Math.round(c.precipitation * 10 + c.relative_humidity_2m * 0.4),
+    precipitation: Math.round(c.precipitation * 10) / 10,
     visibility: c.visibility != null ? Math.round(c.visibility / 1000) : 10,
     windGust: 0,
     fireIndex: 0,
