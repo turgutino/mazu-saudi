@@ -1,14 +1,7 @@
 .worktrees/
-output_saudi*/
-output_saudi_smoke/
-output_indicators/
 __pycache__/
 *.pyc
 reference_code
 .DS_Store
 *.egg-info/
-runtime/
-competition_app/node_modules/
-competition_app/dist/
-research/historical_warning/data/
-research/historical_warning/outputs/
+frontend/node_modules/
