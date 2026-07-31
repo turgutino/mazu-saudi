@@ -77,6 +77,9 @@
       "@type": "@id"
     },
     "cfStandardName": "mazu:cfStandardName",
+    "cfCellMethods": "mazu:cfCellMethods",
+    "cfCoordinateConstraint": "mazu:cfCoordinateConstraint",
+    "cfSupportingStandardName": "mazu:cfSupportingStandardName",
     "quantityKind": {
       "@id": "qudt:hasQuantityKind",
       "@type": "@id"
@@ -112,7 +115,7 @@
   },
   "@id": "urn:mazu-saudi:ontology",
   "@type": "owl:Ontology",
-  "versionInfo": "1.5.0",
+  "versionInfo": "1.6.0",
   "labelEn": "MAZU SWEET-aligned Evidence Application Profile",
   "labelZh": "MAZU SWEET 对齐证据应用配置",
   "claimBoundary": "This SWEET-aligned application profile governs observations, evidence assertions, provenance, scope, review status, and counterexamples. It does not define prediction features or forecast constraints. Data-derived associations are never causal by default and cannot be treated as observed hazard events.",
@@ -661,7 +664,8 @@
       "labelZh": "日降水量",
       "definitionEn": "Daily accumulated precipitation amount.",
       "definitionZh": "逐日累计降水量。",
-      "cfStandardName": "precipitation_amount",
+      "cfStandardName": "lwe_thickness_of_precipitation_amount",
+      "cfCellMethods": "time: sum",
       "quantityKind": "quantitykind:Length",
       "unit": "uom:MilliM",
       "closeMatch": "http://sweetontology.net/propSpaceThickness/Precipitation"
@@ -674,7 +678,8 @@
       "labelZh": "卫星逐日降水量",
       "definitionEn": "Daily precipitation accumulated from available half-hourly FYMERG precipitation-rate observations.",
       "definitionZh": "由可用FYMERG半小时降水率观测累计得到的逐日降水量。",
-      "cfStandardName": "precipitation_amount",
+      "cfStandardName": "lwe_thickness_of_precipitation_amount",
+      "cfCellMethods": "time: sum",
       "quantityKind": "quantitykind:Length",
       "unit": "uom:MilliM",
       "closeMatch": "http://sweetontology.net/propSpaceThickness/Precipitation"
@@ -688,6 +693,7 @@
       "definitionEn": "Daily mean analysed sea-surface temperature used as environmental context.",
       "definitionZh": "作为环境上下文使用的逐日平均分析海表温度。",
       "cfStandardName": "sea_surface_temperature",
+      "cfCellMethods": "time: mean",
       "quantityKind": "quantitykind:Temperature",
       "unit": "uom:DEG_C",
       "broadMatch": "http://sweetontology.net/propTemperature/Temperature"
@@ -700,6 +706,8 @@
       "labelZh": "月降水背景",
       "definitionEn": "Monthly accumulated precipitation used to describe background wetness without becoming a daily event state.",
       "definitionZh": "用于描述背景湿润程度、但不作为逐日事件状态的月累计降水。",
+      "cfStandardName": "lwe_thickness_of_precipitation_amount",
+      "cfCellMethods": "time: sum",
       "quantityKind": "quantitykind:Length",
       "unit": "uom:MilliM",
       "closeMatch": "http://sweetontology.net/propSpaceThickness/Precipitation"
@@ -712,6 +720,9 @@
       "labelZh": "月最高温背景",
       "definitionEn": "Monthly maximum near-surface temperature used as thermal background without becoming a daily event state.",
       "definitionZh": "用于描述热力背景、但不作为逐日事件状态的月最高近地面气温。",
+      "cfStandardName": "air_temperature",
+      "cfCellMethods": "time: maximum",
+      "cfCoordinateConstraint": "height=2 m",
       "quantityKind": "quantitykind:Temperature",
       "unit": "uom:DEG_C",
       "broadMatch": "http://sweetontology.net/propTemperature/Temperature"
@@ -724,7 +735,10 @@
       "labelZh": "整层水汽输送",
       "definitionEn": "Magnitude of vertically integrated horizontal water-vapour transport.",
       "definitionZh": "垂直积分水平水汽输送的模长。",
-      "cfStandardName": "atmosphere_water_vapor_transport_across_unit_distance",
+      "cfSupportingStandardName": [
+        "eastward_atmosphere_water_vapor_transport_across_unit_distance",
+        "northward_atmosphere_water_vapor_transport_across_unit_distance"
+      ],
       "quantityKind": "quantitykind:MassFlowRate",
       "relatedMatch": [
         "http://sweetontology.net/phenFluidTransport/Advection",
@@ -739,7 +753,7 @@
       "labelZh": "对流有效位能",
       "definitionEn": "Convective available potential energy reduced to the horizontal forecast grid.",
       "definitionZh": "折算到水平预报网格的对流有效位能。",
-      "cfStandardName": "atmosphere_convective_available_potential_energy",
+      "cfStandardName": "atmosphere_convective_available_potential_energy_wrt_surface",
       "quantityKind": "quantitykind:SpecificEnergy",
       "unit": "uom:J-PER-KiloGM",
       "broadMatch": "http://sweetontology.net/propEnergy/AvailablePotentialEnergy"
@@ -752,6 +766,7 @@
       "labelZh": "可降水量",
       "definitionEn": "Vertically integrated atmospheric water vapour per unit area.",
       "definitionZh": "单位面积大气柱中的垂直积分水汽量。",
+      "cfStandardName": "atmosphere_mass_content_of_water_vapor",
       "quantityKind": "quantitykind:AreaDensity",
       "unit": "uom:KiloGM-PER-M2",
       "alignsWith": "http://sweetontology.net/propSpaceThickness/PrecipitableWater"
@@ -765,6 +780,8 @@
       "definitionEn": "Daily maximum near-surface air temperature.",
       "definitionZh": "近地面空气温度的逐日最大值。",
       "cfStandardName": "air_temperature",
+      "cfCellMethods": "time: maximum",
+      "cfCoordinateConstraint": "height=2 m",
       "quantityKind": "quantitykind:Temperature",
       "unit": "uom:DEG_C",
       "broadMatch": "http://sweetontology.net/propTemperature/Temperature"
@@ -777,6 +794,7 @@
       "labelZh": "饱和水汽压差",
       "definitionEn": "Difference between saturation and actual vapour pressure.",
       "definitionZh": "饱和水汽压与实际水汽压之差。",
+      "cfStandardName": "water_vapor_saturation_deficit_in_air",
       "quantityKind": "quantitykind:Pressure",
       "unit": "uom:KiloPA"
     },
@@ -789,6 +807,7 @@
       "definitionEn": "Near-surface wind-speed magnitude at 10 metres.",
       "definitionZh": "10米高度近地面风速模长。",
       "cfStandardName": "wind_speed",
+      "cfCoordinateConstraint": "height=10 m",
       "quantityKind": "quantitykind:Speed",
       "unit": "uom:M-PER-SEC",
       "closeMatch": "http://sweetontology.net/propSpeed/WindSpeed"
@@ -801,6 +820,7 @@
       "labelZh": "地形高度",
       "definitionEn": "Static terrain elevation and derived slope context.",
       "definitionZh": "静态地形高程及其派生坡度环境。",
+      "cfStandardName": "surface_altitude",
       "quantityKind": "quantitykind:Length",
       "unit": "uom:M",
       "closeMatch": "http://sweetontology.net/realmLandOrographic/Orography"

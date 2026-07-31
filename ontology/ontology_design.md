@@ -1,14 +1,13 @@
-# MAZU 全球观测机制适用性本体设计
+# MAZU SWEET与CF对齐证据应用配置
 
 ## 1. 目的与边界
 
-本体规定全球天气机制知识中允许出现的指标、天气状态、天气过程、适用环境、统计断言、
-反例和预测约束类型。它是语义模式，不包含“某时某地出现了某个天气过程”之类的全球
-观测实例。
+本应用配置规定证据图谱中允许出现的指标、天气状态、天气过程、适用环境、证据断言和
+反例类型。它是基于SWEET与CF标准的本地证据语义层，不包含“某时某地出现了某个天气过程”
+之类的观测实例，也不定义预测特征。
 
-本体规范名称为 **MAZU 天气机制本体**（MAZU Weather Mechanism Ontology，MWMO）。
-后续依照该本体、从全球 2025 观测提取的实例集合才称为 **全球观测机制适用性知识图谱**
-（Global Observational Mechanism Applicability Graph，GOMAG）。
+规范名称为 **MAZU证据应用配置**（MAZU Evidence Application Profile）。依照它组织的
+实例集合称为 **MAZU解释型证据图谱**；观测统计、文献证据和外部背景必须保留不同来源层。
 
 | 层次 | 包含内容 | 不包含 |
 |---|---|---|
@@ -24,7 +23,7 @@
 - 自动提取的 `EvidenceAssertion` 默认
   `eligibleForCausalExplanation=false`。
 - 每条观测断言必须记录适用环境、来源运行、支持过程、反例和版本。
-- 图谱提取本身属于从数据学习，必须在沙特测试期之前冻结。
+- 自动统计提取只产生观测背景证据，不能成为预测或因果规则。
 
 ## 2. 标准复用
 
@@ -68,7 +67,28 @@ PYTHONPATH=src python scripts/validate_sweet_alignment.py \
   --sweet-root /path/to/ESIPFed/sweet
 ```
 
-### 2.2 KWG外部背景
+### 2.2 CF Standard Names对齐
+
+CF Standard Name只标识物理量，不编码“逐日累计”“逐日最大”或“10米高度”。本项目固定
+使用CF Standard Name Table v94（2026-06-09），在
+`ontology/cf_standard_name_alignment.json` 中分别记录标准名称、规范单位、项目单位、
+`cell_methods`和坐标限定。
+
+- 毫米降水深度对齐 `lwe_thickness_of_precipitation_amount`，不是质量面密度
+  `precipitation_amount`；
+- 日最高与月最高气温对齐 `air_temperature`，使用 `time: maximum` 和 `height=2 m`；
+- 10米风速对齐 `wind_speed`，高度由 `height=10 m` 表达；
+- 可降水量对齐 `atmosphere_mass_content_of_water_vapor`；
+- IVT标量模长在v94没有正式标准名称，只引用东西向和北向输送分量，不伪造标量名称。
+
+离线验证：
+
+```bash
+PYTHONPATH=src python scripts/validate_cf_alignment.py \
+  --cf-table /path/to/cf-standard-name-table-v94.xml
+```
+
+### 2.3 KWG外部背景
 
 KnowWhereGraph只用于补充行政区、空间关系和具有明确外部数据集来源的历史背景，不进入
 天气机制本体，也不改变全球统计关系的验证阶段。每次增强必须保存国家范围、时间范围、
@@ -86,7 +106,7 @@ KnowWhereGraph只用于补充行政区、空间关系和具有明确外部数据
 | 制品 | 路径 | 职责 |
 |---|---|---|
 | JSON-LD 本体真源 | `ontology/mazu_weather_ontology.jsonld` | 类、属性、标准映射和首批受控概念 |
-| SHACL 约束 | `ontology/mazu_weather_shapes.ttl` | 断言、指标状态和预测约束的最小完整性要求 |
+| SHACL 约束 | `ontology/mazu_weather_shapes.ttl` | 断言、指标状态和文献证据的最小完整性要求 |
 | SQLite 物化库 | `runtime/ontology/mazu_weather.sqlite3` | 本体物化表；后续知识图谱使用同一数据库中的独立实例表，不进入 Git |
 | 构建脚本 | `scripts/build_ontology_db.py` | 校验 JSON-LD 并原子重建数据库 |
 | 查询接口 | `mazu_saudi.ontology.OntologyStore` | 资源、模块、三元组和邻接查询 |
@@ -115,7 +135,7 @@ urn:mazu-saudi:concept:    指标、状态、机制和环境受控概念
 全球数值数组仍保存在 NetCDF/Zarr。图数据库保存变量定义、状态、过程摘要、断言和源制品
 指针，不为每个全球格点复制一条 RDF 记录。
 
-本体 `1.5.0` 保留四个受控 `DataSource` 概念。DS2 日产品派生动力和地面状态；DS4
+本体 `1.6.0` 保留四个受控 `DataSource` 概念。DS2 日产品派生动力和地面状态；DS4
 海温与 DS10 卫星降水在逐季覆盖率达标时可以形成独立观测状态，同时继续提供天气过程
 背景和跨源一致性证据。DS1 月背景不变成逐日事件状态，任何单一降水源也不能冒充独立真值。
 
@@ -425,7 +445,7 @@ print(store.statements_for("urn:mazu-saudi:concept:HighIVTState"))
 
 ## 9. 当前版本和后续里程碑
 
-本体 `1.5.0` 是SWEET对齐的证据应用配置，完成语义骨架、标准映射、首批
+本体 `1.6.0` 是SWEET与CF Standard Names对齐的证据应用配置，完成语义骨架、标准映射、首批
 指标/状态/机制/环境概念、四类数据源、多源
 观测状态、SHACL 约束及 SQLite 物化。第一阶段统计构图脚本已经实现，读取每日指标 NetCDF
 后生成天气过程、滞后关联断言、支持证据和反例；关系级逐季覆盖门控会抑制缺测动力状态，

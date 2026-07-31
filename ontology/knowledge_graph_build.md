@@ -161,8 +161,8 @@ PYTHONPATH=src conda run -n ml python scripts/enrich_kwg_background.py \
 
 ## 5. 构建命令
 
-推荐使用解释型证据图谱统一重建入口。它会先验证固定版本SWEET对齐并重新物化本体，再生成
-不可变观测图谱批次；KWG快照可在同一次运行中导入：
+推荐使用解释型证据图谱统一重建入口。它会先验证固定版本SWEET与CF Standard Names对齐
+并重新物化本体，再生成不可变观测图谱批次；KWG快照可在同一次运行中导入：
 
 ```bash
 PYTHONPATH=src conda run -n ml python scripts/rebuild_explanation_graph.py \
@@ -171,7 +171,7 @@ PYTHONPATH=src conda run -n ml python scripts/rebuild_explanation_graph.py \
   --kwg-snapshot /path/to/kwg_saudi_snapshot.json
 ```
 
-只重建SWEET对齐的本体物化库：
+只重建SWEET与CF对齐的本体物化库：
 
 ```bash
 PYTHONPATH=src conda run -n ml python scripts/rebuild_explanation_graph.py \

@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATABASE = ROOT / "runtime" / "ontology" / "mazu_weather.sqlite3"
 DEFAULT_ONTOLOGY = ROOT / "ontology" / "mazu_weather_ontology.jsonld"
 DEFAULT_ALIGNMENT = ROOT / "ontology" / "sweet_alignment.json"
+DEFAULT_CF_ALIGNMENT = ROOT / "ontology" / "cf_standard_name_alignment.json"
 DEFAULT_KWG_QUERIES = ROOT / "ontology" / "kwg_background_queries.json"
 DEFAULT_MANIFEST = ROOT / "runtime" / "evidence_graph" / "rebuild_manifest.json"
 
@@ -38,7 +39,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--ontology-source", type=Path, default=DEFAULT_ONTOLOGY)
     parser.add_argument("--alignment-manifest", type=Path, default=DEFAULT_ALIGNMENT)
+    parser.add_argument(
+        "--cf-alignment-manifest",
+        type=Path,
+        default=DEFAULT_CF_ALIGNMENT,
+    )
     parser.add_argument("--sweet-root", type=Path)
+    parser.add_argument(
+        "--cf-table",
+        type=Path,
+        help="Optional pinned CF Standard Name Table XML for full verification.",
+    )
     parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE)
     parser.add_argument("--manifest-output", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--year", type=int, default=2025)
@@ -86,9 +97,11 @@ def main(argv: list[str] | None = None) -> int:
         stage=args.stage,
         ontology_source=args.ontology_source,
         alignment_manifest=args.alignment_manifest,
+        cf_alignment_manifest=args.cf_alignment_manifest,
         database=args.database,
         indicator_dir=args.indicator_dir,
         sweet_root=args.sweet_root,
+        cf_table_file=args.cf_table,
         kwg_snapshot=args.kwg_snapshot,
         kwg_live=args.kwg_live,
         kwg_query_manifest=args.kwg_query_manifest,

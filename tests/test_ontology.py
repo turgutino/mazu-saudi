@@ -32,7 +32,7 @@ def test_ontology_declares_standards_version_and_claim_boundary():
     context = payload["@context"]
 
     assert payload["@type"] == "owl:Ontology"
-    assert payload["versionInfo"] == "1.5.0"
+    assert payload["versionInfo"] == "1.6.0"
     assert "never causal by default" in payload["claimBoundary"]
     assert "does not define prediction features" in payload["claimBoundary"]
     assert context["@vocab"] == MAZU
@@ -87,7 +87,8 @@ def test_seed_indicator_states_link_to_versioned_indicators_and_mechanisms():
     assert high_ivt["thresholdDefinition"]
 
     ivt = nodes["concept:IntegratedVaporTransport"]
-    assert ivt["cfStandardName"]
+    assert "cfStandardName" not in ivt
+    assert len(ivt["cfSupportingStandardName"]) == 2
     assert ivt["quantityKind"].startswith("quantitykind:")
 
     for mechanism in (
@@ -150,7 +151,7 @@ def test_materializer_builds_queryable_idempotent_database(tmp_path):
     first = materialize_ontology(SOURCE, database)
     second = materialize_ontology(SOURCE, database)
 
-    assert first["ontology"]["version"] == "1.5.0"
+    assert first["ontology"]["version"] == "1.6.0"
     assert first["ontology"]["source_sha256"] == second["ontology"]["source_sha256"]
     assert first["resource_count"] == second["resource_count"] == 83
     assert first["statement_count"] == second["statement_count"]

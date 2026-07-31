@@ -12,6 +12,7 @@ from typing import Any
 
 from mazu_saudi.ontology import materialize_ontology
 from mazu_saudi.ontology.alignment import validate_alignment_manifest
+from mazu_saudi.ontology.cf_alignment import validate_cf_alignment_manifest
 
 from .builder import BuildConfig, build_statistical_knowledge_graph
 from .external_background import (
@@ -46,9 +47,11 @@ def rebuild_explanation_graph(
     stage: str,
     ontology_source: Path,
     alignment_manifest: Path,
+    cf_alignment_manifest: Path,
     database: Path,
     indicator_dir: Path | None = None,
     sweet_root: Path | None = None,
+    cf_table_file: Path | None = None,
     kwg_snapshot: Path | None = None,
     kwg_live: bool = False,
     kwg_query_manifest: Path | None = None,
@@ -72,8 +75,16 @@ def rebuild_explanation_graph(
         raise FileNotFoundError(
             f"SWEET alignment manifest does not exist: {alignment_manifest}"
         )
+    if not cf_alignment_manifest.is_file():
+        raise FileNotFoundError(
+            f"CF alignment manifest does not exist: {cf_alignment_manifest}"
+        )
     if sweet_root is not None and not sweet_root.is_dir():
         raise FileNotFoundError(f"SWEET checkout does not exist: {sweet_root}")
+    if cf_table_file is not None and not cf_table_file.is_file():
+        raise FileNotFoundError(
+            f"CF Standard Name Table does not exist: {cf_table_file}"
+        )
     if indicator_dir is not None and not indicator_dir.is_dir():
         raise FileNotFoundError(
             f"Indicator directory does not exist: {indicator_dir}"
@@ -86,6 +97,11 @@ def rebuild_explanation_graph(
         ontology_source,
         sweet_root=sweet_root,
     )
+    cf_alignment = validate_cf_alignment_manifest(
+        cf_alignment_manifest,
+        ontology_source,
+        cf_table_file=cf_table_file,
+    )
     ontology = materialize_ontology(ontology_source, database)
     result: dict[str, Any] = {
         "contract_version": REBUILD_CONTRACT_VERSION,
@@ -94,6 +110,7 @@ def rebuild_explanation_graph(
         "database": str(database.resolve()),
         "ontology": ontology["ontology"],
         "sweet_alignment": asdict(alignment),
+        "cf_standard_name_alignment": asdict(cf_alignment),
         "observational_graph": {"status": "not_requested"},
         "kwg_background": {"status": "not_requested"},
         "literature_evidence": {
@@ -105,6 +122,10 @@ def rebuild_explanation_graph(
         },
         "boundaries": [
             "SWEET supplies meteorological concept alignment.",
+            (
+                "CF Standard Names identify physical quantities; temporal "
+                "aggregation and coordinate constraints remain explicit."
+            ),
             (
                 "Automatically extracted associations are observational context "
                 "for explanation and diagnostics only."

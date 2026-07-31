@@ -1,0 +1,122 @@
+{
+  "alignment_id": "mazu-cf-standard-names-v94",
+  "source": {
+    "publisher": "CF Conventions",
+    "table_version": 94,
+    "released_at": "2026-06-09T17:23:36Z",
+    "xml_url": "https://cfconventions.org/Data/cf-standard-names/94/src/cf-standard-name-table.xml",
+    "sha256": "39a11ab9ccc327756da1bada1f268eebabdb7cee0cc908464962197bb892165c"
+  },
+  "mappings": [
+    {
+      "local_iri": "urn:mazu-saudi:concept:DailyPrecipitation",
+      "standard_name": "lwe_thickness_of_precipitation_amount",
+      "canonical_units": "m",
+      "project_units": "mm",
+      "cell_methods": "time: sum",
+      "relation": "exact_quantity_with_aggregation",
+      "rationale": "The project stores liquid-water-equivalent depth in millimetres; daily accumulation is expressed separately with time: sum."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:SatelliteDailyPrecipitation",
+      "standard_name": "lwe_thickness_of_precipitation_amount",
+      "canonical_units": "m",
+      "project_units": "mm",
+      "cell_methods": "time: sum",
+      "relation": "exact_quantity_with_aggregation",
+      "rationale": "Half-hourly FYMERG rates are integrated to daily liquid-water-equivalent depth."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:SeaSurfaceTemperature",
+      "standard_name": "sea_surface_temperature",
+      "canonical_units": "K",
+      "project_units": "degC",
+      "cell_methods": "time: mean",
+      "relation": "exact_quantity_with_aggregation",
+      "rationale": "The project stores a daily mean analysed sea-surface temperature; degrees Celsius are convertible to the canonical kelvin unit."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:MonthlyPrecipitationBackground",
+      "standard_name": "lwe_thickness_of_precipitation_amount",
+      "canonical_units": "m",
+      "project_units": "mm",
+      "cell_methods": "time: sum",
+      "relation": "exact_quantity_with_aggregation",
+      "rationale": "The monthly background is accumulated liquid-water-equivalent precipitation depth."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:MonthlyMaximumTemperatureBackground",
+      "standard_name": "air_temperature",
+      "canonical_units": "K",
+      "project_units": "degC",
+      "cell_methods": "time: maximum",
+      "coordinate_constraints": "height=2 m",
+      "relation": "exact_quantity_with_aggregation",
+      "rationale": "Maximum and two-metre height are represented by cell_methods and a height coordinate, not by changing the CF standard name."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:CAPE",
+      "standard_name": "atmosphere_convective_available_potential_energy_wrt_surface",
+      "canonical_units": "J kg-1",
+      "project_units": "J kg-1",
+      "relation": "exact_quantity",
+      "rationale": "The DS2 CAPE field is surface-based, so the surface-relative CF name is more precise than the generic CAPE name."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:PrecipitableWater",
+      "standard_name": "atmosphere_mass_content_of_water_vapor",
+      "canonical_units": "kg m-2",
+      "project_units": "kg m-2",
+      "relation": "exact_quantity",
+      "rationale": "CF defines this full atmospheric-column water-vapour mass content as the quantity commonly called precipitable water."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:MaximumAirTemperature",
+      "standard_name": "air_temperature",
+      "canonical_units": "K",
+      "project_units": "degC",
+      "cell_methods": "time: maximum",
+      "coordinate_constraints": "height=2 m",
+      "relation": "exact_quantity_with_aggregation",
+      "rationale": "Daily maximum and two-metre height are expressed outside the standard name through cell_methods and the height coordinate."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:VaporPressureDeficit",
+      "standard_name": "water_vapor_saturation_deficit_in_air",
+      "canonical_units": "Pa",
+      "project_units": "kPa",
+      "relation": "exact_quantity",
+      "rationale": "The project computes saturation water-vapour partial pressure minus actual water-vapour partial pressure in air."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:TenMetreWindSpeed",
+      "standard_name": "wind_speed",
+      "canonical_units": "m s-1",
+      "project_units": "m s-1",
+      "coordinate_constraints": "height=10 m",
+      "relation": "exact_quantity_with_coordinate",
+      "rationale": "CF represents the ten-metre sampling height with a height coordinate; wind_speed is the horizontal vector magnitude."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:Orography",
+      "standard_name": "surface_altitude",
+      "canonical_units": "m",
+      "project_units": "m",
+      "relation": "exact_quantity",
+      "rationale": "The stored terrain elevation is geometric surface height above the geoid; derived slope requires a separate variable."
+    }
+  ],
+  "unmapped": [
+    {
+      "local_iri": "urn:mazu-saudi:concept:IntegratedVaporTransport",
+      "reason": "CF v94 has canonical eastward and northward atmospheric water-vapour transport components but no listed scalar magnitude standard name.",
+      "construction": "magnitude(eastward_component, northward_component)",
+      "supporting_standard_names": [
+        "eastward_atmosphere_water_vapor_transport_across_unit_distance",
+        "northward_atmosphere_water_vapor_transport_across_unit_distance"
+      ],
+      "canonical_units": "kg m-1 s-1",
+      "project_units": "kg m-1 s-1"
+    }
+  ]
+}
