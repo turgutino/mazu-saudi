@@ -184,6 +184,19 @@ PYTHONPATH=src conda run -n ml python scripts/rebuild_explanation_graph.py \
 `runtime/evidence_graph/rebuild_manifest.json`。文献抽取涉及独立正文快照、模型调用和人工
 审核，继续使用 `scripts/build_literature_evidence.py`，统一重建脚本不会伪造该层。
 
+如果正式全球指标的某个季节低于覆盖门槛，应优先修复源数据或重新计算缺失日。只为验证
+接口与展示链路时，可以显式生成带 `validation-degraded` 范围标记的降级图谱：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/rebuild_explanation_graph.py \
+  --stage all \
+  --indicator-dir /Volumes/E/气象数据/global_excluding_saudi_2025/indicators \
+  --allow-degraded-coverage
+```
+
+降级图谱不能写成正式全球证据。没有真实KWG快照时应省略 `--kwg-snapshot`；示例中的
+`/path/to/...` 不是可直接使用的文件。
+
 先只检查 E 盘文件清单，不计算数据：
 
 ```bash

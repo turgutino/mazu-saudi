@@ -66,6 +66,20 @@ def rebuild_explanation_graph(
         raise ValueError("kwg_snapshot and kwg_live are mutually exclusive")
     if stage in {"graph", "all"} and indicator_dir is None:
         raise ValueError("indicator_dir is required for graph or all stages")
+    if not ontology_source.is_file():
+        raise FileNotFoundError(f"Ontology source does not exist: {ontology_source}")
+    if not alignment_manifest.is_file():
+        raise FileNotFoundError(
+            f"SWEET alignment manifest does not exist: {alignment_manifest}"
+        )
+    if sweet_root is not None and not sweet_root.is_dir():
+        raise FileNotFoundError(f"SWEET checkout does not exist: {sweet_root}")
+    if indicator_dir is not None and not indicator_dir.is_dir():
+        raise FileNotFoundError(
+            f"Indicator directory does not exist: {indicator_dir}"
+        )
+    if kwg_snapshot is not None and not kwg_snapshot.is_file():
+        raise FileNotFoundError(f"KWG snapshot does not exist: {kwg_snapshot}")
 
     alignment = validate_alignment_manifest(
         alignment_manifest,

@@ -51,6 +51,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-assertions", type=int, default=160)
     parser.add_argument("--evidence-episode-limit", type=int, default=12)
     parser.add_argument("--allow-incomplete-year", action="store_true")
+    parser.add_argument(
+        "--allow-degraded-coverage",
+        action="store_true",
+        help=(
+            "Build a validation-only graph when seasonal indicator coverage is "
+            "below the formal gate; the scope is labelled validation-degraded."
+        ),
+    )
     parser.add_argument("--kwg-snapshot", type=Path)
     parser.add_argument("--kwg-live", action="store_true")
     parser.add_argument("--kwg-query-manifest", type=Path, default=DEFAULT_KWG_QUERIES)
@@ -67,6 +75,12 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--indicator-dir is required when --stage is graph or all")
     if args.kwg_snapshot and args.kwg_live:
         parser.error("--kwg-snapshot and --kwg-live are mutually exclusive")
+    scope_label = args.scope_label
+    if (
+        args.allow_degraded_coverage
+        and "validation-degraded" not in scope_label
+    ):
+        scope_label = f"{scope_label}-validation-degraded"
 
     result = rebuild_explanation_graph(
         stage=args.stage,
@@ -84,13 +98,14 @@ def main(argv: list[str] | None = None) -> int:
         graph_config=BuildConfig(
             year=args.year,
             file_glob=args.file_glob,
-            scope_label=args.scope_label,
+            scope_label=scope_label,
             tile_degrees=args.tile_degrees,
             max_lag_days=args.max_lag_days,
             min_support_episodes=args.min_support_episodes,
             min_lift=args.min_lift,
             max_assertions=args.max_assertions,
             evidence_episode_limit=args.evidence_episode_limit,
+            allow_degraded_coverage=args.allow_degraded_coverage,
             require_complete_year=not args.allow_incomplete_year,
         ),
         manifest_output=args.manifest_output,

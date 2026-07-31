@@ -55,3 +55,14 @@ def test_kwg_live_and_snapshot_modes_are_mutually_exclusive(tmp_path):
             kwg_snapshot=tmp_path / "snapshot.json",
             kwg_live=True,
         )
+
+
+def test_rebuild_rejects_a_missing_kwg_snapshot_before_building(tmp_path):
+    with pytest.raises(FileNotFoundError, match="KWG snapshot does not exist"):
+        rebuild_explanation_graph(
+            stage="ontology",
+            ontology_source=ONTOLOGY,
+            alignment_manifest=ALIGNMENT,
+            database=tmp_path / "ontology.sqlite3",
+            kwg_snapshot=tmp_path / "missing.json",
+        )
