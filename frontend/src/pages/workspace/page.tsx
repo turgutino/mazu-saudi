@@ -7,6 +7,7 @@ import Card from '@/components/base/Card';
 import { regions, type Region } from '@/mocks/regions';
 import { hazards, type HazardType } from '@/mocks/hazards';
 import { models, type ModelInfo, type ModelMetrics, METRIC_LABELS } from '@/mocks/models';
+import { createPrediction } from '@/services/predictionApi';
 
 type Step = 'region' | 'hazard' | 'leadtime' | 'model' | 'confirm';
 
@@ -97,6 +98,7 @@ export default function Workspace() {
   const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
+  const [runError, setRunError] = useState<string | null>(null);
   const [modelViewMode, setModelViewMode] = useState<'cards' | 'compare'>('cards');
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
 
@@ -149,24 +151,22 @@ export default function Workspace() {
     if (!selectedRegion || !selectedHazard || !selectedLeadTime || !selectedModel) return;
 
     setIsRunning(true);
-    const messages = [
-      '正在加载 ERA5 气象数据...',
-      '验证输入数据完整性...',
-      '调用预测模型服务...',
-      '执行概率校准...',
-      '运行风险决策规则...',
-      '调用解释引擎...',
-      '构建解释证据图谱...',
-      '生成预测报告...',
-    ];
-
-    for (const msg of messages) {
-      setProgressMessage(msg);
-      await new Promise((r) => setTimeout(r, 600 + Math.random() * 400));
+    setRunError(null);
+    setProgressMessage('预测服务正在执行数据解析、模型推理、校准、风险政策和知识检索…');
+    try {
+      const result = await createPrediction({
+        regionId: selectedRegion.id,
+        hazard: selectedHazard.id,
+        leadTimeHours: selectedLeadTime,
+        modelId: selectedModel.id,
+      });
+      setProgressMessage('预测与解释证据已生成，正在打开结果…');
+      navigate(`/prediction/${result.predictionId}`);
+    } catch (error) {
+      setRunError(error instanceof Error ? error.message : '预测服务请求失败');
+    } finally {
+      setIsRunning(false);
     }
-
-    setIsRunning(false);
-    navigate('/prediction/pred-2026-07-30-001');
   };
 
   const regionSensitivityBadge = (sensitivity: 'high' | 'medium' | 'low') => {
@@ -356,9 +356,14 @@ export default function Workspace() {
                       const isBestAuc = hasMetrics && metrics!.auc === bestAuc && availableModels.length > 1;
 
                       return (
-                        <button
+                        <div
                           key={model.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => setSelectedModel(model)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') setSelectedModel(model);
+                          }}
                           className={`w-full text-left rounded-lg border cursor-pointer transition-all duration-200 overflow-hidden ${
                             isSelected
                               ? 'border-primary-400 bg-primary-50 ring-1 ring-primary-300'
@@ -430,7 +435,7 @@ export default function Workspace() {
                               </div>
                             </div>
                           )}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -554,6 +559,12 @@ export default function Workspace() {
                         );
                       })}
                     </div>
+                  </div>
+                )}
+
+                {runError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-5 text-sm text-red-700">
+                    <i className="ri-error-warning-line mr-2"></i>{runError}
                   </div>
                 )}
 

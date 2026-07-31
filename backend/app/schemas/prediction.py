@@ -27,13 +27,25 @@ class MechanismStep(CamelModel):
     description: str
     indicator: str
     value: str
+    compatibility: float
 
 
 class MechanismPath(CamelModel):
     path_id: str
     path_name: str
     confidence: ConfidenceLevel
+    support_score: float
+    summary: str
+    evidence_ids: list[str]
     steps: list[MechanismStep]
+
+
+class SimilarityDimension(CamelModel):
+    key: str
+    label: str
+    score: float
+    weight: float
+    explanation: str
 
 
 class HistoricalEvent(CamelModel):
@@ -43,6 +55,11 @@ class HistoricalEvent(CamelModel):
     hazard: str
     description: str
     similarity: float
+    similarity_dimensions: list[SimilarityDimension]
+    data_coverage: float
+    verification_status: str
+    source_title: str
+    source_url: str | None = None
     max_rainfall: float | None = None
     max_temp: float | None = None
     impact: str

@@ -105,8 +105,10 @@ class PredictionService:
 
         features = build_feature_contributions(raw, indicators)
         rule_hits = build_rule_hits(risk.rule_hits)
-        mechanisms = build_mechanisms(case.hazard, indicators)
-        similar_events = find_similar_events(case.hazard, case.region_id, calibrated_probability)
+        mechanisms = build_mechanisms(case.hazard, case.region_id, indicators)
+        similar_events = find_similar_events(
+            case.hazard, case.region_id, case.initial_time, indicators
+        )
 
         prediction_id = f"pred-{uuid.uuid4().hex[:12]}"
         created_at = datetime.now(timezone.utc)

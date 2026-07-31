@@ -1,17 +1,11 @@
-"""Build a single prediction's local explanation graph (初步设计.md 第5节).
-
-v1 scope: only the "local explanation graph" for one PredictionResult, laid
-out along the same 7-step timeline as frontend/src/mocks/graphData.ts
-(TIMELINE_STEPS 0-6: case -> prediction -> features -> rules -> mechanisms ->
-risk -> events/warning). No global statistical knowledge graph is built or
-persisted here — see backend/app/knowledge_graph/store.py (not yet
-implemented; TODO for a future ontology redesign).
-"""
+"""Build a query-specific explanation view over the versioned knowledge base."""
 
 from __future__ import annotations
 
+from app.knowledge_graph.knowledge_base import literature, load_knowledge_base, mechanisms_for, sweet_mapping
 from app.schemas.graph import GraphEdge, GraphNode, KnowledgeGraph
 from app.schemas.prediction import PredictionResult
+
 
 _RISK_TO_WARNING_LABEL = {
     "green": None,
@@ -22,28 +16,31 @@ _RISK_TO_WARNING_LABEL = {
 
 
 def _indicator_key_from_condition(condition: str) -> str | None:
-    """Extract the leading indicator key from a policy-generated condition string.
-
-    Indicator rule conditions look like "cape >= 2000"; probability/sensitivity
-    rule conditions look like "calibrated_probability >= 0.7" or
-    "region_sensitivity == high" and are not tied to a single feature.
-    """
-
     token = condition.split(" ", 1)[0]
-    if token in ("calibrated_probability", "region_sensitivity"):
-        return None
-    return token
+    return None if token in ("calibrated_probability", "region_sensitivity") else token
 
 
 def build_graph(prediction: PredictionResult) -> KnowledgeGraph:
+    catalog = load_knowledge_base()
     nodes: list[GraphNode] = []
     edges: list[GraphEdge] = []
+    node_ids: set[str] = set()
     edge_seq = 0
 
-    def next_edge_id() -> str:
+    def add_node(**kwargs) -> None:
+        node = GraphNode(**kwargs)
+        if node.id not in node_ids:
+            nodes.append(node)
+            node_ids.add(node.id)
+
+    def add_edge(source: str, target: str, label: str, edge_type: str, step: int, semantics: str, rationale: str, confidence: float | None = None, evidence_ids: list[str] | None = None) -> None:
         nonlocal edge_seq
         edge_seq += 1
-        return f"e{edge_seq}"
+        edges.append(GraphEdge(
+            id=f"e{edge_seq}", source=source, target=target, label=label,
+            type=edge_type, step=step, semantics=semantics, confidence=confidence,
+            rationale=rationale, evidence_ids=evidence_ids or [],
+        ))
 
     case_id = f"case-{prediction.case_id}"
     pred_id = f"pred-{prediction.prediction_id}"
@@ -53,65 +50,90 @@ def build_graph(prediction: PredictionResult) -> KnowledgeGraph:
     risk_id = f"risk-{prediction.prediction_id}"
     warning_id = f"warning-{prediction.prediction_id}"
 
-    # step 0: case
-    nodes.append(GraphNode(id=case_id, label=f"ForecastCase\n{prediction.region_name}", type="case", group="anchor", step=0))
+    add_node(id=case_id, label=f"ForecastCase\n{prediction.region_name}", type="case", group="anchor", step=0,
+             evidence_kind="run", status="materialized", details={"initialTime": prediction.initial_time, "targetTime": prediction.target_time, "leadTimeHours": prediction.lead_time_hours})
+    add_node(id=pred_id, label=f"Prediction\n{prediction.hazard_label}概率 {prediction.calibrated_probability:g}", type="prediction", group="anchor", step=1,
+             evidence_kind="model", status="computed", details={"rawProbability": prediction.probability, "calibratedProbability": prediction.calibrated_probability, "uncertainty": prediction.uncertainty, "inputHash": prediction.input_hash})
+    add_node(id=model_id, label=f"ModelVersion\n{prediction.model_name} {prediction.model_version}", type="model", group="input", step=1,
+             evidence_kind="model", status="declared", details={"modelId": prediction.model_id, "version": prediction.model_version})
+    add_node(id=hazard_id, label=f"HazardType\n{prediction.hazard_label}", type="hazard", group="input", step=1,
+             evidence_kind="domain", status="controlled-vocabulary", details={"hazardId": prediction.hazard})
+    add_node(id=region_id, label=f"SpatialUnit\n{prediction.region_name}", type="region", group="input", step=1,
+             evidence_kind="observation", status="declared", details={"regionId": prediction.region_id})
+    add_edge(case_id, pred_id, "PRODUCED", "PRODUCED", 1, "asserted", "该预测是此冻结预报案例的输出。")
+    add_edge(model_id, pred_id, "GENERATED", "GENERATED", 1, "asserted", "预测结果声明了生成它的模型版本。")
+    add_edge(pred_id, region_id, "FOR_REGION", "FOR_REGION", 1, "asserted", "预测空间范围。")
+    add_edge(pred_id, hazard_id, "PREDICTS", "PREDICTS", 1, "asserted", "预测目标灾种。")
 
-    # step 1: prediction + input context
-    nodes.append(GraphNode(id=pred_id, label=f"Prediction\n{prediction.hazard_label}概率 {prediction.calibrated_probability:g}", type="prediction", group="anchor", step=1))
-    nodes.append(GraphNode(id=model_id, label=f"ModelVersion\n{prediction.model_name} {prediction.model_version}", type="model", group="input", step=1))
-    nodes.append(GraphNode(id=hazard_id, label=f"HazardType\n{prediction.hazard_label}", type="hazard", group="input", step=1))
-    nodes.append(GraphNode(id=region_id, label=f"Region\n{prediction.region_name}", type="region", group="input", step=1))
-
-    edges.append(GraphEdge(id=next_edge_id(), source=case_id, target=pred_id, label="PRODUCED", type="PRODUCED", step=1))
-    edges.append(GraphEdge(id=next_edge_id(), source=model_id, target=pred_id, label="GENERATED", type="GENERATED", step=1))
-    edges.append(GraphEdge(id=next_edge_id(), source=pred_id, target=region_id, label="FOR_REGION", type="FOR_REGION", step=1))
-    edges.append(GraphEdge(id=next_edge_id(), source=pred_id, target=hazard_id, label="PREDICTS", type="PREDICTS", step=1))
-
-    # step 2: feature attributions
     feature_node_ids: dict[str, str] = {}
     for feature in prediction.features:
         fid = f"feat-{feature.feature}"
         feature_node_ids[feature.feature] = fid
-        nodes.append(GraphNode(id=fid, label=f"{feature.feature_label}\n{feature.actual_value:g} {feature.unit}", type="feature", group="features", step=2, navigate_tab="features"))
-        edges.append(GraphEdge(id=next_edge_id(), source=pred_id, target=fid, label="HAS_ATTRIBUTION", type="HAS_ATTRIBUTION", step=2))
+        add_node(id=fid, label=f"{feature.feature_label}\n{feature.actual_value:g} {feature.unit}", type="feature", group="features", step=2,
+                 navigate_tab="features", evidence_kind="model", status="computed-attribution", details={"indicator": feature.feature, "actualValue": feature.actual_value, "normalValue": feature.normal_value, "unit": feature.unit, "contribution": feature.contribution})
+        add_edge(pred_id, fid, "HAS_ATTRIBUTION", "HAS_ATTRIBUTION", 2, "computed", "模型适配器返回的逐特征贡献；不是物理因果贡献。", confidence=None)
 
-    # step 3: triggered rules
-    rule_node_ids: list[str] = []
     for rule in prediction.rule_hits:
         if not rule.met:
             continue
         rid = f"rule-{rule.rule_id}"
-        rule_node_ids.append(rid)
-        nodes.append(GraphNode(id=rid, label=f"Rule\n{rule.rule_name}", type="rule", group="rules", step=3, navigate_tab="rules"))
-        edges.append(GraphEdge(id=next_edge_id(), source=pred_id, target=rid, label="TRIGGERS", type="TRIGGERS", step=3))
+        add_node(id=rid, label=f"PolicyRule\n{rule.rule_name}", type="rule", group="rules", step=3,
+                 navigate_tab="rules", evidence_kind="policy", status="triggered", details={"condition": rule.condition, "actualValue": rule.actual_value, "threshold": rule.threshold, "weight": rule.weight})
+        add_edge(rid, risk_id, "INFORMS", "INFORMS", 5, "derived", "命中的版本化政策规则参与风险等级映射。")
         indicator_key = _indicator_key_from_condition(rule.condition)
         if indicator_key and indicator_key in feature_node_ids:
-            edges.append(GraphEdge(id=next_edge_id(), source=feature_node_ids[indicator_key], target=rid, label="USES", type="USES", step=3))
+            add_edge(feature_node_ids[indicator_key], rid, "USES", "USES", 3, "asserted", "规则条件直接引用该指标。")
 
-    # step 4: physical mechanisms
-    mech_node_ids: list[str] = []
+    mechanism_config = {item["id"]: item for item in mechanisms_for(prediction.hazard, prediction.region_id)}
     for mechanism in prediction.mechanisms:
+        config = mechanism_config[mechanism.path_id]
         mid = f"mech-{mechanism.path_id}"
-        mech_node_ids.append(mid)
-        nodes.append(GraphNode(id=mid, label=f"Mechanism\n{mechanism.path_name}", type="mechanism", group="mechanisms", step=4, navigate_tab="mechanisms"))
-    if mech_node_ids:
-        for i, rid in enumerate(rule_node_ids):
-            target = mech_node_ids[0] if i % 2 == 0 else mech_node_ids[-1]
-            edges.append(GraphEdge(id=next_edge_id(), source=rid, target=target, label="SUPPORTED_BY", type="SUPPORTED_BY", step=4))
+        add_node(id=mid, label=f"MechanismCompatibility\n{mechanism.path_name}", type="mechanism", group="mechanisms", step=4,
+                 navigate_tab="mechanisms", evidence_kind="domain", status="compatible" if mechanism.support_score >= 0.42 else "weak-or-contrary", details={"supportScore": mechanism.support_score, "confidence": mechanism.confidence, "summary": mechanism.summary})
+        for signal in config["signals"]:
+            fid = feature_node_ids.get(signal["indicator"])
+            if fid:
+                add_edge(fid, mid, "CONSISTENT_WITH", "CONSISTENT_WITH", 4, "derived", f"该指标按知识包中的角色与机制相容；权重 {signal['weight']:.0%}。", confidence=mechanism.support_score, evidence_ids=mechanism.evidence_ids)
+        add_edge(mid, hazard_id, "FAVOURS", "FAVOURS", 4, "asserted", "该机制描述有利环境，不断言灾害必然发生。", confidence=mechanism.support_score, evidence_ids=mechanism.evidence_ids)
 
-    # step 5: risk assessment
-    nodes.append(GraphNode(id=risk_id, label=f"RiskAssessment\n{prediction.risk_label}", type="risk", group="anchor", step=5))
-    edges.append(GraphEdge(id=next_edge_id(), source=pred_id, target=risk_id, label="ASSESSED_AS", type="ASSESSED_AS", step=5))
+        for evidence_id in mechanism.evidence_ids:
+            source = literature(evidence_id)
+            sid = f"source-{evidence_id}"
+            add_node(id=sid, label=f"Literature\n{source['title']}", type="source", group="sources", step=4,
+                     evidence_kind="literature", status="catalogued-not-case-proof", details={"sourceId": evidence_id, "year": source["year"], "doi": source.get("doi"), "url": source["landing_url"]})
+            add_edge(mid, sid, "GROUNDED_IN", "GROUNDED_IN", 4, "asserted", "文献支持机制的一般适用性，不证明本次个例因果。", evidence_ids=[evidence_id])
 
-    # step 6: similar historical events + warning
+        for concept in config.get("sweetConcepts", []):
+            mapping = sweet_mapping(concept)
+            if not mapping:
+                continue
+            oid = f"sweet-{concept}"
+            add_node(id=oid, label=f"SWEET\n{concept}", type="ontology", group="sources", step=4,
+                     evidence_kind="ontology", status=mapping["relation"], details={"targetIri": mapping["target_iri"], "mapping": mapping["relation"], "rationale": mapping["rationale"]})
+            add_edge(mid, oid, "ALIGNED_WITH", "ALIGNED_WITH", 4, "asserted", mapping["rationale"])
+
+    add_node(id=risk_id, label=f"RiskAssessment\n{prediction.risk_label}", type="risk", group="anchor", step=5,
+             evidence_kind="decision", status="computed", details={"level": prediction.risk_level, "description": prediction.risk_description})
+    add_edge(pred_id, risk_id, "ASSESSED_AS", "ASSESSED_AS", 5, "derived", "风险评估由概率、区域敏感性和政策规则组合得到；不等同于模型概率。")
+
     for event in prediction.similar_events:
         eid = f"event-{event.event_id}"
-        nodes.append(GraphNode(id=eid, label=f"HistoricalEvent\n{event.date} {event.region}{event.hazard}", type="event", group="events", step=6, navigate_tab="history"))
-        edges.append(GraphEdge(id=next_edge_id(), source=risk_id, target=eid, label="SIMILAR_TO", type="SIMILAR_TO", step=6))
+        add_node(id=eid, label=f"AnalogCase\n{event.date} {event.region}", type="event", group="events", step=6,
+                 navigate_tab="history", evidence_kind="case", status=event.verification_status, details={"similarity": event.similarity, "dataCoverage": event.data_coverage, "source": event.source_title, "description": event.description})
+        rationale = "；".join(f"{item.label} {item.score:.0%}（{item.explanation}）" for item in event.similarity_dimensions)
+        add_edge(pred_id, eid, "SIMILAR_TO", "SIMILAR_TO", 6, "computed", rationale, confidence=event.similarity)
 
     warning_label = _RISK_TO_WARNING_LABEL[prediction.risk_level]
     if warning_label:
-        nodes.append(GraphNode(id=warning_id, label=f"Warning\n{prediction.hazard_label}{warning_label}", type="warning", group="anchor", step=6))
-        edges.append(GraphEdge(id=next_edge_id(), source=risk_id, target=warning_id, label="RESULTS_IN", type="RESULTS_IN", step=6))
+        add_node(id=warning_id, label=f"WarningProduct\n{prediction.hazard_label}{warning_label}", type="warning", group="anchor", step=6,
+                 evidence_kind="decision", status="candidate", details={"level": prediction.risk_level})
+        add_edge(risk_id, warning_id, "RESULTS_IN", "RESULTS_IN", 6, "derived", "依据当前业务政策映射为候选预警产品。")
 
-    return KnowledgeGraph(prediction_id=prediction.prediction_id, nodes=nodes, edges=edges)
+    return KnowledgeGraph(
+        prediction_id=prediction.prediction_id,
+        graph_version=catalog["version"],
+        generated_at=prediction.created_at,
+        disclaimer=catalog["semantics"]["disclaimer"],
+        nodes=nodes,
+        edges=edges,
+    )

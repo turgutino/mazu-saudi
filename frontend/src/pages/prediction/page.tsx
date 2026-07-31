@@ -1,11 +1,12 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '@/components/feature/Navbar';
 import Button from '@/components/base/Button';
 import Badge from '@/components/base/Badge';
 import RiskBadge from '@/components/base/RiskBadge';
 import Card from '@/components/base/Card';
-import { predictions, type PredictionResult, type FeatureContribution, type RuleHit, type MechanismPath, type HistoricalEvent } from '@/mocks/predictions';
+import { type PredictionResult, type FeatureContribution, type RuleHit, type MechanismPath, type HistoricalEvent } from '@/mocks/predictions';
+import { fetchPrediction } from '@/services/predictionApi';
 import { buildChatContext } from '@/mocks/chatResponses';
 import { useSetChatContext } from '@/hooks/useChatContext';
 
@@ -18,8 +19,21 @@ export default function PredictionDetail() {
   const navState = (location.state as { activeTab?: Tab } | null);
   const [activeTab, setActiveTab] = useState<Tab>(navState?.activeTab || 'overview');
 
-  const prediction = useMemo(() => predictions.find((p) => p.predictionId === id) || predictions[0], [id]);
+  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const setChatContext = useSetChatContext();
+
+  useEffect(() => {
+    if (!id) {
+      setLoadError('缺少预测 ID');
+      return;
+    }
+    let cancelled = false;
+    fetchPrediction(id)
+      .then((result) => { if (!cancelled) { setPrediction(result); setLoadError(null); } })
+      .catch((error: unknown) => { if (!cancelled) setLoadError(error instanceof Error ? error.message : '预测加载失败'); });
+    return () => { cancelled = true; };
+  }, [id]);
 
   useEffect(() => {
     if (prediction) {
@@ -35,7 +49,7 @@ export default function PredictionDetail() {
         <div className="flex items-center justify-center h-[60vh]">
           <div className="text-center">
             <i className="ri-error-warning-line text-4xl text-foreground-300"></i>
-            <p className="text-foreground-500 mt-3">未找到预测记录</p>
+            <p className="text-foreground-500 mt-3">{loadError || '正在加载预测记录…'}</p>
             <Button variant="outline" className="mt-4" onClick={() => navigate('/')}>返回首页</Button>
           </div>
         </div>
@@ -360,8 +374,8 @@ function MechanismsTab({ mechanisms }: { mechanisms: MechanismPath[] }) {
   return (
     <div className="space-y-6">
       <Card>
-        <h3 className="font-heading text-base text-foreground-900 mb-1">物理机制解释</h3>
-        <p className="text-xs text-foreground-500 mb-5">气象上为什么可能发生？以下路径展示了从初始条件到预测结果的因果链。</p>
+        <h3 className="font-heading text-base text-foreground-900 mb-1">物理机制相容性</h3>
+        <p className="text-xs text-foreground-500 mb-5">当前指标组合与哪些已知气象机制相容？这里不把相容性解释成个例因果。</p>
 
         <div className="space-y-6">
           {mechanisms.map((mech, mi) => (
@@ -371,7 +385,9 @@ function MechanismsTab({ mechanisms }: { mechanisms: MechanismPath[] }) {
                 <Badge variant={mech.confidence === 'high' ? 'success' : mech.confidence === 'medium' ? 'warning' : 'secondary'}>
                   {mech.confidence === 'high' ? '高置信度' : mech.confidence === 'medium' ? '中置信度' : '低置信度'}
                 </Badge>
+                {mech.supportScore !== undefined && <Badge variant="primary">相容度 {(mech.supportScore * 100).toFixed(0)}%</Badge>}
               </div>
+              {mech.summary && <p className="text-xs text-foreground-500 mb-4">{mech.summary}</p>}
 
               <div className="relative pl-8">
                 <div className="absolute left-[15px] top-3 bottom-3 w-[2px] bg-background-300"></div>
@@ -386,6 +402,7 @@ function MechanismsTab({ mechanisms }: { mechanisms: MechanismPath[] }) {
                         <div className="flex items-center gap-3 text-xs">
                           <span className="text-foreground-500">指标: {step.indicator}</span>
                           <span className="font-medium text-accent-600">{step.value}</span>
+                          {step.compatibility !== undefined && <span className="text-foreground-500">相容 {(step.compatibility * 100).toFixed(0)}%</span>}
                         </div>
                       </div>
                       {si < mech.steps.length - 1 && (
@@ -411,7 +428,7 @@ function MechanismsTab({ mechanisms }: { mechanisms: MechanismPath[] }) {
           <i className="ri-information-line text-foreground-400 mt-0.5"></i>
           <div className="text-xs text-foreground-500">
             <p className="mb-1 font-medium text-foreground-700">说明</p>
-            <p>物理机制解释使用专家规则和知识图谱构建，展示的是"支持机制"，而非模型真实的内部推理过程。模型的内部推理通过 SHAP 特征贡献来体现。</p>
+            <p>机制相容性来自版本化领域知识和文献目录，不是模型内部推理，也不证明灾害会发生。模型证据请查看特征贡献。</p>
           </div>
         </div>
       </Card>
@@ -424,7 +441,7 @@ function HistoryTab({ events }: { events: HistoricalEvent[] }) {
     <div className="space-y-6">
       <Card>
         <h3 className="font-heading text-base text-foreground-900 mb-1">相似历史事件</h3>
-        <p className="text-xs text-foreground-500 mb-5">基于当前预测的特征向量，查询历史上相似的气象事件</p>
+        <p className="text-xs text-foreground-500 mb-5">只检索起报时刻之前的案例，并分别比较天气形态、空间背景与季节窗口；低覆盖或代理案例会被降权。</p>
 
         <div className="space-y-3">
           {events.map((evt) => (
@@ -436,13 +453,26 @@ function HistoryTab({ events }: { events: HistoricalEvent[] }) {
                     <Badge variant="secondary">{evt.region}</Badge>
                     <Badge variant="accent">{evt.hazard}</Badge>
                     <Badge variant="primary">相似度 {(evt.similarity * 100).toFixed(0)}%</Badge>
+                    {evt.verificationStatus && <Badge variant="secondary">{evt.verificationStatus}</Badge>}
                   </div>
                   <p className="text-sm text-foreground-700 mb-2">{evt.description}</p>
                   <div className="flex flex-wrap gap-3 text-xs text-foreground-500">
-                    {evt.maxRainfall !== undefined && <span>最大降水: {evt.maxRainfall}mm</span>}
-                    {evt.maxTemp !== undefined && <span>最高温度: {evt.maxTemp}°C</span>}
+                    {evt.maxRainfall != null && <span>最大降水: {evt.maxRainfall}mm</span>}
+                    {evt.maxTemp != null && <span>最高温度: {evt.maxTemp}°C</span>}
                     <span className="text-orange-600">影响: {evt.impact}</span>
+                    {evt.dataCoverage !== undefined && <span>气象指标覆盖: {(evt.dataCoverage * 100).toFixed(0)}%</span>}
                   </div>
+                  {evt.similarityDimensions && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                      {evt.similarityDimensions.map((dimension) => (
+                        <div key={dimension.key} className="bg-background-50 rounded p-2 text-xs">
+                          <div className="flex justify-between"><span className="text-foreground-600">{dimension.label}</span><span className="font-medium">{(dimension.score * 100).toFixed(0)}%</span></div>
+                          <p className="text-foreground-400 mt-1">权重 {(dimension.weight * 100).toFixed(0)}% · {dimension.explanation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {evt.sourceTitle && <p className="text-[11px] text-foreground-400 mt-3">来源: {evt.sourceTitle}</p>}
                 </div>
                 <div className="flex-shrink-0">
                   <div className="w-14 h-14 rounded-full border-2 border-primary-200 flex items-center justify-center">

@@ -1,0 +1,206 @@
+{
+  "version": "1.0.0",
+  "releasedAt": "2026-08-01",
+  "scope": "Saudi multi-hazard prediction explanation and analog-case retrieval",
+  "semantics": {
+    "mechanismRelation": "CONSISTENT_WITH",
+    "hazardRelation": "FAVOURS",
+    "disclaimer": "Mechanism compatibility and historical analogy do not prove causation or event occurrence."
+  },
+  "hazards": {
+    "heavy-rain": {
+      "label": "暴雨",
+      "similarityWeights": {"weather": 0.65, "spatial": 0.15, "seasonal": 0.20},
+      "comparisons": [
+        {"current": "daily_precip", "case": "daily_precip", "label": "日降水", "range": 75.0, "weight": 0.40, "comparability": "exact"},
+        {"current": "cape", "case": "cape", "label": "CAPE", "range": 3150.0, "weight": 0.25, "comparability": "exact"},
+        {"current": "pw", "case": "pw", "label": "可降水量", "range": 57.0, "weight": 0.20, "comparability": "exact"},
+        {"current": "rh_700", "case": "rh_700", "label": "700hPa相对湿度", "range": 66.0, "weight": 0.15, "comparability": "exact"}
+      ]
+    },
+    "flash-flood": {
+      "label": "山洪",
+      "similarityWeights": {"weather": 0.60, "spatial": 0.25, "seasonal": 0.15},
+      "comparisons": [
+        {"current": "daily_precip", "case": "daily_precip", "label": "日降水", "range": 75.0, "weight": 0.40, "comparability": "exact"},
+        {"current": "cape", "case": "cape", "label": "CAPE", "range": 3150.0, "weight": 0.25, "comparability": "exact"},
+        {"current": "pw", "case": "pw", "label": "可降水量", "range": 57.0, "weight": 0.20, "comparability": "exact"},
+        {"current": "rh_700", "case": "rh_700", "label": "700hPa相对湿度", "range": 66.0, "weight": 0.15, "comparability": "exact"}
+      ]
+    },
+    "extreme-heat": {
+      "label": "极端高温",
+      "similarityWeights": {"weather": 0.60, "spatial": 0.20, "seasonal": 0.20},
+      "comparisons": [
+        {"current": "t2m", "case": "tmax_c", "label": "近地面温度/日最高温", "range": 22.0, "weight": 0.55, "comparability": "approximate"},
+        {"current": "rh_surface", "case": "rh_surface", "label": "地表相对湿度", "range": 77.0, "weight": 0.20, "comparability": "exact"},
+        {"current": "t850", "case": "t850", "label": "850hPa温度", "range": 20.0, "weight": 0.25, "comparability": "exact"}
+      ]
+    },
+    "dust-storm": {
+      "label": "沙尘暴",
+      "similarityWeights": {"weather": 0.60, "spatial": 0.25, "seasonal": 0.15},
+      "comparisons": [
+        {"current": "wind_10m", "case": "wind_10m", "label": "10m风速", "range": 30.0, "weight": 0.45, "comparability": "exact"},
+        {"current": "visibility", "case": "visibility", "label": "能见度", "range": 19.5, "weight": 0.30, "comparability": "exact"},
+        {"current": "rh_surface", "case": "rh_surface", "label": "地表相对湿度", "range": 77.0, "weight": 0.25, "comparability": "exact"}
+      ]
+    }
+  },
+  "mechanisms": [
+    {
+      "id": "moisture-convection",
+      "label": "水汽输送—深对流协同",
+      "hazards": ["heavy-rain", "flash-flood"],
+      "summary": "充足水汽、对流不稳定与降水信号同时出现时，与强降水环境相容。",
+      "signals": [
+        {"indicator": "vapor_850", "label": "低层水汽输送增强", "weight": 0.20},
+        {"indicator": "pw", "label": "整层可降水量偏高", "weight": 0.20},
+        {"indicator": "cape", "label": "对流有效位能偏高", "weight": 0.25},
+        {"indicator": "daily_precip", "label": "目标期降水信号增强", "weight": 0.35}
+      ],
+      "evidenceIds": ["devries2013_arst", "devries2018_ivt", "saudi_rainfall_extremes2020"],
+      "sweetConcepts": ["MoistureAdvection", "LocalConvection"]
+    },
+    {
+      "id": "orographic-enhancement",
+      "label": "地形抬升与汇流放大",
+      "hazards": ["heavy-rain", "flash-flood"],
+      "summary": "湿润气流遇西南部山地抬升并在敏感流域汇流，可放大强降水向山洪风险的转化。",
+      "regions": ["jazan", "abha", "makkah", "jeddah"],
+      "signals": [
+        {"indicator": "pw", "label": "环境水汽可用", "weight": 0.30},
+        {"indicator": "daily_precip", "label": "强降水输入", "weight": 0.45},
+        {"indicator": "rh_700", "label": "中层湿度支持", "weight": 0.25}
+      ],
+      "evidenceIds": ["redsea_topography2019", "francis2024_ar_rapids"],
+      "sweetConcepts": ["OrographicLift"]
+    },
+    {
+      "id": "thermal-persistence",
+      "label": "大尺度下沉增温与热量持续",
+      "hazards": ["extreme-heat"],
+      "summary": "低层暖异常、较高位势场和近地面升温共同出现时，与持续高温环境相容。",
+      "signals": [
+        {"indicator": "t850", "label": "低层暖空气增强", "weight": 0.30},
+        {"indicator": "h500", "label": "中层高压/下沉背景", "weight": 0.25},
+        {"indicator": "t2m", "label": "近地面高温", "weight": 0.35},
+        {"indicator": "rh_surface", "label": "干热背景", "weight": 0.10}
+      ],
+      "evidenceIds": ["saudi_extreme_temperature2020", "saudi_summer_temperature2020"],
+      "sweetConcepts": []
+    },
+    {
+      "id": "dry-wind-dust-mobilization",
+      "label": "干燥强风起沙",
+      "hazards": ["dust-storm"],
+      "summary": "强近地面风、干燥地表与低湿度同时出现时，与扬沙和能见度下降环境相容。",
+      "signals": [
+        {"indicator": "wind_10m", "label": "近地面风增强", "weight": 0.40},
+        {"indicator": "soil_moisture", "label": "表层土壤偏干", "weight": 0.25},
+        {"indicator": "rh_surface", "label": "近地面空气干燥", "weight": 0.15},
+        {"indicator": "visibility", "label": "能见度下降", "weight": 0.20}
+      ],
+      "evidenceIds": ["yu2016_shamal", "mofidi2022_shamal"],
+      "sweetConcepts": ["DustStormFavourableState"]
+    }
+  ],
+  "cases": [
+    {
+      "id": "case-ref-20250823-jazan-rain",
+      "date": "2025-08-23",
+      "regionId": "jazan",
+      "regionLabel": "吉赞",
+      "lat": 17.5,
+      "lon": 42.9,
+      "hazards": ["heavy-rain", "flash-flood"],
+      "title": "吉赞极端降水过程",
+      "description": "资料中识别到的年度极端降水过程；它是气象过程代理案例，不等同于独立核验的山洪灾情。",
+      "impact": "未提供独立灾情记录",
+      "verificationStatus": "proxy-weather-episode",
+      "reliability": 0.65,
+      "indicators": {"cape": 2360.0, "daily_precip": 254.9, "pw": 47.1},
+      "source": {"id": "reference-structural-kg", "title": "reference_code structural KG derived from mazu_dataset.nc", "url": null}
+    },
+    {
+      "id": "case-ref-20250826-asir-flood",
+      "date": "2025-08-26",
+      "regionId": "abha",
+      "regionLabel": "艾卜哈/吉赞",
+      "lat": 18.2,
+      "lon": 42.5,
+      "hazards": ["flash-flood", "heavy-rain"],
+      "title": "阿西尔—吉赞强降水与山洪过程",
+      "description": "参考系统标记为混合命中，保留模型与规则在持续性和空间上的分歧。",
+      "impact": "参考资料未给出独立影响统计",
+      "verificationStatus": "reference-reviewed",
+      "reliability": 0.80,
+      "indicators": {"cape": 1648.0, "daily_precip": 40.2, "pw": 26.6},
+      "source": {"id": "reference-verified-events", "title": "reference_code site-verified event set", "url": null}
+    },
+    {
+      "id": "case-ref-20250616-dammam-heat",
+      "date": "2025-06-16",
+      "regionId": "dammam",
+      "regionLabel": "达曼",
+      "lat": 26.4,
+      "lon": 50.1,
+      "hazards": ["extreme-heat"],
+      "title": "达曼高温过程",
+      "description": "参考资料记录最高温约44.2°C，同时披露事件窗口与峰值日期存在偏差。",
+      "impact": "未提供独立影响统计",
+      "verificationStatus": "reference-reviewed",
+      "reliability": 0.72,
+      "indicators": {"tmax_c": 44.2},
+      "source": {"id": "reference-verified-events", "title": "reference_code site-verified event set", "url": null}
+    },
+    {
+      "id": "case-ref-20250722-makkah-heat",
+      "date": "2025-07-22",
+      "regionId": "makkah",
+      "regionLabel": "麦加",
+      "lat": 21.4,
+      "lon": 39.8,
+      "hazards": ["extreme-heat"],
+      "title": "麦加第三轮高温过程",
+      "description": "参考资料标记为部分命中；命中位置与原事件叙述中的东部城市不同。",
+      "impact": "未提供独立影响统计",
+      "verificationStatus": "reference-reviewed",
+      "reliability": 0.70,
+      "indicators": {"tmax_c": 45.4},
+      "source": {"id": "reference-verified-events", "title": "reference_code site-verified event set", "url": null}
+    },
+    {
+      "id": "case-ref-20250517-dammam-dust",
+      "date": "2025-05-17",
+      "regionId": "dammam",
+      "regionLabel": "达曼",
+      "lat": 26.4,
+      "lon": 50.1,
+      "hazards": ["dust-storm"],
+      "title": "达曼沙尘过程",
+      "description": "参考资料显示海湾沿岸沙尘带，并从数据中定位该窗口内风速峰值。",
+      "impact": "未提供独立影响统计",
+      "verificationStatus": "reference-reviewed",
+      "reliability": 0.75,
+      "indicators": {"wind_10m": 8.5},
+      "source": {"id": "reference-verified-events", "title": "reference_code site-verified event set", "url": null}
+    },
+    {
+      "id": "case-ref-20250726-arabian-sea-wind",
+      "date": "2025-07-26",
+      "regionId": null,
+      "regionLabel": "阿拉伯海北部",
+      "lat": 17.4,
+      "lon": 55.8,
+      "hazards": ["dust-storm"],
+      "title": "区域极端风过程",
+      "description": "资料中识别到的年度极端近地面风；只作为起沙环境代理案例。",
+      "impact": "不是独立核验的沙尘灾情",
+      "verificationStatus": "proxy-weather-episode",
+      "reliability": 0.55,
+      "indicators": {"wind_10m": 20.7},
+      "source": {"id": "reference-structural-kg", "title": "reference_code structural KG derived from mazu_dataset.nc", "url": null}
+    }
+  ]
+}

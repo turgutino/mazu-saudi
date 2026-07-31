@@ -22,13 +22,25 @@ export interface MechanismStep {
   description: string;
   indicator: string;
   value: string;
+  compatibility?: number;
 }
 
 export interface MechanismPath {
   pathId: string;
   pathName: string;
   confidence: 'high' | 'medium' | 'low';
+  supportScore?: number;
+  summary?: string;
+  evidenceIds?: string[];
   steps: MechanismStep[];
+}
+
+export interface SimilarityDimension {
+  key: string;
+  label: string;
+  score: number;
+  weight: number;
+  explanation: string;
 }
 
 export interface HistoricalEvent {
@@ -38,8 +50,13 @@ export interface HistoricalEvent {
   hazard: string;
   description: string;
   similarity: number;
-  maxRainfall?: number;
-  maxTemp?: number;
+  similarityDimensions?: SimilarityDimension[];
+  dataCoverage?: number;
+  verificationStatus?: string;
+  sourceTitle?: string;
+  sourceUrl?: string | null;
+  maxRainfall?: number | null;
+  maxTemp?: number | null;
   impact: string;
 }
 

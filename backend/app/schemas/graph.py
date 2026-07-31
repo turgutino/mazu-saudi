@@ -16,13 +16,19 @@ NodeType = Literal[
     "risk",
     "event",
     "warning",
+    "source",
+    "ontology",
 ]
-NodeGroupKey = Literal["anchor", "input", "features", "rules", "mechanisms", "events"]
+NodeGroupKey = Literal["anchor", "input", "features", "rules", "mechanisms", "events", "sources"]
 EdgeType = Literal[
     "PRODUCED",
     "USES",
     "TRIGGERS",
-    "SUPPORTED_BY",
+    "CONSISTENT_WITH",
+    "FAVOURS",
+    "GROUNDED_IN",
+    "ALIGNED_WITH",
+    "INFORMS",
     "ASSESSED_AS",
     "SIMILAR_TO",
     "RESULTS_IN",
@@ -42,6 +48,9 @@ class GraphNode(CamelModel):
     step: int
     navigate_tab: str | None = None
     navigate_node_id: str | None = None
+    evidence_kind: Literal["run", "model", "observation", "policy", "domain", "literature", "case", "decision", "ontology"]
+    status: str
+    details: dict[str, str | float | bool | None]
     x: float | None = None
     y: float | None = None
     fx: float | None = None
@@ -55,9 +64,16 @@ class GraphEdge(CamelModel):
     label: str
     type: EdgeType
     step: int
+    semantics: Literal["asserted", "derived", "computed"]
+    confidence: float | None = None
+    rationale: str
+    evidence_ids: list[str] = []
 
 
 class KnowledgeGraph(CamelModel):
     prediction_id: str
+    graph_version: str
+    generated_at: str
+    disclaimer: str
     nodes: list[GraphNode]
     edges: list[GraphEdge]

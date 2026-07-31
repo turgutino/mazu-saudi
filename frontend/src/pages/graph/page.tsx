@@ -1,12 +1,33 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '@/components/feature/Navbar';
 import Button from '@/components/base/Button';
 import Badge from '@/components/base/Badge';
-import { graphData, NODE_GROUPS, TIMELINE_STEPS, type GraphNode, type GraphEdge, type NodeGroup } from '@/mocks/graphData';
-import { predictions } from '@/mocks/predictions';
-import { buildChatContext } from '@/mocks/chatResponses';
-import { useSetChatContext } from '@/hooks/useChatContext';
+import { fetchKnowledgeGraph, type KnowledgeGraph, type GraphNode, type GraphEdge } from '@/services/knowledgeGraphApi';
+
+interface NodeGroup { key: string; label: string; icon: string; color: string }
+
+const NODE_GROUPS: NodeGroup[] = [
+  { key: 'anchor', label: '预测与决策', icon: 'ri-links-line', color: '#ea580c' },
+  { key: 'input', label: '目标与上下文', icon: 'ri-database-2-line', color: '#0d9488' },
+  { key: 'features', label: '模型归因', icon: 'ri-bar-chart-2-line', color: '#16a34a' },
+  { key: 'rules', label: '政策规则', icon: 'ri-checkbox-multiple-line', color: '#d97706' },
+  { key: 'mechanisms', label: '机制相容性', icon: 'ri-git-branch-line', color: '#b45309' },
+  { key: 'events', label: '历史类比', icon: 'ri-history-line', color: '#ca8a04' },
+  { key: 'sources', label: '文献与本体', icon: 'ri-book-open-line', color: '#6366f1' },
+];
+
+const TIMELINE_STEPS = [
+  { step: 0, label: '预测案例', desc: '确定起报、有效时间和空间范围' },
+  { step: 1, label: '模型预测', desc: '生成并校准灾害概率' },
+  { step: 2, label: '模型归因', desc: '读取模型实际使用的特征贡献' },
+  { step: 3, label: '政策规则', desc: '执行版本化风险政策' },
+  { step: 4, label: '知识解释', desc: '检查机制相容性并回溯文献/本体' },
+  { step: 5, label: '风险评估', desc: '区分概率、敏感性与风险等级' },
+  { step: 6, label: '历史类比', desc: '检索起报前的多维相似案例' },
+];
+
+const EMPTY_GRAPH: KnowledgeGraph = { predictionId: '', graphVersion: '', generatedAt: '', disclaimer: '', nodes: [], edges: [] };
 
 const NODE_COLORS: Record<string, { fill: string; stroke: string; text: string }> = {
   case: { fill: '#fef3c7', stroke: '#d97706', text: '#92400e' },
@@ -20,6 +41,8 @@ const NODE_COLORS: Record<string, { fill: string; stroke: string; text: string }
   risk: { fill: '#fef2f2', stroke: '#dc2626', text: '#991b1b' },
   event: { fill: '#fef9c3', stroke: '#ca8a04', text: '#854d0e' },
   warning: { fill: '#fecaca', stroke: '#ef4444', text: '#7f1d1d' },
+  source: { fill: '#eef2ff', stroke: '#6366f1', text: '#3730a3' },
+  ontology: { fill: '#f5f3ff', stroke: '#7c3aed', text: '#5b21b6' },
 };
 
 const NODE_LABELS: Record<string, string> = {
@@ -34,6 +57,8 @@ const NODE_LABELS: Record<string, string> = {
   risk: '风险评估',
   event: '历史事件',
   warning: '预警',
+  source: '文献来源',
+  ontology: 'SWEET 对齐',
 };
 
 const EDGE_COLORS: Record<string, string> = {
@@ -44,7 +69,11 @@ const EDGE_COLORS: Record<string, string> = {
   HAS_ATTRIBUTION: '#16a34a',
   USES: '#ea580c',
   TRIGGERS: '#ea580c',
-  SUPPORTED_BY: '#b45309',
+  CONSISTENT_WITH: '#b45309',
+  FAVOURS: '#e11d48',
+  GROUNDED_IN: '#6366f1',
+  ALIGNED_WITH: '#7c3aed',
+  INFORMS: '#d97706',
   ASSESSED_AS: '#dc2626',
   SIMILAR_TO: '#ca8a04',
   RESULTS_IN: '#ef4444',
@@ -54,7 +83,11 @@ const EDGE_COLORS: Record<string, string> = {
 type NodePos = { x: number; y: number; vx: number; vy: number };
 
 export default function KnowledgeGraphPage() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [graphData, setGraphData] = useState<KnowledgeGraph>(EMPTY_GRAPH);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<Record<string, NodePos>>({});
@@ -65,6 +98,21 @@ export default function KnowledgeGraphPage() {
   const animFrameRef = useRef<number>(0);
   const positionsRef = useRef<Record<string, NodePos>>({});
   const [dimensions, setDimensions] = useState({ width: 900, height: 600 });
+
+  useEffect(() => {
+    if (!id) {
+      setLoadError('缺少预测 ID');
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setIsLoading(true);
+    fetchKnowledgeGraph(id)
+      .then((data) => { if (!cancelled) { setGraphData(data); setLoadError(null); } })
+      .catch((error: unknown) => { if (!cancelled) setLoadError(error instanceof Error ? error.message : '未知加载错误'); })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
+  }, [id]);
 
   // Collapsed groups & timeline
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -79,7 +127,7 @@ export default function KnowledgeGraphPage() {
       if (n.step > currentStep) return false;
       return true;
     });
-  }, [collapsedGroups, currentStep]);
+  }, [graphData.nodes, collapsedGroups, currentStep]);
 
   const visibleEdges = useMemo(() => {
     const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
@@ -88,7 +136,7 @@ export default function KnowledgeGraphPage() {
       if (!visibleNodeIds.has(e.source) || !visibleNodeIds.has(e.target)) return false;
       return true;
     });
-  }, [visibleNodes, currentStep]);
+  }, [graphData.edges, visibleNodes, currentStep]);
 
   // Initialize positions for ALL nodes (so they don't jump when becoming visible)
   useEffect(() => {
@@ -100,7 +148,7 @@ export default function KnowledgeGraphPage() {
     const nodePositions: Record<string, NodePos> = {};
     const layoutNodes = [...graphData.nodes];
 
-    const anchors = ['case-001', 'pred-001', 'risk-001', 'warning-001'];
+    const anchors = graphData.nodes.filter((node) => node.group === 'anchor').map((node) => node.id);
     anchors.forEach((id, i) => {
       const angle = (i / anchors.length) * Math.PI * 2 - Math.PI / 2;
       const r = Math.min(w, h) * 0.28;
@@ -116,7 +164,7 @@ export default function KnowledgeGraphPage() {
 
     setPositions(nodePositions);
     positionsRef.current = nodePositions;
-  }, [dimensions]);
+  }, [dimensions, graphData]);
 
   // Resize observer
   useEffect(() => {
@@ -147,7 +195,7 @@ export default function KnowledgeGraphPage() {
       if (!running) return;
       const cx = dimensions.width / 2;
       const cy = dimensions.height / 2;
-      const anchors = new Set(['case-001', 'pred-001', 'risk-001', 'warning-001']);
+      const anchors = new Set(graphData.nodes.filter((node) => node.group === 'anchor').map((node) => node.id));
 
       // Apply forces only to visible, non-dragged nodes
       for (const node of graphData.nodes) {
@@ -220,7 +268,7 @@ export default function KnowledgeGraphPage() {
 
     animFrameRef.current = requestAnimationFrame(simulate);
     return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
-  }, [visibleNodes, visibleEdges, dragNode, dimensions]);
+  }, [graphData.edges, graphData.nodes, visibleNodes, visibleEdges, dragNode, dimensions]);
 
   // Timeline playback
   useEffect(() => {
@@ -335,15 +383,7 @@ export default function KnowledgeGraphPage() {
   const selectedNodeData = useMemo(() => {
     if (!selectedNode) return null;
     return graphData.nodes.find((n) => n.id === selectedNode) || null;
-  }, [selectedNode]);
-
-  // Inject chat context so the global assistant knows about this prediction
-  const setChatContext = useSetChatContext();
-  useEffect(() => {
-    const prediction = predictions.find((p) => p.predictionId === graphData.predictionId) || predictions[0];
-    setChatContext(buildChatContext(prediction));
-    return () => setChatContext(null);
-  }, [setChatContext]);
+  }, [graphData.nodes, selectedNode]);
 
   return (
     <div className="min-h-screen bg-background-50 flex flex-col">
@@ -358,6 +398,7 @@ export default function KnowledgeGraphPage() {
             </Button>
             <h1 className="font-heading text-lg text-foreground-900">解释证据图谱</h1>
             <Badge variant="secondary">{graphData.predictionId}</Badge>
+            {graphData.graphVersion && <Badge variant="secondary">KB {graphData.graphVersion}</Badge>}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="text-xs text-foreground-500 px-3 py-1.5 bg-background-100 rounded-full">
@@ -389,7 +430,7 @@ export default function KnowledgeGraphPage() {
             <p className="text-[11px] font-medium text-foreground-500 px-1 mb-1 uppercase tracking-wide">节点分组</p>
             {NODE_GROUPS.map((group) => {
               const isCollapsed = collapsedGroups.has(group.key);
-              const groupNodes = group.nodeIds.filter((nid) => graphData.nodes.find((n) => n.id === nid));
+              const groupNodes = graphData.nodes.filter((node) => node.group === group.key).map((node) => node.id);
               const visibleCount = groupNodes.filter((nid) => {
                 const node = graphData.nodes.find((n) => n.id === nid);
                 return node && node.step <= currentStep;
@@ -433,6 +474,16 @@ export default function KnowledgeGraphPage() {
 
           {/* Right - graph area */}
           <div ref={containerRef} className="flex-1 relative bg-background-50 overflow-hidden" style={{ minHeight: '600px' }}>
+            {isLoading && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background-50/80 text-sm text-foreground-500">
+                <i className="ri-loader-4-line animate-spin mr-2"></i>正在查询知识库并生成解释视图…
+              </div>
+            )}
+            {loadError && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background-50/90">
+                <div className="max-w-md text-center"><i className="ri-error-warning-line text-3xl text-red-500"></i><p className="mt-2 text-sm text-foreground-700">{loadError}</p></div>
+              </div>
+            )}
             <svg
               ref={svgRef}
               viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
@@ -593,6 +644,22 @@ export default function KnowledgeGraphPage() {
                     </p>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><span className="text-xs text-foreground-500">证据类型</span><p className="text-xs text-foreground-700 mt-0.5">{selectedNodeData.evidenceKind}</p></div>
+                    <div><span className="text-xs text-foreground-500">状态</span><p className="text-xs text-foreground-700 mt-0.5">{selectedNodeData.status}</p></div>
+                  </div>
+
+                  {Object.keys(selectedNodeData.details).length > 0 && (
+                    <div className="pt-2 border-t border-background-200/50">
+                      <span className="text-xs text-foreground-500">可追溯属性</span>
+                      <div className="mt-1 space-y-1 max-h-40 overflow-y-auto">
+                        {Object.entries(selectedNodeData.details).map(([key, value]) => (
+                          <div key={key} className="text-[11px] break-words"><span className="text-foreground-400">{key}: </span><span className="text-foreground-700">{String(value)}</span></div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <span className="text-xs text-foreground-500">时间步</span>
                     <p className="text-xs text-foreground-700 mt-0.5">
@@ -607,7 +674,7 @@ export default function KnowledgeGraphPage() {
                         <span className="text-xs text-foreground-500">关联边 ({relatedEdges.length})</span>
                         <div className="mt-1 space-y-1 max-h-32 overflow-y-auto">
                           {relatedEdges.slice(0, 8).map((e) => (
-                            <div key={e.id} className="flex items-center gap-1.5 text-[11px]">
+                            <div key={e.id} title={e.rationale} className="flex items-center gap-1.5 text-[11px]">
                               <span
                                 className="w-2 h-2 rounded-full flex-shrink-0"
                                 style={{ backgroundColor: EDGE_COLORS[e.type] || '#999' }}
@@ -618,6 +685,7 @@ export default function KnowledgeGraphPage() {
                                   ? (graphData.nodes.find((n) => n.id === e.target)?.label.split('\n')[0] || e.target)
                                   : (graphData.nodes.find((n) => n.id === e.source)?.label.split('\n')[0] || e.source)}
                               </span>
+                              {e.confidence != null && <span className="text-foreground-500">{(e.confidence * 100).toFixed(0)}%</span>}
                             </div>
                           ))}
                         </div>
@@ -728,7 +796,7 @@ export default function KnowledgeGraphPage() {
       <footer className="border-t border-background-200/70 bg-background-100 px-6 py-2.5">
         <div className="flex items-center justify-between text-xs text-foreground-400">
           <span>拖拽节点调整布局 · 滚轮缩放 · 点击节点查看详情 · 双击分组折叠 · 底部时间轴回放</span>
-          <span>知识图谱仅记录推理证据链，不替代模型预测</span>
+          <span>{graphData.disclaimer || '知识图谱仅记录可追溯证据链，不替代模型预测'}</span>
         </div>
       </footer>
 
