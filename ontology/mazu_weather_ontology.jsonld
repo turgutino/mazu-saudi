@@ -968,6 +968,15 @@
       "thresholdDefinition": "Versioned compound expression over wind speed and atmospheric dryness."
     },
     {
+      "@id": "concept:ActiveRedSeaTrough",
+      "@type": "mazu:WeatherMechanism",
+      "module": "mechanism",
+      "labelEn": "Active Red Sea Trough",
+      "labelZh": "活跃红海槽",
+      "definitionEn": "An active Red Sea trough circulation configuration used as a controlled synoptic mechanism concept for evidence organisation.",
+      "definitionZh": "作为受控天气尺度机制概念组织证据的活跃红海槽环流配置。"
+    },
+    {
       "@id": "concept:MoistureAdvection",
       "@type": "mazu:WeatherMechanism",
       "module": "mechanism",
@@ -976,6 +985,24 @@
       "definitionEn": "Horizontal transport of moisture into a target environment.",
       "definitionZh": "向目标环境输送水汽的水平输送过程。",
       "closeMatch": "http://sweetontology.net/phenFluidTransport/Advection"
+    },
+    {
+      "@id": "concept:SubtropicalHighInfluence",
+      "@type": "mazu:WeatherMechanism",
+      "module": "mechanism",
+      "labelEn": "Subtropical high influence",
+      "labelZh": "副热带高压影响",
+      "definitionEn": "Large-scale subsidence and circulation influence associated with a subtropical or continental high-pressure system.",
+      "definitionZh": "与副热带或大陆高压系统相关的大尺度下沉及环流影响。"
+    },
+    {
+      "@id": "concept:ArabianThermalLow",
+      "@type": "mazu:WeatherMechanism",
+      "module": "mechanism",
+      "labelEn": "Arabian thermal low",
+      "labelZh": "阿拉伯热低压",
+      "definitionEn": "A heat-low circulation over the Arabian desert represented as a controlled mechanism concept for evidence organisation.",
+      "definitionZh": "作为受控机制概念组织证据的阿拉伯沙漠热低压环流。"
     },
     {
       "@id": "concept:LocalConvection",

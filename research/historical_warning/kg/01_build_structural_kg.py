@@ -20,6 +20,8 @@
 import os
 import json
 import itertools
+from pathlib import Path
+import sys
 import numpy as np
 import xarray as xr
 import networkx as nx
@@ -28,6 +30,12 @@ import warnings
 warnings.filterwarnings("ignore")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+REPOSITORY_ROOT = Path(HERE).resolve().parents[2]
+sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
+
+from mazu_saudi.knowledge_graph.legacy_graph import (  # noqa: E402
+    migrate_legacy_evidence_graph,
+)
 DATASET = os.path.join(
     os.environ.get("MAZU_HISTORICAL_DATA_DIR", os.path.join(HERE, "..", "data")),
     "mazu_dataset.nc",
@@ -423,7 +431,7 @@ def main():
     G, corr = build()
 
     # node-link JSON for the dashboard
-    data = nx.node_link_data(G, edges="links")
+    data = migrate_legacy_evidence_graph(nx.node_link_data(G, edges="links"))
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=1)
     association_data = {

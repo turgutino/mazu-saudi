@@ -161,6 +161,15 @@ PYTHONPATH=src conda run -n ml python scripts/enrich_kwg_background.py \
 
 ## 5. 构建命令
 
+历史前端JSON图在使用前应迁移为本体2.0兼容视图：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/migrate_legacy_evidence_graph.py
+```
+
+该迁移只统一概念IRI并披露未映射项，不会把旧式 `driven_by` 或 `contributes_to`
+直接边升级为本体机制断言。
+
 推荐使用解释型证据图谱统一重建入口。它会先验证固定版本SWEET与CF Standard Names对齐
 并重新物化本体，再生成不可变观测图谱批次；KWG快照可在同一次运行中导入：
 

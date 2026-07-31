@@ -93,6 +93,9 @@ def test_seed_indicator_states_link_to_versioned_indicators_and_mechanisms():
 
     for mechanism in (
         "concept:MoistureAdvection",
+        "concept:ActiveRedSeaTrough",
+        "concept:SubtropicalHighInfluence",
+        "concept:ArabianThermalLow",
         "concept:LocalConvection",
         "concept:OrographicLift",
         "concept:ThermalPersistence",
@@ -195,7 +198,7 @@ def test_materializer_builds_queryable_idempotent_database(tmp_path):
 
     assert first["ontology"]["version"] == "2.0.0"
     assert first["ontology"]["source_sha256"] == second["ontology"]["source_sha256"]
-    assert first["resource_count"] == second["resource_count"] == 87
+    assert first["resource_count"] == second["resource_count"] == 90
     assert first["statement_count"] == second["statement_count"]
     assert first["statement_count"] >= 500
 
@@ -216,7 +219,7 @@ def test_materializer_builds_queryable_idempotent_database(tmp_path):
         and row["object_kind"] == "literal"
         for row in statements
     )
-    assert len(store.list_resources(module="mechanism")) == 7
+    assert len(store.list_resources(module="mechanism")) == 10
 
     with sqlite3.connect(database) as connection:
         tables = {

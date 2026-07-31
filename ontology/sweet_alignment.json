@@ -150,6 +150,18 @@
     {
       "local_iri": "urn:mazu-saudi:concept:HeatwaveFavourableState",
       "reason": "A favourable screening state must not be collapsed into a heat-event concept."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:ActiveRedSeaTrough",
+      "reason": "No reviewed SWEET concept was verified for the project-specific active Red Sea trough circulation configuration."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:SubtropicalHighInfluence",
+      "reason": "No reviewed SWEET mapping was selected for this project-scoped large-scale circulation influence."
+    },
+    {
+      "local_iri": "urn:mazu-saudi:concept:ArabianThermalLow",
+      "reason": "No reviewed SWEET concept was verified for this regional thermal-low circulation."
     }
   ]
 }

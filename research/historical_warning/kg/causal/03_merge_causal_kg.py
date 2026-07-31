@@ -27,8 +27,17 @@
 
 import os
 import json
+from pathlib import Path
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+REPOSITORY_ROOT = Path(HERE).resolve().parents[3]
+sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
+
+from mazu_saudi.knowledge_graph.legacy_graph import (  # noqa: E402
+    CANONICAL_MECHANISM_IRIS,
+    migrate_legacy_evidence_graph,
+)
 KG_JSON = os.path.join(HERE, "..", "kg_data.json")
 TRIPLES_JSON = os.path.join(HERE, "causal_triples.json")
 OUT_KG_JSON = os.path.join(HERE, "..", "kg_data.json")   # overwrite in place
@@ -104,7 +113,11 @@ def main():
             existing_ids.add(cid)
             added_citation_nodes += 1
 
-        mech = group[0]["mechanism"]
+        legacy_mechanism = group[0]["mechanism"]
+        mech = CANONICAL_MECHANISM_IRIS.get(
+            legacy_mechanism,
+            legacy_mechanism,
+        )
         if mech in existing_ids:
             kg["links"].append({
                 "etype": "grounded_by", "source": mech, "target": cid,
@@ -120,7 +133,12 @@ def main():
             mechanisms_grounded.add(mech)
 
     with open(OUT_KG_JSON, "w", encoding="utf-8") as f:
-        json.dump(kg, f, ensure_ascii=False, indent=1)
+        json.dump(
+            migrate_legacy_evidence_graph(kg),
+            f,
+            ensure_ascii=False,
+            indent=1,
+        )
 
     all_mechanisms = {n["id"] for n in kg["nodes"] if n.get("ntype") == "Mechanism"}
     ungrounded = all_mechanisms - mechanisms_grounded

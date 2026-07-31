@@ -97,7 +97,7 @@ def test_explanation_package_preserves_evidence_gaps_and_layer_boundaries():
     assert result["indicators"]
     assert any(
         gap["code"] == "mechanism_without_literature_support"
-        and gap["subject_id"] == "orographic_lift"
+        and gap["subject_id"].endswith("OrographicLift")
         for gap in result["evidence_gaps"]
     )
     assert any(

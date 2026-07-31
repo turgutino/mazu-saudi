@@ -121,6 +121,11 @@ urn:mazu-saudi:concept:    指标、状态、机制和环境受控概念
 未来若注册可长期解析的公共 URI，可发布等价映射，但不能在没有注册的情况下伪装成
 `w3id.org` 永久标识符。
 
+历史展示图 `research/historical_warning/kg/kg_data.json` 是兼容视图，不是第二套本体。
+`scripts/migrate_legacy_evidence_graph.py` 将其中的机制统一为MAZU概念IRI，为已有灾害和
+指标附加本体IRI，并把尚未覆盖的概念显式标记为未映射。旧式直接边只保留用于展示与
+来源审计，固定标记为 `legacy_compatibility_relation`，不能当作OWL属性断言或因果事实。
+
 ## 4. 模块设计
 
 ### 4.1 Observation
