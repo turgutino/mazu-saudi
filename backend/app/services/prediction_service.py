@@ -13,11 +13,14 @@ from datetime import datetime, timezone
 
 from app.data.hazards import get_hazard
 from app.data.indicator_provider import indicator_provider
+from app.data.mirrorearth_provider import MirrorEarthUnavailableError, mirrorearth_provider
+from app.data.mirrorearth_provider import is_configured as mirrorearth_configured
 from app.data.models import DEFAULT_MODEL_ID, get_model
 from app.data.openmeteo_provider import OpenMeteoUnavailableError, openmeteo_provider
 from app.data.real_indicator_provider import available_for as real_data_available
 from app.data.real_indicator_provider import real_indicator_provider
 from app.data.regions import get_region
+from app.data.tomorrowio_provider import TomorrowIoUnavailableError, fetch_enrichment
 from app.domain.forecast_case import ForecastCase
 from app.explanation.feature_attribution import build_feature_contributions
 from app.explanation.mechanism_explanation import build_mechanisms
@@ -36,6 +39,25 @@ class PredictionServiceError(ValueError):
     """Raised when a prediction request references unknown region/hazard/model."""
 
 
+def _enrich_with_tomorrowio(case: ForecastCase, indicators: dict[str, float]) -> dict[str, float]:
+    """Best-effort merge of Tomorrow.io's derived risk indicators (wind_gust,
+    fire_index, thunderstorm_prob) into an already-resolved indicators dict.
+    Never raises and never changes which tier/model was selected -- if
+    Tomorrow.io isn't configured or the call fails, ``indicators`` is
+    returned unchanged (DegradedForecastModel/RuleBasedForecastModel/
+    JoblibForecastModel all tolerate these keys being absent)."""
+    region = get_region(case.region_id)
+    if region is None:
+        return indicators
+    try:
+        enrichment = fetch_enrichment(region.lat, region.lon)
+    except TomorrowIoUnavailableError:
+        return indicators
+    if not enrichment:
+        return indicators
+    return {**indicators, **enrichment}
+
+
 def _resolve_indicators_and_model(case: ForecastCase) -> tuple[dict[str, float], object]:
     """Three-tier resolution (see 初步设计.md real-data integration notes):
 
@@ -43,18 +65,30 @@ def _resolve_indicators_and_model(case: ForecastCase) -> tuple[dict[str, float],
     archived 2025 NetCDF indicators cover the feature date -> real data +
     real model.
     Tier 2 (degraded): a real trained model exists but the date falls outside
-    the archive -> live Open-Meteo indicators + DegradedForecastModel (the
-    joblib models cannot run on Open-Meteo's much smaller feature set).
+    the archive -> a live *forecast-model* indicator source, tried in order
+    of forecast fidelity -- Mirror Earth's CMA numerical model first (a real
+    NWP model, closer in spirit to Tier 1's archive), Open-Meteo's blended
+    forecast second -- plus DegradedForecastModel (the joblib models cannot
+    run on either's much smaller feature set). Tomorrow.io's fire_index /
+    thunderstorm_prob / wind_gust are merged in afterwards as a best-effort
+    enrichment regardless of which of the two base sources was used.
     Tier 3 (placeholder): heavy-rain (no trained model at all), or Tier 2's
-    live API call fails -> synthetic IndicatorProvider + RuleBasedForecastModel.
+    live API calls all fail -> synthetic IndicatorProvider + RuleBasedForecastModel.
     """
     joblib_model = get_joblib_model(case.hazard)
     if joblib_model is not None and real_data_available(case):
         return real_indicator_provider.generate(case), joblib_model
 
     if joblib_model is not None:
+        if mirrorearth_configured():
+            try:
+                indicators = mirrorearth_provider.generate(case)
+                return _enrich_with_tomorrowio(case, indicators), degraded_model
+            except MirrorEarthUnavailableError:
+                pass
         try:
-            return openmeteo_provider.generate(case), degraded_model
+            indicators = openmeteo_provider.generate(case)
+            return _enrich_with_tomorrowio(case, indicators), degraded_model
         except OpenMeteoUnavailableError:
             pass
 

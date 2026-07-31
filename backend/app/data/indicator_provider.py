@@ -43,6 +43,16 @@ INDICATOR_SPECS: dict[str, IndicatorSpec] = {
     "wind_10m": IndicatorSpec("wind_10m", "10m风速", "m/s", 2, 32, 11, +1),
     "soil_moisture": IndicatorSpec("soil_moisture", "土壤湿度", "m³/m³", 0.02, 0.35, 0.15, -1),
     "visibility": IndicatorSpec("visibility", "能见度预测", "km", 0.5, 20, 10, -1),
+    # Tier 2 enrichment-only indicators, sourced from Tomorrow.io
+    # (frontend/src/services/tomorrowIoApi.ts fetches the same 3 fields
+    # client-side). No synthetic Tier 3 baseline exists for these -- they
+    # only ever appear in ``indicators`` when a live Tomorrow.io call
+    # succeeds (see app/data/tomorrowio_provider.py), so DegradedForecastModel
+    # skips them gracefully via its "key not in indicators" guard whenever
+    # they're absent.
+    "wind_gust": IndicatorSpec("wind_gust", "阵风风速", "m/s", 2, 40, 14, +1),
+    "fire_index": IndicatorSpec("fire_index", "火险指数", "", 0, 100, 30, +1),
+    "thunderstorm_prob": IndicatorSpec("thunderstorm_prob", "雷暴概率", "%", 0, 100, 20, +1),
 }
 
 HAZARD_INDICATORS: dict[str, list[str]] = {

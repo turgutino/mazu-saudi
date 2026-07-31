@@ -4,12 +4,15 @@ dates.
 When a ForecastCase's date falls outside the 2025 NetCDF archive (see
 real_indicator_provider.py), the trained joblib models cannot be run (they
 need indicators, like ivt/pwat/wind850_speed/neigh_*, that no live API
-provides). This model instead scores only the handful of indicators
-OpenMeteoIndicatorProvider can actually supply live: cape, daily_precip,
-t2m, rh_surface, wind_10m, visibility. Same linear-scoring-then-sigmoid
+provides). This model instead scores the indicators OpenMeteoIndicatorProvider
+/ MirrorEarthIndicatorProvider can supply live (cape, daily_precip, t2m,
+rh_surface, wind_10m, visibility), plus -- when a Tomorrow.io call also
+succeeds (see app/data/tomorrowio_provider.py) -- its derived risk indicators
+(wind_gust, fire_index, thunderstorm_prob). Same linear-scoring-then-sigmoid
 shape as RuleBasedForecastModel, just over a smaller, explicitly "degraded"
 feature set -- so its lower fidelity is structural and disclosed via
-model_name, not hidden.
+model_name, not hidden. Any weighted key simply absent from ``indicators``
+(e.g. Tomorrow.io wasn't configured/reachable) is skipped, never treated as 0.
 """
 
 from __future__ import annotations
@@ -20,14 +23,16 @@ from app.data.indicator_provider import normalized_severity
 from app.domain.forecast_case import ForecastCase
 from app.domain.prediction import RawPrediction
 
-# Per-hazard weights, restricted to the ~6 indicators available from a live
-# Open-Meteo call (see openmeteo_provider.py). A strict subset of
-# rule_based_model.HAZARD_WEIGHTS's keys per hazard.
+# Per-hazard weights, restricted to indicators available from a live
+# Open-Meteo/Mirror Earth call (see openmeteo_provider.py,
+# mirrorearth_provider.py) plus Tomorrow.io's enrichment fields
+# (tomorrowio_provider.py) when present. A strict subset of
+# rule_based_model.HAZARD_WEIGHTS's keys per hazard, plus the enrichment keys.
 HAZARD_WEIGHTS: dict[str, dict[str, float]] = {
-    "heavy-rain": {"cape": 0.9, "daily_precip": 1.0},
-    "extreme-heat": {"t2m": 1.1, "rh_surface": 0.5},
-    "flash-flood": {"cape": 1.0, "daily_precip": 1.2},
-    "dust-storm": {"wind_10m": 1.1, "visibility": 0.6, "rh_surface": 0.5},
+    "heavy-rain": {"cape": 0.9, "daily_precip": 1.0, "thunderstorm_prob": 0.4},
+    "extreme-heat": {"t2m": 1.1, "rh_surface": 0.5, "fire_index": 0.3},
+    "flash-flood": {"cape": 1.0, "daily_precip": 1.2, "thunderstorm_prob": 0.5},
+    "dust-storm": {"wind_10m": 1.1, "visibility": 0.6, "rh_surface": 0.5, "wind_gust": 0.4},
 }
 
 HAZARD_BASE_SCORE: dict[str, float] = {

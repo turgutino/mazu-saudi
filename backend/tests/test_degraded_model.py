@@ -44,3 +44,14 @@ def test_predict_is_deterministic():
     raw2 = degraded_model.predict(case, indicators)
     assert raw1.probability == raw2.probability
     assert raw1.important_features == raw2.important_features
+
+
+def test_predict_scores_tomorrowio_enrichment_when_present():
+    # dust-storm's HAZARD_WEIGHTS includes wind_gust; a plain wind_10m-only
+    # indicator set must NOT trip it, but adding wind_gust must.
+    case = _make_case("dust-storm")
+    without_gust = degraded_model.predict(case, {"wind_10m": 25.0})
+    assert "wind_gust" not in without_gust.important_features
+
+    with_gust = degraded_model.predict(case, {"wind_10m": 25.0, "wind_gust": 30.0})
+    assert "wind_gust" in with_gust.important_features

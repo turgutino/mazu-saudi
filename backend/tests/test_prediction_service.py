@@ -76,7 +76,13 @@ class _FakeOpenMeteoResponse:
         return None
 
     def json(self) -> dict:
-        return {"current": {"temperature_2m": 45.0, "relative_humidity_2m": 20.0}}
+        return {
+            "hourly": {
+                "time": ["2026-08-02T00:00"],
+                "temperature_2m": [45.0],
+                "relative_humidity_2m": [20.0],
+            }
+        }
 
 
 def test_heavy_rain_always_uses_placeholder_model(service: PredictionService, monkeypatch: pytest.MonkeyPatch):
@@ -110,6 +116,101 @@ def test_hazard_with_real_model_falls_back_to_placeholder_when_openmeteo_fails(
         request = PredictionRequest(region_id="jazan", hazard="dust-storm", lead_time_hours=24)
         result = service.run_prediction(request)
     assert 0.0 <= result.probability <= 1.0
+
+
+def test_mirrorearth_is_tried_before_openmeteo_when_configured(
+    service: PredictionService, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
+    monkeypatch.setenv("MIRROR_EARTH_API_KEY", "test-key")
+
+    class _FakeMirrorEarthResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {
+                "hourly": {
+                    "time": ["2026-08-02T00:00"],
+                    "temperature_2m": [45.0],
+                    "relative_humidity_2m": [20.0],
+                }
+            }
+
+    with patch(
+        "app.data.mirrorearth_provider.requests.get", return_value=_FakeMirrorEarthResponse()
+    ) as mirrorearth_get, patch(
+        "app.services.prediction_service.openmeteo_provider.generate"
+    ) as openmeteo_generate:
+        request = PredictionRequest(
+            region_id="jazan", hazard="extreme-heat", lead_time_hours=24,
+            initial_time="2026-08-01T00:00:00Z",
+        )
+        result = service.run_prediction(request)
+
+    mirrorearth_get.assert_called_once()
+    openmeteo_generate.assert_not_called()
+    assert 0.0 <= result.probability <= 1.0
+
+
+def test_falls_back_to_openmeteo_when_mirrorearth_fails(
+    service: PredictionService, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
+    monkeypatch.setenv("MIRROR_EARTH_API_KEY", "test-key")
+
+    # mirrorearth_provider and openmeteo_provider both call the module-level
+    # ``requests.get`` from the shared ``requests`` package (see the
+    # tomorrowio enrichment test above for why a single dispatching
+    # side_effect, not two separate ``patch(...)`` calls, is required here).
+    def _fake_get(url: str, **kwargs):
+        if "mirror-earth.com" in url:
+            raise requests.ConnectionError("boom")
+        return _FakeOpenMeteoResponse()
+
+    with patch("app.data.mirrorearth_provider.requests.get", side_effect=_fake_get):
+        request = PredictionRequest(
+            region_id="jazan", hazard="extreme-heat", lead_time_hours=24,
+            initial_time="2026-08-01T00:00:00Z",
+        )
+        result = service.run_prediction(request)
+
+    assert 0.0 <= result.probability <= 1.0
+
+
+def test_tomorrowio_enrichment_is_merged_when_configured(
+    service: PredictionService, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
+    monkeypatch.delenv("MIRROR_EARTH_API_KEY", raising=False)
+    monkeypatch.setenv("TOMORROW_IO_API_KEY", "test-key")
+
+    class _FakeTomorrowIoResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"data": {"values": {"windGust": 20.0, "fireIndex": 50.0, "thunderstormProbability": 10.0}}}
+
+    # OpenMeteoIndicatorProvider and tomorrowio_provider both call the module-
+    # level ``requests.get`` from the shared ``requests`` package, so a single
+    # dispatching side_effect (keyed on host) is needed -- two separate
+    # ``patch(...)`` calls on each module's ``requests.get`` attribute would
+    # both rebind the *same* underlying function and the second one applied
+    # would silently win for both call sites.
+    def _fake_get(url: str, **kwargs):
+        if "tomorrow.io" in url:
+            return _FakeTomorrowIoResponse()
+        return _FakeOpenMeteoResponse()
+
+    with patch("app.data.openmeteo_provider.requests.get", side_effect=_fake_get):
+        request = PredictionRequest(
+            region_id="jazan", hazard="dust-storm", lead_time_hours=24,
+            initial_time="2026-08-01T00:00:00Z",
+        )
+        result = service.run_prediction(request)
+
+    assert any(f.feature == "wind_gust" for f in result.features)
 
 
 def test_real_archive_takes_priority_over_degraded_model(
