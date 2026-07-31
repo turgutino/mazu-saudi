@@ -30,6 +30,23 @@ def test_evidence_graph_has_explicit_claim_boundary_and_audited_edges():
     }
     for edge in graph["links"]:
         assert required <= edge.keys(), edge
+        assert edge["eligible_for_causal_explanation"] is False, edge
+
+
+def test_pending_or_unverified_evidence_cannot_be_causal_explanation():
+    graph = load_json(KG_PATH)
+
+    pending = [
+        edge
+        for edge in graph["links"]
+        if "pending" in edge["review_status"]
+        or "not_verified" in edge["review_status"]
+    ]
+    assert pending
+    assert all(
+        edge["eligible_for_causal_explanation"] is False
+        for edge in pending
+    )
 
 
 def test_extrema_are_samples_not_verified_disaster_events():

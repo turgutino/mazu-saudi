@@ -358,7 +358,7 @@ def build():
                     construction_method="hand_authored_domain_mapping",
                     source_ref="HAZARD_MECH", confidence="medium",
                     review_status="mechanism_level_literature_partial_edge_review_pending",
-                    eligible_for_causal_explanation=True,
+                    eligible_for_causal_explanation=False,
                 )
 
     # ── at_risk_of : region -> hazard ───────────────────────────────────

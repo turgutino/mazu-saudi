@@ -113,7 +113,7 @@ def main():
                 "source_ref": source_id,
                 "confidence": "medium",
                 "review_status": "original_publication_wording_not_verified",
-                "eligible_for_causal_explanation": True,
+                "eligible_for_causal_explanation": False,
                 "verification_scope": "curated_local_passage_only",
             })
             added_grounded_edges += 1

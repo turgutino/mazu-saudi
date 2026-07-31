@@ -1139,7 +1139,7 @@
    "source_ref": "HAZARD_MECH",
    "confidence": "medium",
    "review_status": "mechanism_level_literature_partial_edge_review_pending",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "source": "flash_flood",
    "target": "ARST"
   },
@@ -1150,7 +1150,7 @@
    "source_ref": "HAZARD_MECH",
    "confidence": "medium",
    "review_status": "mechanism_level_literature_partial_edge_review_pending",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "source": "flash_flood",
    "target": "moisture_transport"
   },
@@ -1161,7 +1161,7 @@
    "source_ref": "HAZARD_MECH",
    "confidence": "medium",
    "review_status": "mechanism_level_literature_partial_edge_review_pending",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "source": "flash_flood",
    "target": "orographic_lift"
   },
@@ -1172,7 +1172,7 @@
    "source_ref": "HAZARD_MECH",
    "confidence": "medium",
    "review_status": "mechanism_level_literature_partial_edge_review_pending",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "source": "heatwave",
    "target": "subtropical_high"
   },
@@ -1183,7 +1183,7 @@
    "source_ref": "HAZARD_MECH",
    "confidence": "medium",
    "review_status": "mechanism_level_literature_partial_edge_review_pending",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "source": "heatwave",
    "target": "thermal_low"
   },
@@ -1194,7 +1194,7 @@
    "source_ref": "HAZARD_MECH",
    "confidence": "medium",
    "review_status": "mechanism_level_literature_partial_edge_review_pending",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "source": "dust_storm",
    "target": "thermal_low"
   },
@@ -1205,7 +1205,7 @@
    "source_ref": "HAZARD_MECH",
    "confidence": "medium",
    "review_status": "mechanism_level_literature_partial_edge_review_pending",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "source": "coastal",
    "target": "moisture_transport"
   },
@@ -2200,7 +2200,7 @@
    "source_ref": "ref_devries2013",
    "confidence": "medium",
    "review_status": "original_publication_wording_not_verified",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "verification_scope": "curated_local_passage_only"
   },
   {
@@ -2212,7 +2212,7 @@
    "source_ref": "ref_redsea_topo",
    "confidence": "medium",
    "review_status": "original_publication_wording_not_verified",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "verification_scope": "curated_local_passage_only"
   },
   {
@@ -2224,7 +2224,7 @@
    "source_ref": "ref_heatflux_era5",
    "confidence": "medium",
    "review_status": "original_publication_wording_not_verified",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "verification_scope": "curated_local_passage_only"
   },
   {
@@ -2236,7 +2236,7 @@
    "source_ref": "ref_heatwave_circulation",
    "confidence": "medium",
    "review_status": "original_publication_wording_not_verified",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "verification_scope": "curated_local_passage_only"
   },
   {
@@ -2248,7 +2248,7 @@
    "source_ref": "ref_heatwave_variability",
    "confidence": "medium",
    "review_status": "original_publication_wording_not_verified",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "verification_scope": "curated_local_passage_only"
   },
   {
@@ -2260,7 +2260,7 @@
    "source_ref": "ref_shamal_yu2016",
    "confidence": "medium",
    "review_status": "original_publication_wording_not_verified",
-   "eligible_for_causal_explanation": true,
+   "eligible_for_causal_explanation": false,
    "verification_scope": "curated_local_passage_only"
   }
  ]
