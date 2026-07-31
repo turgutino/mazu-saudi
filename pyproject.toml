@@ -26,5 +26,5 @@ where = ["src"]
 "mazu_saudi.competition" = ["web_dist/**/*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
+testpaths = ["tests", "backend/tests"]
+pythonpath = ["src", "backend"]
