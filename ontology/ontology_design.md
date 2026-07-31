@@ -20,7 +20,7 @@
 - `ExtremeWeatherState` 是气象极端状态，不是灾害影响事件。
 - `HazardFavourableState` 是灾害有利气象条件，不是 `ObservedHazardEvent`。
 - `ProxyLabel` 不能标记为独立灾害真值。
-- 自动提取的 `EvidenceAssertion` 默认
+- 当前配置中的所有 `EvidenceAssertion` 均要求
   `eligibleForCausalExplanation=false`。
 - 每条观测断言必须记录适用环境、来源运行、支持过程、反例和版本。
 - 自动统计提取只产生观测背景证据，不能成为预测或因果规则。
@@ -135,7 +135,7 @@ urn:mazu-saudi:concept:    指标、状态、机制和环境受控概念
 全球数值数组仍保存在 NetCDF/Zarr。图数据库保存变量定义、状态、过程摘要、断言和源制品
 指针，不为每个全球格点复制一条 RDF 记录。
 
-本体 `1.6.0` 保留四个受控 `DataSource` 概念。DS2 日产品派生动力和地面状态；DS4
+本体 `2.0.0` 保留四个受控 `DataSource` 概念。DS2 日产品派生动力和地面状态；DS4
 海温与 DS10 卫星降水在逐季覆盖率达标时可以形成独立观测状态，同时继续提供天气过程
 背景和跨源一致性证据。DS1 月背景不变成逐日事件状态，任何单一降水源也不能冒充独立真值。
 
@@ -144,8 +144,9 @@ urn:mazu-saudi:concept:    指标、状态、机制和环境受控概念
 | 类 | 含义 |
 |---|---|
 | `AtmosphericState` | 有时间范围的大气条件分类 |
-| `IndicatorState` | 由绝对阈值、当地百分位或气候距平定义的指标状态 |
-| `ExtremeWeatherState` | 达到已声明气象极端判据的状态 |
+| `ThresholdDerivedState` | 由版本化阈值表达式产生的状态 |
+| `IndicatorState` | 由绝对阈值、当地百分位或气候距平定义的阈值派生状态 |
+| `ExtremeWeatherState` | 达到已声明气象极端判据的指标状态 |
 | `HazardFavourableState` | 有利于灾害形成、但不证明灾害发生的状态 |
 | `ObservedHazardEvent` | 有独立可追溯事件来源支持的灾害事件 |
 
@@ -155,7 +156,8 @@ urn:mazu-saudi:concept:    指标、状态、机制和环境受控概念
 数值指标
   → 指标定义与单位
   → 阈值定义版本
-  → IndicatorState
+  → ThresholdDerivedState
+  → IndicatorState / ExtremeWeatherState
 ```
 
 例如 `HighIVTState` 连接 `IntegratedVaporTransport`，具体百分位和物理阈值由每次冻结的
@@ -171,6 +173,8 @@ urn:mazu-saudi:concept:    指标、状态、机制和环境受控概念
 
 | 类 | 例子 |
 |---|---|
+| `EvidenceContext` | 所有证据适用范围的共同上位类 |
+| `TemporalContext` | 季节、时间窗等时间适用范围 |
 | `ClimateRegime` | `AridCoastal`、`AridInterior` |
 | `TerrainContext` | `MountainWindward` |
 | `SeasonalContext` | 暖季、Shamal 季节 |
@@ -445,7 +449,7 @@ print(store.statements_for("urn:mazu-saudi:concept:HighIVTState"))
 
 ## 9. 当前版本和后续里程碑
 
-本体 `1.6.0` 是SWEET与CF Standard Names对齐的证据应用配置，完成语义骨架、标准映射、首批
+本体 `2.0.0` 是SWEET与CF Standard Names对齐的解释证据应用配置，完成语义骨架、标准映射、首批
 指标/状态/机制/环境概念、四类数据源、多源
 观测状态、SHACL 约束及 SQLite 物化。第一阶段统计构图脚本已经实现，读取每日指标 NetCDF
 后生成天气过程、滞后关联断言、支持证据和反例；关系级逐季覆盖门控会抑制缺测动力状态，

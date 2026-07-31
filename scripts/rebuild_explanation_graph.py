@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild the SWEET-aligned, explanation-only evidence graph."""
+"""Rebuild the SWEET and CF-aligned, explanation-only evidence graph."""
 
 from __future__ import annotations
 

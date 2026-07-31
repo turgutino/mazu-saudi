@@ -98,12 +98,12 @@
       "rationale": "CF represents the ten-metre sampling height with a height coordinate; wind_speed is the horizontal vector magnitude."
     },
     {
-      "local_iri": "urn:mazu-saudi:concept:Orography",
+      "local_iri": "urn:mazu-saudi:concept:SurfaceAltitude",
       "standard_name": "surface_altitude",
       "canonical_units": "m",
       "project_units": "m",
       "relation": "exact_quantity",
-      "rationale": "The stored terrain elevation is geometric surface height above the geoid; derived slope requires a separate variable."
+      "rationale": "The stored terrain elevation is geometric surface height above the geoid; this concept explicitly excludes derived slope."
     }
   ],
   "unmapped": [

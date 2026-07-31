@@ -32,8 +32,8 @@ def test_ontology_declares_standards_version_and_claim_boundary():
     context = payload["@context"]
 
     assert payload["@type"] == "owl:Ontology"
-    assert payload["versionInfo"] == "1.6.0"
-    assert "never causal by default" in payload["claimBoundary"]
+    assert payload["versionInfo"] == "2.0.0"
+    assert "ineligible for causal explanation" in payload["claimBoundary"]
     assert "does not define prediction features" in payload["claimBoundary"]
     assert context["@vocab"] == MAZU
     for prefix in ("sosa", "geo", "time", "prov", "qudt", "uom"):
@@ -100,6 +100,46 @@ def test_seed_indicator_states_link_to_versioned_indicators_and_mechanisms():
     ):
         assert nodes[mechanism]["@type"] == "mazu:WeatherMechanism"
 
+    assert nodes["mazu:ExtremeWeatherState"]["subClassOf"] == (
+        "mazu:IndicatorState"
+    )
+    assert (
+        nodes["concept:ExtremeRainfallState"]["derivedFromIndicator"]
+        == "concept:DailyPrecipitation"
+    )
+    assert (
+        nodes["concept:ExtremeHeatState"]["derivedFromIndicator"]
+        == "concept:MaximumAirTemperature"
+    )
+
+
+def test_hazard_screening_and_context_boundaries_are_explicit():
+    nodes = graph_by_id()
+
+    assert nodes["mazu:applicableUnder"]["range"] == "mazu:EvidenceContext"
+    assert nodes["mazu:SeasonalContext"]["subClassOf"] == "mazu:TemporalContext"
+    assert nodes["mazu:DataAvailabilityContext"]["subClassOf"] == (
+        "mazu:EvidenceContext"
+    )
+    assert nodes["concept:FlashFloodFavourableState"]["screenedByState"] == (
+        "concept:ExtremeRainfallState"
+    )
+    assert nodes["concept:HeatwaveFavourableState"]["screenedByState"] == (
+        "concept:ExtremeHeatState"
+    )
+    assert nodes["concept:DustStormFavourableState"]["screenedByState"] == (
+        "concept:StrongDryWindState"
+    )
+
+
+def test_surface_altitude_does_not_conflate_derived_slope():
+    nodes = graph_by_id()
+
+    assert "concept:Orography" not in nodes
+    altitude = nodes["concept:SurfaceAltitude"]
+    assert altitude["cfStandardName"] == "surface_altitude"
+    assert "separate derived quantity" in altitude["definitionEn"]
+
 
 def test_multisource_products_and_context_indicators_are_explicit():
     nodes = graph_by_id()
@@ -133,12 +173,14 @@ def test_shacl_shapes_require_scope_provenance_and_causal_flag():
 
     for required in (
         "mazu:IndicatorStateShape",
+        "mazu:HazardFavourableStateShape",
         "mazu:EvidenceAssertionShape",
         "mazu:LaggedAssociationAssertionShape",
         "mazu:MechanismApplicabilityAssertionShape",
         "mazu:LiteratureEvidenceRecordShape",
         "mazu:applicableUnder",
         "mazu:eligibleForCausalExplanation",
+        "sh:hasValue false",
         "prov:wasGeneratedBy",
         "sh:minInclusive 0",
     ):
@@ -151,9 +193,9 @@ def test_materializer_builds_queryable_idempotent_database(tmp_path):
     first = materialize_ontology(SOURCE, database)
     second = materialize_ontology(SOURCE, database)
 
-    assert first["ontology"]["version"] == "1.6.0"
+    assert first["ontology"]["version"] == "2.0.0"
     assert first["ontology"]["source_sha256"] == second["ontology"]["source_sha256"]
-    assert first["resource_count"] == second["resource_count"] == 83
+    assert first["resource_count"] == second["resource_count"] == 87
     assert first["statement_count"] == second["statement_count"]
     assert first["statement_count"] >= 500
 
@@ -254,7 +296,7 @@ def test_domain_glossary_separates_ontology_relation_view_and_knowledge_graph():
     for term in (
         "天气机制本体（Weather Mechanism Ontology）",
         "本体关系视图（Ontology Relation View）",
-        "全球观测机制适用性图谱",
+        "解释型证据图谱（Explanation Evidence Graph）",
         "文献证据记录（Literature Evidence Record）",
         "文献支持的机制适用性断言",
         "SWEET概念对齐（SWEET Concept Alignment）",
@@ -263,4 +305,4 @@ def test_domain_glossary_separates_ontology_relation_view_and_knowledge_graph():
     ):
         assert term in glossary
     assert "它是本体的可视化，不是知识图谱" in glossary
-    assert "以天气机制本体为模式" in glossary
+    assert "以解释证据应用配置为模式" in glossary

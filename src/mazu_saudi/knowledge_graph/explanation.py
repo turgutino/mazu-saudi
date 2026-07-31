@@ -7,13 +7,18 @@ from pathlib import Path
 from typing import Any, Protocol
 
 
-EXPLANATION_CONTRACT_VERSION = "graph-grounded-explanation-v2"
+EXPLANATION_CONTRACT_VERSION = "graph-grounded-explanation-v3"
 ABLATION_CONTRACT_VERSION = "graph-explanation-ablation-v1"
 
-HAZARD_TARGET_STATES = {
-    "flash_flood": "urn:mazu-saudi:concept:ExtremeRainfallState",
-    "heatwave": "urn:mazu-saudi:concept:ExtremeHeatState",
+HAZARD_SCREENING_STATES = {
+    "flash_flood": "urn:mazu-saudi:concept:FlashFloodFavourableState",
+    "heatwave": "urn:mazu-saudi:concept:HeatwaveFavourableState",
     "dust_storm": "urn:mazu-saudi:concept:DustStormFavourableState",
+}
+HAZARD_OBSERVATIONAL_TARGET_STATES = {
+    "flash_flood": ("urn:mazu-saudi:concept:ExtremeRainfallState",),
+    "heatwave": ("urn:mazu-saudi:concept:ExtremeHeatState",),
+    "dust_storm": ("urn:mazu-saudi:concept:StrongDryWindState",),
 }
 
 AUDIT_FIELDS = (
@@ -64,7 +69,7 @@ class HazardExplanationQuery:
     def _observational_evidence(
         hazard: str, view: dict[str, Any]
     ) -> list[dict[str, Any]]:
-        target_state = HAZARD_TARGET_STATES[hazard]
+        target_states = set(HAZARD_OBSERVATIONAL_TARGET_STATES[hazard])
         nodes = {node["node_id"]: node for node in view.get("nodes", [])}
         endpoints: dict[str, dict[str, str]] = {}
         for edge in view.get("edges", []):
@@ -83,7 +88,7 @@ class HazardExplanationQuery:
             assertion = nodes.get(assertion_id)
             if (
                 assertion is None
-                or endpoint.get("target") != target_state
+                or endpoint.get("target") not in target_states
             ):
                 continue
             source = nodes.get(endpoint.get("source", ""), {})
@@ -117,9 +122,9 @@ class HazardExplanationQuery:
         return sorted(evidence, key=lambda item: item["assertion_id"])
 
     def explain(self, hazard: str) -> dict[str, Any]:
-        if hazard not in HAZARD_TARGET_STATES:
+        if hazard not in HAZARD_SCREENING_STATES:
             raise ValueError(
-                f"Unknown hazard '{hazard}'. Known: {sorted(HAZARD_TARGET_STATES)}"
+                f"Unknown hazard '{hazard}'. Known: {sorted(HAZARD_SCREENING_STATES)}"
             )
 
         graph = self._evidence_graph()
@@ -241,7 +246,7 @@ class HazardExplanationQuery:
             evidence_gaps.append(
                 {
                     "code": "global_observational_graph_unavailable",
-                    "subject_id": HAZARD_TARGET_STATES[hazard],
+                    "subject_id": HAZARD_SCREENING_STATES[hazard],
                     "message": (
                         "No global observational graph build is available for "
                         "statistical background retrieval."
@@ -262,7 +267,11 @@ class HazardExplanationQuery:
             "hazard": {
                 "id": hazard,
                 "label": hazard_node.get("label", hazard),
-                "target_state_iri": HAZARD_TARGET_STATES[hazard],
+                "target_state_iri": HAZARD_SCREENING_STATES[hazard],
+                "screening_state_iri": HAZARD_SCREENING_STATES[hazard],
+                "observational_target_state_iris": list(
+                    HAZARD_OBSERVATIONAL_TARGET_STATES[hazard]
+                ),
             },
             "source_graph": {
                 "name": graph.get("graph", {}).get("name"),
@@ -304,7 +313,7 @@ class HazardExplanationQuery:
         grounded_mechanism_count = 0
         citation_count = 0
         evidence_gap_count = 0
-        for hazard in HAZARD_TARGET_STATES:
+        for hazard in HAZARD_SCREENING_STATES:
             explanation = self.explain(hazard)
             mechanisms = explanation["mechanisms"]
             citations = [

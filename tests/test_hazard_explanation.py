@@ -85,8 +85,14 @@ def test_explanation_package_preserves_evidence_gaps_and_layer_boundaries():
 
     result = query.explain("flash_flood")
 
-    assert result["contract_version"] == "graph-grounded-explanation-v2"
+    assert result["contract_version"] == "graph-grounded-explanation-v3"
     assert result["hazard"]["id"] == "flash_flood"
+    assert result["hazard"]["screening_state_iri"].endswith(
+        "FlashFloodFavourableState"
+    )
+    assert result["hazard"]["observational_target_state_iris"] == [
+        "urn:mazu-saudi:concept:ExtremeRainfallState"
+    ]
     assert result["mechanisms"]
     assert result["indicators"]
     assert any(

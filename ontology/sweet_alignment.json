@@ -96,11 +96,11 @@
       "rationale": "MAZU fixes the measurement height at ten metres while SWEET is height-agnostic."
     },
     {
-      "local_iri": "urn:mazu-saudi:concept:Orography",
-      "relation": "skos:closeMatch",
+      "local_iri": "urn:mazu-saudi:concept:SurfaceAltitude",
+      "relation": "skos:relatedMatch",
       "target_iri": "http://sweetontology.net/realmLandOrographic/Orography",
       "source_module": "src/realmLandOrographic.ttl",
-      "rationale": "MAZU operationalizes orography as elevation and slope indicators."
+      "rationale": "Surface altitude is one quantitative component of the broader SWEET orography concept; terrain slope is not included in this MAZU indicator."
     },
     {
       "local_iri": "urn:mazu-saudi:concept:MoistureAdvection",

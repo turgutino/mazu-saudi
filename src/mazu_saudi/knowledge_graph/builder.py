@@ -1125,18 +1125,17 @@ def _materialize_records(
                     run_id,
                 )
             )
-        if spec.ontology_class_iri == f"{MAZU}IndicatorState":
-            for indicator_iri in spec.indicator_iris:
-                edge_sequence += 1
-                edges.append(
-                    _edge(
-                        build_id,
-                        edge_sequence,
-                        state_id,
-                        f"{MAZU}derivedFromIndicator",
-                        indicator_iri,
-                    )
+        for indicator_iri in spec.indicator_iris:
+            edge_sequence += 1
+            edges.append(
+                _edge(
+                    build_id,
+                    edge_sequence,
+                    state_id,
+                    f"{MAZU}derivedFromIndicator",
+                    indicator_iri,
                 )
+            )
         source_keys = {
             source_key
             for indicator in spec.indicators

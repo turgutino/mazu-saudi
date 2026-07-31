@@ -6,6 +6,7 @@
 mazu:IndicatorStateShape
     a sh:NodeShape ;
     sh:targetClass mazu:IndicatorState ;
+    sh:targetClass mazu:ExtremeWeatherState ;
     sh:property [
         sh:path mazu:derivedFromIndicator ;
         sh:minCount 1 ;
@@ -15,9 +16,21 @@ mazu:IndicatorStateShape
         sh:minCount 1 ;
     ] .
 
+mazu:HazardFavourableStateShape
+    a sh:NodeShape ;
+    sh:targetClass mazu:HazardFavourableState ;
+    sh:property [
+        sh:path mazu:screenedByState ;
+        sh:minCount 1 ;
+        sh:class mazu:AtmosphericState ;
+    ] .
+
 mazu:EvidenceAssertionShape
     a sh:NodeShape ;
     sh:targetClass mazu:EvidenceAssertion ;
+    sh:targetClass mazu:LaggedAssociationAssertion ;
+    sh:targetClass mazu:MechanismApplicabilityAssertion ;
+    sh:targetClass mazu:CounterexampleAssertion ;
     sh:property [
         sh:path mazu:evidenceClass ;
         sh:minCount 1 ;
@@ -26,7 +39,9 @@ mazu:EvidenceAssertionShape
     sh:property [
         sh:path mazu:eligibleForCausalExplanation ;
         sh:minCount 1 ;
+        sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
+        sh:hasValue false ;
     ] ;
     sh:property [
         sh:path prov:wasGeneratedBy ;
@@ -55,6 +70,7 @@ mazu:LaggedAssociationAssertionShape
     sh:property [
         sh:path mazu:applicableUnder ;
         sh:minCount 1 ;
+        sh:class mazu:EvidenceContext ;
     ] ;
     sh:property [
         sh:path mazu:supportEpisodeCount ;
@@ -92,6 +108,7 @@ mazu:MechanismApplicabilityAssertionShape
     sh:property [
         sh:path mazu:applicableUnder ;
         sh:minCount 1 ;
+        sh:class mazu:EvidenceContext ;
     ] .
 
 mazu:LiteratureEvidenceRecordShape

@@ -234,7 +234,7 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
     store = KnowledgeGraphStore(database)
     latest = store.latest_build()
     assert latest["build_id"] == result.build_id
-    assert latest["ontology_version"] == "1.6.0"
+    assert latest["ontology_version"] == "2.0.0"
     assert latest["scope_label"] == "synthetic-2025"
     view = store.graph_view()
     assert view["build"]["build_id"] == result.build_id
@@ -282,6 +282,21 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
         edge["predicate_iri"] == "urn:mazu-saudi:ontology:sourceState"
         for edge in view["edges"]
     )
+    extreme_state_ids = {
+        node["node_id"]
+        for node in view["nodes"]
+        if node["ontology_class_iri"]
+        == "urn:mazu-saudi:ontology:ExtremeWeatherState"
+        and not node["node_id"].startswith("urn:mazu-saudi:concept:")
+    }
+    indicator_derived_state_ids = {
+        edge["source_id"]
+        for edge in view["edges"]
+        if edge["predicate_iri"]
+        == "urn:mazu-saudi:ontology:derivedFromIndicator"
+    }
+    assert extreme_state_ids
+    assert extreme_state_ids <= indicator_derived_state_ids
     assert any(
         edge["predicate_iri"] == "http://www.w3.org/ns/prov#used"
         and edge["target_id"]

@@ -28,7 +28,7 @@ def test_ontology_only_rebuild_validates_sweet_and_writes_audit_manifest(tmp_pat
     )
 
     assert result["contract_version"] == "explanation-evidence-rebuild-v1"
-    assert result["ontology"]["version"] == "1.6.0"
+    assert result["ontology"]["version"] == "2.0.0"
     assert result["sweet_alignment"]["mapping_count"] > 0
     assert result["cf_standard_name_alignment"]["mapping_count"] == 11
     assert result["observational_graph"] == {"status": "not_requested"}

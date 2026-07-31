@@ -133,7 +133,7 @@ def test_ontology_is_materialized_and_exposed_as_a_read_only_graph(tmp_path):
 
     summary = client.get("/api/v1/ontology")
     assert summary.status_code == 200
-    assert summary.json()["resource_count"] == 83
+    assert summary.json()["resource_count"] == 87
     assert "not automatically discovered causality" in summary.json()["boundary"]
     assert settings.ontology_database_file.is_file()
     paths = client.get("/openapi.json").json()["paths"]
@@ -187,7 +187,7 @@ def test_hazard_explanation_and_ablation_are_available_without_a_global_build(
     )
     assert explanation.status_code == 200
     payload = explanation.json()
-    assert payload["contract_version"] == "graph-grounded-explanation-v2"
+    assert payload["contract_version"] == "graph-grounded-explanation-v3"
     assert payload["hazard"]["id"] == "flash_flood"
     assert payload["observational_context"]["status"] == "global_graph_unavailable"
     assert payload["observational_context"]["related_assertions"] == []

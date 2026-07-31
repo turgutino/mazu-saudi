@@ -108,6 +108,10 @@
       "@id": "mazu:supportedByLiteratureEvidence",
       "@type": "@id"
     },
+    "screenedByState": {
+      "@id": "mazu:screenedByState",
+      "@type": "@id"
+    },
     "groundedByPublication": {
       "@id": "mazu:groundedByPublication",
       "@type": "@id"
@@ -115,10 +119,10 @@
   },
   "@id": "urn:mazu-saudi:ontology",
   "@type": "owl:Ontology",
-  "versionInfo": "1.6.0",
-  "labelEn": "MAZU SWEET-aligned Evidence Application Profile",
-  "labelZh": "MAZU SWEET 对齐证据应用配置",
-  "claimBoundary": "This SWEET-aligned application profile governs observations, evidence assertions, provenance, scope, review status, and counterexamples. It does not define prediction features or forecast constraints. Data-derived associations are never causal by default and cannot be treated as observed hazard events.",
+  "versionInfo": "2.0.0",
+  "labelEn": "MAZU SWEET and CF-aligned Explanation Evidence Profile",
+  "labelZh": "MAZU SWEET与CF对齐解释证据配置",
+  "claimBoundary": "This application profile governs observations, threshold-derived states, hazard-favourable screening states, evidence assertions, provenance, scope, review status, and counterexamples. It does not define prediction features or forecast constraints. All current evidence remains ineligible for causal explanation, and no meteorological state can be treated as an observed hazard event.",
   "referencesStandard": [
     "http://www.w3.org/ns/sosa/",
     "http://www.opengis.net/doc/AS/om/3.0",
@@ -181,6 +185,16 @@
       "definitionZh": "对某一时间范围内大气条件的语义化分类。"
     },
     {
+      "@id": "mazu:ThresholdDerivedState",
+      "@type": "owl:Class",
+      "module": "state",
+      "labelEn": "Threshold-derived state",
+      "labelZh": "阈值派生状态",
+      "definitionEn": "An atmospheric state produced by applying a declared, versioned threshold expression to one or more indicators.",
+      "definitionZh": "通过对一个或多个指标应用已声明且版本化的阈值表达式所产生的大气状态。",
+      "subClassOf": "mazu:AtmosphericState"
+    },
+    {
       "@id": "mazu:IndicatorState",
       "@type": "owl:Class",
       "module": "state",
@@ -188,7 +202,7 @@
       "labelZh": "指标状态",
       "definitionEn": "A state obtained by applying a versioned absolute, percentile, or anomaly definition to an indicator.",
       "definitionZh": "依据版本化绝对阈值、百分位或距平定义从指标得到的状态。",
-      "subClassOf": "mazu:AtmosphericState"
+      "subClassOf": "mazu:ThresholdDerivedState"
     },
     {
       "@id": "mazu:ExtremeWeatherState",
@@ -198,7 +212,7 @@
       "labelZh": "极端天气状态",
       "definitionEn": "An atmospheric state that exceeds a declared local or physical extreme criterion.",
       "definitionZh": "超过已声明当地或物理极端判据的大气状态。",
-      "subClassOf": "mazu:AtmosphericState"
+      "subClassOf": "mazu:IndicatorState"
     },
     {
       "@id": "mazu:HazardFavourableState",
@@ -241,6 +255,15 @@
       "subClassOf": "time:TemporalEntity"
     },
     {
+      "@id": "mazu:EvidenceContext",
+      "@type": "owl:Class",
+      "module": "context",
+      "labelEn": "Evidence context",
+      "labelZh": "证据环境",
+      "definitionEn": "A declared spatial, temporal, climatic, terrain, or data-availability scope under which an evidence assertion is evaluated.",
+      "definitionZh": "评估证据断言时声明的空间、时间、气候、地形或数据可用性适用范围。"
+    },
+    {
       "@id": "mazu:SpatialContext",
       "@type": "owl:Class",
       "module": "context",
@@ -248,7 +271,23 @@
       "labelZh": "空间环境",
       "definitionEn": "A geographic environment used to scope the applicability of an observational assertion.",
       "definitionZh": "用于限定观测断言适用范围的地理环境。",
-      "subClassOf": "geo:Feature"
+      "subClassOf": [
+        "mazu:EvidenceContext",
+        "geo:Feature"
+      ]
+    },
+    {
+      "@id": "mazu:TemporalContext",
+      "@type": "owl:Class",
+      "module": "context",
+      "labelEn": "Temporal context",
+      "labelZh": "时间环境",
+      "definitionEn": "A temporal scope used to qualify the applicability of an evidence assertion.",
+      "definitionZh": "用于限定证据断言适用性的时间范围。",
+      "subClassOf": [
+        "mazu:EvidenceContext",
+        "time:TemporalEntity"
+      ]
     },
     {
       "@id": "mazu:ClimateRegime",
@@ -278,7 +317,7 @@
       "labelZh": "季节环境",
       "definitionEn": "A recurring temporal regime used to scope an assertion.",
       "definitionZh": "用于限定断言适用范围的周期性时间环境。",
-      "subClassOf": "time:TemporalEntity"
+      "subClassOf": "mazu:TemporalContext"
     },
     {
       "@id": "mazu:DataAvailabilityContext",
@@ -287,7 +326,8 @@
       "labelEn": "Data availability context",
       "labelZh": "数据可用性环境",
       "definitionEn": "A declared pattern of present, missing, stale, or quality-limited input modalities.",
-      "definitionZh": "对输入模态存在、缺测、过期或质量受限状态的声明。"
+      "definitionZh": "对输入模态存在、缺测、过期或质量受限状态的声明。",
+      "subClassOf": "mazu:EvidenceContext"
     },
     {
       "@id": "mazu:WeatherMechanism",
@@ -295,8 +335,8 @@
       "module": "mechanism",
       "labelEn": "Weather mechanism",
       "labelZh": "天气机制",
-      "definitionEn": "A physically interpretable process used to organise evidence and forecast constraints.",
-      "definitionZh": "用于组织证据和预测约束、具有物理解释的天气过程。"
+      "definitionEn": "A physically interpretable process used to organise explanation evidence without asserting that the process caused a particular event.",
+      "definitionZh": "用于组织解释证据、但不据此断言该过程造成某次事件的物理过程。"
     },
     {
       "@id": "mazu:ScholarlyPublication",
@@ -442,7 +482,18 @@
       "definitionEn": "Scopes an assertion or constraint to climate, terrain, seasonal, or data-availability context.",
       "definitionZh": "将断言或约束限定在气候、地形、季节或数据可用性环境内。",
       "domain": "mazu:EvidenceAssertion",
-      "range": "mazu:SpatialContext"
+      "range": "mazu:EvidenceContext"
+    },
+    {
+      "@id": "mazu:screenedByState",
+      "@type": "owl:ObjectProperty",
+      "module": "state",
+      "labelEn": "screened by state",
+      "labelZh": "由状态筛查",
+      "definitionEn": "Links a hazard-favourable screening state to a meteorological state used as non-causal supporting evidence.",
+      "definitionZh": "连接灾害有利筛查状态与作为非因果支持证据的气象状态。",
+      "domain": "mazu:HazardFavourableState",
+      "range": "mazu:AtmosphericState"
     },
     {
       "@id": "mazu:compatibleWithMechanism",
@@ -593,8 +644,8 @@
       "module": "assertion",
       "labelEn": "eligible for causal explanation",
       "labelZh": "可用于因果解释",
-      "definitionEn": "Explicit review flag; automatically extracted observational assertions must be false.",
-      "definitionZh": "显式审核标志；自动提取的观测断言必须为否。",
+      "definitionEn": "Explicit review flag; the explanation-evidence profile currently requires false for every assertion.",
+      "definitionZh": "显式审核标志；当前解释证据配置要求所有断言均为否。",
       "domain": "mazu:EvidenceAssertion",
       "range": "xsd:boolean"
     },
@@ -813,17 +864,17 @@
       "closeMatch": "http://sweetontology.net/propSpeed/WindSpeed"
     },
     {
-      "@id": "concept:Orography",
+      "@id": "concept:SurfaceAltitude",
       "@type": "mazu:DerivedIndicator",
       "module": "indicator",
-      "labelEn": "Orography",
-      "labelZh": "地形高度",
-      "definitionEn": "Static terrain elevation and derived slope context.",
-      "definitionZh": "静态地形高程及其派生坡度环境。",
+      "labelEn": "Surface altitude",
+      "labelZh": "地表海拔",
+      "definitionEn": "Static geometric height of the land surface above the geoid; terrain slope is a separate derived quantity.",
+      "definitionZh": "陆地表面相对于大地水准面的静态几何高度；地形坡度属于另一个派生量。",
       "cfStandardName": "surface_altitude",
       "quantityKind": "quantitykind:Length",
       "unit": "uom:M",
-      "closeMatch": "http://sweetontology.net/realmLandOrographic/Orography"
+      "relatedMatch": "http://sweetontology.net/realmLandOrographic/Orography"
     },
     {
       "@id": "concept:HighIVTState",
@@ -865,7 +916,9 @@
       "labelEn": "Extreme rainfall state",
       "labelZh": "极端降水状态",
       "definitionEn": "Rainfall exceeding a versioned local percentile and minimum physical amount.",
-      "definitionZh": "同时超过版本化当地百分位和最低物理量级的降水状态。"
+      "definitionZh": "同时超过版本化当地百分位和最低物理量级的降水状态。",
+      "derivedFromIndicator": "concept:DailyPrecipitation",
+      "thresholdDefinition": "Versioned local percentile and minimum physical precipitation amount supplied by each extraction run."
     },
     {
       "@id": "concept:HighSatelliteRainfallState",
@@ -896,7 +949,9 @@
       "labelEn": "Extreme heat state",
       "labelZh": "极端高温状态",
       "definitionEn": "Near-surface heat exceeding a versioned local anomaly or percentile criterion.",
-      "definitionZh": "超过版本化当地距平或百分位判据的近地面高温状态。"
+      "definitionZh": "超过版本化当地距平或百分位判据的近地面高温状态。",
+      "derivedFromIndicator": "concept:MaximumAirTemperature",
+      "thresholdDefinition": "Versioned local anomaly or percentile criterion supplied by each extraction run."
     },
     {
       "@id": "concept:StrongDryWindState",
@@ -995,6 +1050,7 @@
       "labelZh": "山洪有利状态",
       "definitionEn": "A meteorological screening state favourable for flash flooding, not an observed flash-flood event.",
       "definitionZh": "有利于山洪形成的气象筛查状态，不是观测山洪事件。",
+      "screenedByState": "concept:ExtremeRainfallState",
       "relatedMatch": "http://sweetontology.net/phenHydro/FlashFlood"
     },
     {
@@ -1004,7 +1060,8 @@
       "labelEn": "Heatwave-favourable state",
       "labelZh": "热浪有利状态",
       "definitionEn": "A meteorological screening state favourable for heatwave conditions.",
-      "definitionZh": "有利于热浪条件形成的气象筛查状态。"
+      "definitionZh": "有利于热浪条件形成的气象筛查状态。",
+      "screenedByState": "concept:ExtremeHeatState"
     },
     {
       "@id": "concept:DustStormFavourableState",
@@ -1014,6 +1071,7 @@
       "labelZh": "沙尘暴有利状态",
       "definitionEn": "A meteorological screening state favourable for dust mobilization, not an observed dust-storm impact.",
       "definitionZh": "有利于起沙的气象筛查状态，不是观测沙尘灾害影响。",
+      "screenedByState": "concept:StrongDryWindState",
       "relatedMatch": "http://sweetontology.net/phenAtmoWind/DustStorm"
     }
   ]

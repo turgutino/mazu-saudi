@@ -212,7 +212,11 @@ const hazardExplanation = {
   hazard: {
     id: "flash_flood",
     label: "Flash Flood / Wadi Flooding",
-    target_state_iri: "urn:mazu-saudi:concept:ExtremeRainfallState",
+    target_state_iri: "urn:mazu-saudi:concept:FlashFloodFavourableState",
+    screening_state_iri: "urn:mazu-saudi:concept:FlashFloodFavourableState",
+    observational_target_state_iris: [
+      "urn:mazu-saudi:concept:ExtremeRainfallState",
+    ],
   },
   source_graph: {
     name: "MAZU Hazard Mechanism & Evidence Graph",

@@ -205,7 +205,13 @@ export interface KnowledgeGraphView {
 
 export interface HazardExplanation {
   contract_version: string;
-  hazard: { id: Hazard; label: string; target_state_iri: string };
+  hazard: {
+    id: Hazard;
+    label: string;
+    target_state_iri: string;
+    screening_state_iri: string;
+    observational_target_state_iris: string[];
+  };
   source_graph: { name: string; schema_version: string; purpose: string };
   indicators: Array<{
     id: string;
