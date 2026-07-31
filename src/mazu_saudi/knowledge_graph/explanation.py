@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 
-EXPLANATION_CONTRACT_VERSION = "graph-grounded-explanation-v1"
+EXPLANATION_CONTRACT_VERSION = "graph-grounded-explanation-v2"
 ABLATION_CONTRACT_VERSION = "graph-explanation-ablation-v1"
 
 HAZARD_TARGET_STATES = {
@@ -61,7 +61,7 @@ class HazardExplanationQuery:
         return payload
 
     @staticmethod
-    def _prediction_candidates(
+    def _observational_evidence(
         hazard: str, view: dict[str, Any]
     ) -> list[dict[str, Any]]:
         target_state = HAZARD_TARGET_STATES[hazard]
@@ -78,21 +78,18 @@ class HazardExplanationQuery:
                     "target_id"
                 ]
 
-        candidates = []
+        evidence = []
         for assertion_id, endpoint in endpoints.items():
             assertion = nodes.get(assertion_id)
             if (
                 assertion is None
                 or endpoint.get("target") != target_state
-                or not assertion.get("properties", {}).get(
-                    "eligible_for_prediction_experiment"
-                )
             ):
                 continue
             source = nodes.get(endpoint.get("source", ""), {})
             target = nodes.get(endpoint["target"], {})
             properties = assertion.get("properties", {})
-            candidates.append(
+            evidence.append(
                 {
                     "assertion_id": assertion_id,
                     "label": assertion.get("label", assertion_id),
@@ -112,16 +109,12 @@ class HazardExplanationQuery:
                     ),
                     "lift": properties.get("lift"),
                     "validation_stage": properties.get("validation_stage"),
-                    "eligible_for_prediction_experiment": True,
-                    "eligible_for_production_prediction": bool(
-                        properties.get("eligible_for_production_prediction")
-                    ),
-                    "eligible_for_causal_explanation": bool(
-                        properties.get("eligible_for_causal_explanation")
-                    ),
+                    "support_rate": properties.get("support_rate"),
+                    "evidence_class": properties.get("evidence_class"),
+                    "use": "explanation_and_research_diagnostics_only",
                 }
             )
-        return sorted(candidates, key=lambda item: item["assertion_id"])
+        return sorted(evidence, key=lambda item: item["assertion_id"])
 
     def explain(self, hazard: str) -> dict[str, Any]:
         if hazard not in HAZARD_TARGET_STATES:
@@ -242,27 +235,27 @@ class HazardExplanationQuery:
             )
 
         graph_view = self.store.graph_view(limit=2000)
-        candidates = self._prediction_candidates(hazard, graph_view)
+        observational_evidence = self._observational_evidence(hazard, graph_view)
         if graph_view.get("build") is None:
-            feature_status = "global_graph_unavailable"
+            observational_status = "global_graph_unavailable"
             evidence_gaps.append(
                 {
                     "code": "global_observational_graph_unavailable",
                     "subject_id": HAZARD_TARGET_STATES[hazard],
                     "message": (
                         "No global observational graph build is available for "
-                        "feature-candidate retrieval."
+                        "statistical background retrieval."
                     ),
                     "required_action": (
-                        "Build the Saudi-held-out global graph before running "
-                        "offline feature-selection experiments."
+                        "Build the Saudi-held-out global graph before using "
+                        "cross-region observations as explanation context."
                     ),
                 }
             )
-        elif candidates:
-            feature_status = "candidates_for_saudi_evaluation"
+        elif observational_evidence:
+            observational_status = "observational_evidence_available"
         else:
-            feature_status = "no_eligible_candidate"
+            observational_status = "no_related_observational_evidence"
 
         return {
             "contract_version": EXPLANATION_CONTRACT_VERSION,
@@ -279,16 +272,16 @@ class HazardExplanationQuery:
             "indicators": indicators,
             "mechanisms": mechanisms,
             "evidence_gaps": evidence_gaps,
-            "feature_selection": {
-                "status": feature_status,
+            "observational_context": {
+                "status": observational_status,
                 "global_build_id": (
                     graph_view.get("build") or {}
                 ).get("build_id"),
-                "offline_candidates": candidates,
-                "production_features": [],
+                "related_assertions": observational_evidence,
                 "boundary": (
-                    "Candidates may enter a frozen Saudi offline experiment "
-                    "only. The graph does not alter the production model."
+                    "These associations are observational background for "
+                    "explanation and research diagnostics only. They are not "
+                    "prediction features or causal evidence."
                 ),
             },
             "eligible_for_causal_explanation": False,
@@ -296,7 +289,7 @@ class HazardExplanationQuery:
                 graph.get("graph", {}).get("causal_claim_boundary"),
                 (
                     "Mechanism evidence, observational associations, and "
-                    "prediction candidates retain separate provenance and use."
+                    "external background retain separate provenance and use."
                 ),
                 (
                     "Missing evidence is returned explicitly and must not be "

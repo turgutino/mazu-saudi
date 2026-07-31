@@ -2,7 +2,8 @@
 
 ## 1. 第一阶段边界
 
-第一阶段只使用一年每日指标数据和 MWMO 本体，不从论文导入关系，也不重新设计指标标准。
+第一阶段只使用一年每日指标数据和SWEET对齐的MAZU证据应用配置，不从论文导入关系，
+也不重新设计指标标准。
 脚本的任务是把已有数值指标转换为可审计的状态、天气过程、统计断言、支持证据和反例。
 
 自动生成的关系统一为 `LaggedAssociationAssertion`，并固定：
@@ -10,7 +11,7 @@
 ```text
 evidence_class = observational-statistical
 eligible_for_causal_explanation = false
-eligible_for_prediction_experiment = true
+eligible_for_prediction_experiment = false
 eligible_for_production_prediction = false
 ```
 
@@ -99,8 +100,8 @@ DS1 当月累计降水与最高温、DS4 每日四个海温文件，以及 DS10 
 7. 默认至少 8 个支持天气过程且 `Lift ≥ 1.15` 才生成断言。
 8. 关系生成前检查源状态和目标状态全部指标的逐季覆盖率；任一侧低于默认 75%，该状态对
    在该季节的全部关系直接抑制，不能靠 `--allow-degraded-coverage` 绕过。
-9. 每条断言标记为 `observable`、`dynamic` 或 `mixed` 层，保存两侧覆盖率；仅允许作为
-   沙特离线预测实验候选，默认不允许直接进入生产预测。
+9. 每条断言标记为 `observable`、`dynamic` 或 `mixed` 层，保存两侧覆盖率；只允许作为
+   解释背景和研究诊断证据，不进入离线或生产预测。
 10. 每条断言保存支持过程、反例过程和季节环境；为控制图谱规模，默认各只展开 12 个证据过程节点。
 11. 每个展开的天气过程附带 DS1 月背景、DS4 海温、DS10 可用性及 DS2–DS10 降水一致性摘要。
 
@@ -159,6 +160,29 @@ PYTHONPATH=src conda run -n ml python scripts/enrich_kwg_background.py \
 快照导入仍执行官方主机、ISO3范围、时间、数据集来源和关系端点完整性校验。
 
 ## 5. 构建命令
+
+推荐使用解释型证据图谱统一重建入口。它会先验证固定版本SWEET对齐并重新物化本体，再生成
+不可变观测图谱批次；KWG快照可在同一次运行中导入：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/rebuild_explanation_graph.py \
+  --stage all \
+  --indicator-dir /Volumes/E/气象数据/global_excluding_saudi_2025/indicators \
+  --kwg-snapshot /path/to/kwg_saudi_snapshot.json
+```
+
+只重建SWEET对齐的本体物化库：
+
+```bash
+PYTHONPATH=src conda run -n ml python scripts/rebuild_explanation_graph.py \
+  --stage ontology
+```
+
+脚本不会猜测指标目录，避免把
+`/Volumes/E/气象数据/saudi_region_output/indicators`
+误标为沙特隔离的全球证据。重建清单默认写入
+`runtime/evidence_graph/rebuild_manifest.json`。文献抽取涉及独立正文快照、模型调用和人工
+审核，继续使用 `scripts/build_literature_evidence.py`，统一重建脚本不会伪造该层。
 
 先只检查 E 盘文件清单，不计算数据：
 

@@ -233,20 +233,19 @@ export interface HazardExplanation {
     message: string;
     required_action: string;
   }>;
-  feature_selection: {
+  observational_context: {
     status: string;
     global_build_id: string | null;
-    offline_candidates: Array<{
+    related_assertions: Array<{
       assertion_id: string;
       label: string;
       source_state: { id: string; label: string };
       target_state: { id: string; label: string };
       lift: number;
-      eligible_for_prediction_experiment: boolean;
-      eligible_for_production_prediction: boolean;
-      eligible_for_causal_explanation: boolean;
+      support_rate: number;
+      evidence_class: string;
+      use: "explanation_and_research_diagnostics_only";
     }>;
-    production_features: string[];
     boundary: string;
   };
   eligible_for_causal_explanation: false;

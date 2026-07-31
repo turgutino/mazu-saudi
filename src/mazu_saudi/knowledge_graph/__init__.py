@@ -16,6 +16,7 @@ from .external_background import (
     validate_kwg_snapshot,
 )
 from .explanation import HazardExplanationQuery
+from .rebuild import REBUILD_CONTRACT_VERSION, rebuild_explanation_graph
 
 __all__ = [
     "BuildConfig",
@@ -27,7 +28,9 @@ __all__ = [
     "HazardExplanationQuery",
     "KWGBackgroundStore",
     "LiteratureEvidenceStore",
+    "REBUILD_CONTRACT_VERSION",
     "build_statistical_knowledge_graph",
+    "rebuild_explanation_graph",
     "run_kwg_enrichment",
     "validate_kwg_snapshot",
 ]

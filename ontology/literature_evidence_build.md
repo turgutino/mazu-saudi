@@ -83,8 +83,7 @@ PYTHONPATH=src conda run -n ml python scripts/build_literature_evidence.py \
 ```text
 relation_role = lagged_cross_indicator
 validation_stage ∈ {
-  statistical_evidence,
-  candidate_for_saudi_evaluation
+  observational_evidence
 }
 ```
 

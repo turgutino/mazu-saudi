@@ -220,8 +220,8 @@ def main() -> int:
         "documents_dir": str(args.documents_dir),
         "candidate_count": len(candidates),
         "candidate_selection": (
-            "lagged_cross_indicator with statistical_evidence or "
-            "candidate_for_saudi_evaluation"
+            "lagged_cross_indicator observational evidence selected for "
+            "literature interpretation, never for prediction promotion"
         ),
         "max_chunks_per_source": args.max_chunks_per_source,
         "snapshot_errors": snapshot_errors,

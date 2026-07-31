@@ -180,7 +180,7 @@ class BuildResult:
     node_count: int
     edge_count: int
     assertion_count: int
-    prediction_candidate_count: int
+    observational_assertion_count: int
     diagnostic_assertion_count: int
     episode_count: int
     threshold_count: int
@@ -760,22 +760,11 @@ def _select_associations(
     state_specs: tuple[IndicatorStateSpec, ...],
     config: BuildConfig,
 ) -> list[Association]:
-    """Keep qualified hazard candidates from being crowded out by persistence."""
+    """Rank observational evidence without reserving prediction candidates."""
 
-    ranked = sorted(associations, key=_association_score, reverse=True)
-    candidates: list[Association] = []
-    remaining: list[Association] = []
-    for association in ranked:
-        assessment = _assess_association(
-            association,
-            state_specs=state_specs,
-            config=config,
-        )
-        if assessment.eligible_for_prediction_experiment:
-            candidates.append(association)
-        else:
-            remaining.append(association)
-    return (candidates + remaining)[: config.max_assertions]
+    return sorted(associations, key=_association_score, reverse=True)[
+        : config.max_assertions
+    ]
 
 
 def _local_name(iri: str) -> str:
@@ -1217,7 +1206,7 @@ def _materialize_records(
                     "relation_role": assessment.relation_role,
                     "validation_stage": assessment.validation_stage,
                     "transferability_status": assessment.transferability_status,
-                    "promotion_checks": assessment.promotion_checks,
+                    "evidence_quality_checks": assessment.evidence_quality_checks,
                     "source_indicator_coverage": source_coverage,
                     "target_indicator_coverage": target_coverage,
                     "coverage_gate_passed": True,
@@ -1228,9 +1217,8 @@ def _materialize_records(
                         assessment.eligible_for_production_prediction
                     ),
                     "prediction_use": (
-                        "Candidate for offline Saudi evaluation."
-                        if assessment.eligible_for_prediction_experiment
-                        else "Retained as evidence; not eligible as a prediction feature."
+                        "Explanation and research diagnostics only; not eligible "
+                        "as a prediction feature."
                     ),
                     "eligible_for_causal_explanation": False,
                 },
@@ -1483,17 +1471,18 @@ def build_statistical_knowledge_graph(
                 "are suppressed"
             ),
             "association_selection_policy": (
-                "eligible Saudi evaluation candidates are ranked first, then "
-                "remaining evidence by lift-support score, up to max_assertions"
+                "all observational associations are ranked by lift-support "
+                "score up to max_assertions; no prediction quota is reserved"
             ),
             "relation_policy": {
                 "version": RELATION_POLICY_VERSION,
                 "principle": (
-                    "Preserve all selected observational evidence, but only "
-                    "cross-indicator lagged relations targeting an extreme-weather "
-                    "state may become Saudi offline-evaluation candidates."
+                    "Preserve selected associations as observational or "
+                    "diagnostic evidence for traceable explanation. Automatic "
+                    "relations never become prediction features."
                 ),
                 "min_candidate_support_rate": config.min_candidate_support_rate,
+                "automatic_prediction_promotion": False,
                 "automatic_causal_promotion": False,
                 "automatic_production_promotion": False,
             },
@@ -1527,8 +1516,8 @@ def build_statistical_knowledge_graph(
         node_count=len(nodes),
         edge_count=len(edges),
         assertion_count=len(associations),
-        prediction_candidate_count=validation_stage_counts.get(
-            "candidate_for_saudi_evaluation",
+        observational_assertion_count=validation_stage_counts.get(
+            "observational_evidence",
             0,
         ),
         diagnostic_assertion_count=validation_stage_counts.get(

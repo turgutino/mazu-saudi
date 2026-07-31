@@ -88,7 +88,7 @@ def test_knowledge_graph_exposes_hazard_explanations_and_bounded_ablation():
         "图谱解释包",
         "解释覆盖消融",
         "证据缺口",
-        "沙特离线特征候选",
+        "全球观测背景",
         "不代表预测准确率提升或幻觉率测量",
     ):
         assert contract in app

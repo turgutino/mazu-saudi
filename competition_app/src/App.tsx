@@ -854,8 +854,7 @@ type KnowledgeGraphSeason = "all" | "DJF" | "MAM" | "JJA" | "SON";
 type KnowledgeGraphLayer = "all" | "observable" | "dynamic" | "mixed";
 type KnowledgeGraphStage =
   | "all"
-  | "candidate_for_saudi_evaluation"
-  | "statistical_evidence"
+  | "observational_evidence"
   | "diagnostic_evidence";
 type KnowledgeGraphDisplayMode = "relations" | "audit";
 type GraphViewport = { x: number; y: number; width: number; height: number };
@@ -889,11 +888,9 @@ function collapsedRelationLabel(
     || Number(assertion.label.match(/\+(\d+)天/)?.[1])
     || 0;
   const stage = String(assertion.properties.validation_stage || "");
-  const stageLabel = stage === "candidate_for_saudi_evaluation"
-    ? (locale === "zh" ? "预测候选" : "candidate")
-    : stage === "diagnostic_evidence"
+  const stageLabel = stage === "diagnostic_evidence"
       ? (locale === "zh" ? "诊断" : "diagnostic")
-      : (locale === "zh" ? "滞后统计" : "lagged statistic");
+      : (locale === "zh" ? "观测证据" : "observational evidence");
   const lift = Number(assertion.properties.lift);
   return `${season} · +${lagDays}${locale === "zh" ? "天" : "d"} · ${stageLabel}${Number.isFinite(lift) ? ` · Lift ${lift.toFixed(2)}` : ""}`;
 }
@@ -961,12 +958,12 @@ function HazardExplanationPanel() {
       .finally(() => setLoading(false));
   }, [hazard, locale]);
 
-  const featureStatus = explanation?.feature_selection.status;
-  const featureStatusLabel = featureStatus === "candidates_for_saudi_evaluation"
-    ? (locale === "zh" ? "存在待验证候选" : "Candidates await evaluation")
-    : featureStatus === "global_graph_unavailable"
+  const observationalStatus = explanation?.observational_context.status;
+  const observationalStatusLabel = observationalStatus === "observational_evidence_available"
+    ? (locale === "zh" ? "存在相关观测背景" : "Related observations available")
+    : observationalStatus === "global_graph_unavailable"
       ? (locale === "zh" ? "全球实例层尚未构建" : "Global instance layer unavailable")
-      : (locale === "zh" ? "暂无合格候选" : "No eligible candidate");
+      : (locale === "zh" ? "暂无相关观测背景" : "No related observational context");
   const gapLabel = (code: string) => {
     if (locale !== "zh") return code.replaceAll("_", " ");
     if (code === "original_publication_wording_not_verified") return "原论文措辞待核验";
@@ -981,7 +978,7 @@ function HazardExplanationPanel() {
         <div>
           <span>{locale === "zh" ? "解释证据层 / READ-ONLY" : "EXPLANATION EVIDENCE / READ-ONLY"}</span>
           <h2>{locale === "zh" ? "图谱解释包" : "Graph-grounded explanation package"}</h2>
-          <p>{locale === "zh" ? "按灾种组合机制、指标、文献核验状态和离线特征候选；各层证据保持独立来源。" : "Compose mechanisms, indicators, citation status and offline feature candidates without flattening their provenance."}</p>
+          <p>{locale === "zh" ? "按灾种组合机制、指标、文献核验状态和全球观测背景；各层证据保持独立来源，仅用于解释。" : "Compose mechanisms, indicators, citation status and global observations for explanation while preserving provenance."}</p>
         </div>
         <div className="graph-explanation-hazards">
           {(["flash_flood", "heatwave", "dust_storm"] as Hazard[]).map((item) => (
@@ -1029,15 +1026,15 @@ function HazardExplanationPanel() {
               </div>
             </article>
             <article>
-              <span>04 / {locale === "zh" ? "沙特离线特征候选" : "OFFLINE FEATURE CANDIDATES"}</span>
-              <strong>{explanation.feature_selection.offline_candidates.length}</strong>
-              <p>{featureStatusLabel}</p>
-              {explanation.feature_selection.offline_candidates.slice(0, 3).map((candidate) => (
-                <small className="graph-feature-candidate" key={candidate.assertion_id}>
-                  {candidate.source_state.label || candidate.source_state.id} → {candidate.target_state.label || candidate.target_state.id}
+              <span>04 / {locale === "zh" ? "全球观测背景" : "GLOBAL OBSERVATIONAL CONTEXT"}</span>
+              <strong>{explanation.observational_context.related_assertions.length}</strong>
+              <p>{observationalStatusLabel}</p>
+              {explanation.observational_context.related_assertions.slice(0, 3).map((assertion) => (
+                <small className="graph-feature-candidate" key={assertion.assertion_id}>
+                  {assertion.source_state.label || assertion.source_state.id} → {assertion.target_state.label || assertion.target_state.id}
                 </small>
               ))}
-              <em>{locale === "zh" ? "生产特征：0（必须先做冻结离线实验）" : "Production features: 0; frozen offline evaluation required."}</em>
+              <em>{locale === "zh" ? "用途：解释与研究诊断，不进入预测" : "Use: explanation and research diagnostics; never prediction."}</em>
             </article>
           </div>
           {ablation && (
@@ -1352,9 +1349,6 @@ function KnowledgeGraphPage() {
   const color = (node: KnowledgeGraphNode) => {
     const type = node.ontology_class_iri;
     if (type.endsWith("LaggedAssociationAssertion")) {
-      if (node.properties.validation_stage === "candidate_for_saudi_evaluation") {
-        return "var(--amber)";
-      }
       if (node.properties.validation_stage === "diagnostic_evidence") {
         return "#7f8a9b";
       }
@@ -1472,12 +1466,8 @@ function KnowledgeGraphPage() {
                 {([
                   ["all", locale === "zh" ? "全部证据" : "All evidence"],
                   [
-                    "candidate_for_saudi_evaluation",
-                    locale === "zh" ? "预测候选" : "Evaluation candidates",
-                  ],
-                  [
-                    "statistical_evidence",
-                    locale === "zh" ? "滞后统计" : "Lagged statistics",
+                    "observational_evidence",
+                    locale === "zh" ? "观测证据" : "Observational evidence",
                   ],
                   [
                     "diagnostic_evidence",
@@ -1576,7 +1566,7 @@ function KnowledgeGraphPage() {
                       || selected === relation.source.node_id
                       || selected === relation.target.node_id;
                     const stageClass = String(
-                      relation.assertion.properties.validation_stage || "statistical_evidence",
+                      relation.assertion.properties.validation_stage || "observational_evidence",
                     ).replaceAll("_", "-");
                     return (
                       <g

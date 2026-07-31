@@ -157,9 +157,9 @@ const builtKnowledgeGraph = {
         support_episode_count: 8,
         evidence_layer: "mixed",
         relation_role: "lagged_cross_indicator",
-        validation_stage: "candidate_for_saudi_evaluation",
+        validation_stage: "observational_evidence",
         transferability_status: "not_evaluated_on_saudi",
-        eligible_for_prediction_experiment: true,
+        eligible_for_prediction_experiment: false,
         eligible_for_causal_explanation: false,
       },
     },
@@ -208,7 +208,7 @@ const builtKnowledgeGraph = {
   edge_count: 2,
 };
 const hazardExplanation = {
-  contract_version: "graph-grounded-explanation-v1",
+  contract_version: "graph-grounded-explanation-v2",
   hazard: {
     id: "flash_flood",
     label: "Flash Flood / Wadi Flooding",
@@ -245,12 +245,11 @@ const hazardExplanation = {
     message: "Original wording not verified",
     required_action: "Verify the original publication",
   }],
-  feature_selection: {
+  observational_context: {
     status: "global_graph_unavailable",
     global_build_id: null,
-    offline_candidates: [],
-    production_features: [],
-    boundary: "Offline evaluation only.",
+    related_assertions: [],
+    boundary: "Explanation and research diagnostics only.",
   },
   eligible_for_causal_explanation: false,
   boundaries: ["No automatic causality."],
@@ -428,11 +427,11 @@ describe("historical warning application", () => {
     const assertion = await screen.findByRole("button", { name: /高水汽输送状态 → 极端降水状态/ });
     expect(assertion).toHaveClass("kg-collapsed-relation");
     expect(document.querySelector('.kg-node[aria-label*="→"]')).not.toBeInTheDocument();
-    expect(screen.getByText("JJA · +1天 · 预测候选 · Lift 2.40")).toBeInTheDocument();
+    expect(screen.getByText("JJA · +1天 · 观测证据 · Lift 2.40")).toBeInTheDocument();
     fireEvent.click(assertion);
     expect(screen.getByText("lift")).toBeInTheDocument();
     expect(screen.getByText("2.4")).toBeInTheDocument();
-    expect(screen.getByText("candidate_for_saudi_evaluation")).toBeInTheDocument();
+    expect(screen.getByText("observational_evidence")).toBeInTheDocument();
     expect(screen.getAllByText("sourceState").length).toBeGreaterThan(0);
     expect(screen.getByText(/2 节点 · 1 关系/)).toBeInTheDocument();
 
@@ -463,7 +462,7 @@ describe("historical warning application", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "诊断关系" }));
     expect(screen.getByText("没有匹配的图谱节点")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "预测候选" }));
+    fireEvent.click(screen.getByRole("button", { name: "观测证据" }));
     expect(await screen.findByRole("button", { name: /高水汽输送状态 → 极端降水状态/ })).toBeInTheDocument();
 
     const restoredGraph = document.querySelector<SVGSVGElement>('svg[aria-label="全球观测机制适用性知识图谱"]');

@@ -437,13 +437,15 @@ def candidate_statistical_assertions(
             WHERE e.build_id=?
               AND e.relation_role='lagged_cross_indicator'
               AND e.validation_stage IN (
+                  'observational_evidence',
                   'statistical_evidence',
                   'candidate_for_saudi_evaluation'
               )
             ORDER BY
                 CASE e.validation_stage
-                    WHEN 'candidate_for_saudi_evaluation' THEN 0
-                    ELSE 1
+                    WHEN 'observational_evidence' THEN 0
+                    WHEN 'statistical_evidence' THEN 1
+                    ELSE 2
                 END,
                 e.lift DESC,
                 e.assertion_id

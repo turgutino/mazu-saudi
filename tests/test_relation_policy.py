@@ -23,12 +23,12 @@ def assess(**overrides):
     return assess_relation(**values)
 
 
-def test_cross_indicator_lagged_hazard_relation_is_only_an_evaluation_candidate():
+def test_cross_indicator_lagged_hazard_relation_is_observational_only():
     result = assess()
 
     assert result.relation_role == "lagged_cross_indicator"
-    assert result.validation_stage == "candidate_for_saudi_evaluation"
-    assert result.eligible_for_prediction_experiment is True
+    assert result.validation_stage == "observational_evidence"
+    assert result.eligible_for_prediction_experiment is False
     assert result.eligible_for_production_prediction is False
     assert result.transferability_status == "not_evaluated_on_saudi"
 
@@ -81,11 +81,11 @@ def test_diagnostic_relations_are_preserved_but_not_prediction_candidates(
         {"lift": 1.0},
     ],
 )
-def test_unqualified_lagged_relation_remains_statistical_evidence(overrides):
+def test_cross_indicator_relation_remains_observational_evidence(overrides):
     result = assess(**overrides)
 
     assert result.relation_role == "lagged_cross_indicator"
-    assert result.validation_stage == "statistical_evidence"
+    assert result.validation_stage == "observational_evidence"
     assert result.eligible_for_prediction_experiment is False
 
 

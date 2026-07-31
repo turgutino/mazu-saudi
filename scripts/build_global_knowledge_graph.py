@@ -49,12 +49,13 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--min-support-episodes", type=int, default=8)
     result.add_argument("--min-lift", type=float, default=1.15)
     result.add_argument(
-        "--min-candidate-support-rate",
+        "--min-evidence-support-rate",
+        dest="min_candidate_support_rate",
         type=float,
         default=0.25,
         help=(
-            "Minimum supporting source-episode fraction required before a "
-            "lagged hazard relation may enter offline Saudi evaluation."
+            "Minimum supporting source-episode fraction recorded by the "
+            "observational evidence quality gate."
         ),
     )
     result.add_argument("--max-assertions", type=int, default=160)

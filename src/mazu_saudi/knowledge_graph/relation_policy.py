@@ -1,11 +1,11 @@
-"""Deterministic policy for separating graph evidence from prediction candidates."""
+"""Deterministic policy for explanation-only observational graph evidence."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 
-RELATION_POLICY_VERSION = "saudi-transfer-evidence-v1"
+RELATION_POLICY_VERSION = "explanation-evidence-v2"
 
 DIAGNOSTIC_RELATION_ROLES = frozenset(
     {
@@ -27,7 +27,7 @@ class RelationAssessment:
     eligible_for_prediction_experiment: bool
     eligible_for_production_prediction: bool
     transferability_status: str
-    promotion_checks: dict[str, bool]
+    evidence_quality_checks: dict[str, bool]
 
 
 def assess_relation(
@@ -46,7 +46,7 @@ def assess_relation(
     min_lift: float,
     min_candidate_support_rate: float,
 ) -> RelationAssessment:
-    """Classify one association without promoting statistics into knowledge claims."""
+    """Classify an association without promoting it into prediction or causality."""
 
     if lag_days < 0:
         raise ValueError("lag_days must be non-negative")
@@ -74,7 +74,7 @@ def assess_relation(
     else:
         relation_role = "lagged_cross_indicator"
 
-    promotion_checks = {
+    evidence_quality_checks = {
         "cross_indicator_lagged": relation_role == "lagged_cross_indicator",
         "targets_extreme_weather": target_is_extreme_weather,
         "coverage_gate_passed": coverage_gate_passed,
@@ -86,20 +86,17 @@ def assess_relation(
             support_rate >= min_candidate_support_rate
         ),
     }
-    eligible = all(promotion_checks.values())
     if relation_role in DIAGNOSTIC_RELATION_ROLES:
         validation_stage = "diagnostic_evidence"
-    elif eligible:
-        validation_stage = "candidate_for_saudi_evaluation"
     else:
-        validation_stage = "statistical_evidence"
+        validation_stage = "observational_evidence"
 
     return RelationAssessment(
         relation_role=relation_role,
         validation_stage=validation_stage,
         support_rate=support_rate,
-        eligible_for_prediction_experiment=eligible,
+        eligible_for_prediction_experiment=False,
         eligible_for_production_prediction=False,
         transferability_status="not_evaluated_on_saudi",
-        promotion_checks=promotion_checks,
+        evidence_quality_checks=evidence_quality_checks,
     )

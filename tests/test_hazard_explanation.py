@@ -20,7 +20,7 @@ class EmptyGraphStore:
         }
 
 
-class CandidateGraphStore:
+class ObservationalGraphStore:
     def graph_view(self, build_id=None, *, limit=500):
         assertion = "urn:test:assertion:ivt-rain"
         source = "urn:mazu-saudi:concept:HighIVTState"
@@ -35,8 +35,8 @@ class CandidateGraphStore:
                     ),
                     "label": "高水汽输送状态 → 极端降水状态",
                     "properties": {
-                        "validation_stage": "candidate_for_saudi_evaluation",
-                        "eligible_for_prediction_experiment": True,
+                        "validation_stage": "observational_evidence",
+                        "eligible_for_prediction_experiment": False,
                         "eligible_for_production_prediction": False,
                         "eligible_for_causal_explanation": False,
                         "support_episode_count": 12,
@@ -85,7 +85,7 @@ def test_explanation_package_preserves_evidence_gaps_and_layer_boundaries():
 
     result = query.explain("flash_flood")
 
-    assert result["contract_version"] == "graph-grounded-explanation-v1"
+    assert result["contract_version"] == "graph-grounded-explanation-v2"
     assert result["hazard"]["id"] == "flash_flood"
     assert result["mechanisms"]
     assert result["indicators"]
@@ -98,25 +98,23 @@ def test_explanation_package_preserves_evidence_gaps_and_layer_boundaries():
         gap["code"] == "original_publication_wording_not_verified"
         for gap in result["evidence_gaps"]
     )
-    assert result["feature_selection"]["status"] == "global_graph_unavailable"
-    assert result["feature_selection"]["production_features"] == []
+    assert result["observational_context"]["status"] == "global_graph_unavailable"
+    assert result["observational_context"]["related_assertions"] == []
     assert result["eligible_for_causal_explanation"] is False
 
 
-def test_explanation_package_exposes_only_offline_prediction_candidates():
-    query = HazardExplanationQuery(EVIDENCE_GRAPH, CandidateGraphStore())
+def test_explanation_package_exposes_observational_context_without_prediction_use():
+    query = HazardExplanationQuery(EVIDENCE_GRAPH, ObservationalGraphStore())
 
     result = query.explain("flash_flood")
 
-    candidates = result["feature_selection"]["offline_candidates"]
-    assert result["feature_selection"]["status"] == "candidates_for_saudi_evaluation"
-    assert len(candidates) == 1
-    assert candidates[0]["source_state"]["id"].endswith("HighIVTState")
-    assert candidates[0]["target_state"]["id"].endswith("ExtremeRainfallState")
-    assert candidates[0]["eligible_for_prediction_experiment"] is True
-    assert candidates[0]["eligible_for_production_prediction"] is False
-    assert candidates[0]["eligible_for_causal_explanation"] is False
-    assert result["feature_selection"]["production_features"] == []
+    assertions = result["observational_context"]["related_assertions"]
+    assert result["observational_context"]["status"] == "observational_evidence_available"
+    assert len(assertions) == 1
+    assert assertions[0]["source_state"]["id"].endswith("HighIVTState")
+    assert assertions[0]["target_state"]["id"].endswith("ExtremeRainfallState")
+    assert assertions[0]["use"] == "explanation_and_research_diagnostics_only"
+    assert "prediction" not in result["observational_context"]
 
 
 def test_explanation_ablation_measures_coverage_not_model_skill_or_hallucination():

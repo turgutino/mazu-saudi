@@ -112,10 +112,10 @@
   },
   "@id": "urn:mazu-saudi:ontology",
   "@type": "owl:Ontology",
-  "versionInfo": "1.4.0",
-  "labelEn": "MAZU Global Observational Mechanism Applicability Ontology",
-  "labelZh": "MAZU 全球观测机制适用性本体",
-  "claimBoundary": "The ontology separates observations, derived indicator states, observational assertions, expert or literature evidence, and forecast constraints. Data-derived associations are never causal by default and cannot be treated as observed hazard events.",
+  "versionInfo": "1.5.0",
+  "labelEn": "MAZU SWEET-aligned Evidence Application Profile",
+  "labelZh": "MAZU SWEET 对齐证据应用配置",
+  "claimBoundary": "This SWEET-aligned application profile governs observations, evidence assertions, provenance, scope, review status, and counterexamples. It does not define prediction features or forecast constraints. Data-derived associations are never causal by default and cannot be treated as observed hazard events.",
   "referencesStandard": [
     "http://www.w3.org/ns/sosa/",
     "http://www.opengis.net/doc/AS/om/3.0",
@@ -376,26 +376,6 @@
       "subClassOf": "prov:Activity"
     },
     {
-      "@id": "mazu:ForecastConstraint",
-      "@type": "owl:Class",
-      "module": "forecast",
-      "labelEn": "Forecast constraint",
-      "labelZh": "预测约束",
-      "definitionEn": "A graph-derived soft prior, directional constraint, or review rule applied to a forecast system.",
-      "definitionZh": "应用于预测系统的图谱派生软先验、方向约束或复核规则。",
-      "subClassOf": "prov:Entity"
-    },
-    {
-      "@id": "mazu:GraphDerivedFeature",
-      "@type": "owl:Class",
-      "module": "forecast",
-      "labelEn": "Graph-derived feature",
-      "labelZh": "图谱派生特征",
-      "definitionEn": "A numeric feature produced by querying applicable graph assertions for a forecast case.",
-      "definitionZh": "针对某次预报查询适用图谱断言后生成的数值特征。",
-      "subClassOf": "prov:Entity"
-    },
-    {
       "@id": "mazu:derivedFromIndicator",
       "@type": "owl:ObjectProperty",
       "module": "state",
@@ -528,28 +508,6 @@
       "range": "mazu:WeatherEpisode"
     },
     {
-      "@id": "mazu:generatesForecastConstraint",
-      "@type": "owl:ObjectProperty",
-      "module": "forecast",
-      "labelEn": "generates forecast constraint",
-      "labelZh": "生成预测约束",
-      "definitionEn": "Links an audited assertion to a soft forecast constraint derived from it.",
-      "definitionZh": "连接已审计断言与由其生成的软预测约束。",
-      "domain": "mazu:EvidenceAssertion",
-      "range": "mazu:ForecastConstraint"
-    },
-    {
-      "@id": "mazu:generatesGraphFeature",
-      "@type": "owl:ObjectProperty",
-      "module": "forecast",
-      "labelEn": "generates graph feature",
-      "labelZh": "生成图谱特征",
-      "definitionEn": "Links an audited assertion to a numeric feature used by a Saudi forecast model.",
-      "definitionZh": "连接已审计断言与供沙特预测模型使用的数值特征。",
-      "domain": "mazu:EvidenceAssertion",
-      "range": "mazu:GraphDerivedFeature"
-    },
-    {
       "@id": "mazu:lagHours",
       "@type": "owl:DatatypeProperty",
       "module": "assertion",
@@ -657,17 +615,6 @@
       "definitionEn": "Conditional outcome rate divided by the scoped baseline outcome rate.",
       "definitionZh": "条件结果发生率与同一适用范围内基础发生率之比。",
       "domain": "mazu:LaggedAssociationAssertion",
-      "range": "xsd:decimal"
-    },
-    {
-      "@id": "mazu:applicabilityScore",
-      "@type": "owl:DatatypeProperty",
-      "module": "forecast",
-      "labelEn": "applicability score",
-      "labelZh": "适用度",
-      "definitionEn": "A bounded score describing how well an assertion context matches a forecast case.",
-      "definitionZh": "描述断言环境与某次预报案例匹配程度的有界分数。",
-      "domain": "mazu:ForecastConstraint",
       "range": "xsd:decimal"
     },
     {

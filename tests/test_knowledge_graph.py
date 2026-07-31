@@ -110,7 +110,7 @@ def test_complete_year_is_required_by_default(tmp_path):
     assert [day.isoformat() for day, _ in files] == ["2025-03-01", "2025-03-02"]
 
 
-def test_prediction_candidate_is_not_crowded_out_by_stronger_persistence():
+def test_observational_associations_use_one_quality_ranking_without_prediction_quota():
     candidate = Association(
         source_state_index=0,
         target_state_index=3,
@@ -146,7 +146,7 @@ def test_prediction_candidate_is_not_crowded_out_by_stronger_persistence():
         ),
     )
 
-    assert selected == [candidate]
+    assert selected == [persistence]
 
 
 def test_store_adds_policy_columns_without_reclassifying_legacy_builds(tmp_path):
@@ -234,7 +234,7 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
     store = KnowledgeGraphStore(database)
     latest = store.latest_build()
     assert latest["build_id"] == result.build_id
-    assert latest["ontology_version"] == "1.4.0"
+    assert latest["ontology_version"] == "1.5.0"
     assert latest["scope_label"] == "synthetic-2025"
     view = store.graph_view()
     assert view["build"]["build_id"] == result.build_id
@@ -256,26 +256,21 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
         for node in assertion_nodes
     )
     assert all(
-        node["properties"]["eligible_for_prediction_experiment"]
-        == (
-            node["properties"]["validation_stage"]
-            == "candidate_for_saudi_evaluation"
-        )
+        not node["properties"]["eligible_for_prediction_experiment"]
         for node in assertion_nodes
     )
     assert {
         node["properties"]["validation_stage"] for node in assertion_nodes
     } <= {
         "diagnostic_evidence",
-        "statistical_evidence",
-        "candidate_for_saudi_evaluation",
+        "observational_evidence",
     }
     assert any(
         node["properties"]["relation_role"] == "measurement_agreement"
         for node in assertion_nodes
     )
-    assert result.prediction_candidate_count == sum(
-        node["properties"]["eligible_for_prediction_experiment"]
+    assert result.observational_assertion_count == sum(
+        node["properties"]["validation_stage"] == "observational_evidence"
         for node in assertion_nodes
     )
     assert {node["properties"]["evidence_layer"] for node in assertion_nodes} <= {
@@ -317,8 +312,8 @@ def test_statistical_graph_is_materialized_with_ontology_conformance(tmp_path):
         assert evidence[0] == 0
         assert evidence[1] > 1.0
         assert evidence[2] == "lagged_cross_indicator"
-        assert evidence[3] == "candidate_for_saudi_evaluation"
-        assert evidence[4] == 1
+        assert evidence[3] == "observational_evidence"
+        assert evidence[4] == 0
         assert evidence[5] == "not_evaluated_on_saudi"
         assert connection.execute("SELECT COUNT(*) FROM kg_thresholds").fetchone()[0] > 0
 

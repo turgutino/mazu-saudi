@@ -32,8 +32,9 @@ def test_ontology_declares_standards_version_and_claim_boundary():
     context = payload["@context"]
 
     assert payload["@type"] == "owl:Ontology"
-    assert payload["versionInfo"] == "1.4.0"
+    assert payload["versionInfo"] == "1.5.0"
     assert "never causal by default" in payload["claimBoundary"]
+    assert "does not define prediction features" in payload["claimBoundary"]
     assert context["@vocab"] == MAZU
     for prefix in ("sosa", "geo", "time", "prov", "qudt", "uom"):
         assert prefix in context
@@ -52,7 +53,7 @@ def test_resources_have_unique_ids_and_bilingual_definitions():
         assert node.get("definitionZh"), node["@id"]
 
 
-def test_core_domain_boundaries_and_forecast_bridge_are_explicit():
+def test_core_domain_boundaries_are_evidence_only():
     nodes = graph_by_id()
     for required in (
         "mazu:IndicatorState",
@@ -66,10 +67,10 @@ def test_core_domain_boundaries_and_forecast_bridge_are_explicit():
         "mazu:ScholarlyPublication",
         "mazu:LiteratureEvidenceRecord",
         "mazu:LiteratureEvidenceAugmentationRun",
-        "mazu:GraphDerivedFeature",
-        "mazu:ForecastConstraint",
     ):
         assert required in nodes
+    assert "mazu:GraphDerivedFeature" not in nodes
+    assert "mazu:ForecastConstraint" not in nodes
 
     serialized = SOURCE.read_text(encoding="utf-8")
     assert '"causes"' not in serialized
@@ -135,12 +136,10 @@ def test_shacl_shapes_require_scope_provenance_and_causal_flag():
         "mazu:LaggedAssociationAssertionShape",
         "mazu:MechanismApplicabilityAssertionShape",
         "mazu:LiteratureEvidenceRecordShape",
-        "mazu:ForecastConstraintShape",
         "mazu:applicableUnder",
         "mazu:eligibleForCausalExplanation",
         "prov:wasGeneratedBy",
         "sh:minInclusive 0",
-        "sh:maxInclusive 1",
     ):
         assert required in shapes
 
@@ -151,9 +150,9 @@ def test_materializer_builds_queryable_idempotent_database(tmp_path):
     first = materialize_ontology(SOURCE, database)
     second = materialize_ontology(SOURCE, database)
 
-    assert first["ontology"]["version"] == "1.4.0"
+    assert first["ontology"]["version"] == "1.5.0"
     assert first["ontology"]["source_sha256"] == second["ontology"]["source_sha256"]
-    assert first["resource_count"] == second["resource_count"] == 88
+    assert first["resource_count"] == second["resource_count"] == 83
     assert first["statement_count"] == second["statement_count"]
     assert first["statement_count"] >= 500
 

@@ -119,15 +119,3 @@ mazu:LiteratureEvidenceRecordShape
         sh:minCount 1 ;
         sh:maxCount 1 ;
     ] .
-
-mazu:ForecastConstraintShape
-    a sh:NodeShape ;
-    sh:targetClass mazu:ForecastConstraint ;
-    sh:property [
-        sh:path mazu:applicabilityScore ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:datatype xsd:decimal ;
-        sh:minInclusive 0 ;
-        sh:maxInclusive 1 ;
-    ] .
