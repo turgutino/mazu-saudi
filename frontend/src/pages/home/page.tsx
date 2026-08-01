@@ -20,6 +20,7 @@ const EMPTY_STATS: DashboardStats = {
   modelsOnline: 0,
   regionsMonitored: 0,
   regionRisk: [],
+  lastUpdated: null,
 };
 
 export default function Dashboard() {
@@ -348,7 +349,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-4 text-xs text-foreground-400">
               <span>模型版本: v4.1.0</span>
               <span>数据: ERA5 + 数值预报</span>
-              <span>更新于 2026-07-30</span>
+              <span>{stats.lastUpdated ? `更新于 ${stats.lastUpdated.replace('T', ' ').slice(0, 16)}` : '暂无预测记录'}</span>
             </div>
           </div>
         </div>

@@ -51,6 +51,7 @@ def test_dashboard_stats_and_activities(client: TestClient):
     assert body["totalPredictions"] == 0
     assert body["activeWarnings"] == 0
     assert body["regionRisk"] == []
+    assert body["lastUpdated"] is None
 
     r = client.get("/api/v1/dashboard/activities")
     assert r.status_code == 200
@@ -70,6 +71,7 @@ def test_dashboard_stats_and_activities(client: TestClient):
     stats = r.json()
     assert stats["totalPredictions"] == 1
     assert {"regionId": "jazan", "regionName": "吉赞", "riskLevel": pred["riskLevel"]} in stats["regionRisk"]
+    assert stats["lastUpdated"] == pred["createdAt"]
 
     r = client.get("/api/v1/dashboard/activities")
     activities = r.json()

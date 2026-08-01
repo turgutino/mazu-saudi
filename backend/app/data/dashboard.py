@@ -56,6 +56,7 @@ def get_dashboard_stats() -> DashboardStats:
         models_online=len(MODELS),
         regions_monitored=len(REGIONS),
         region_risk=region_risk,
+        last_updated=predictions[0].created_at if predictions else None,
     )
 
 

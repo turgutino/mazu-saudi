@@ -10,6 +10,7 @@ export interface DashboardStats {
   modelsOnline: number;
   regionsMonitored: number;
   regionRisk: RegionRiskSummary[];
+  lastUpdated: string | null;
 }
 
 export interface RecentActivity {

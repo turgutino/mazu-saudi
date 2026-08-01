@@ -19,6 +19,9 @@ class DashboardStats(CamelModel):
     models_online: int
     regions_monitored: int
     region_risk: list[RegionRiskSummary] = []
+    # created_at of the most recent prediction in the store, or None if empty.
+    # Drives the footer's "更新于" label instead of a hardcoded date.
+    last_updated: str | None = None
 
 
 class RecentActivity(CamelModel):
