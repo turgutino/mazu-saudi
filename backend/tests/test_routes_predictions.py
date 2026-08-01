@@ -47,11 +47,38 @@ def test_monitor_regions(client: TestClient):
 def test_dashboard_stats_and_activities(client: TestClient):
     r = client.get("/api/v1/dashboard/stats")
     assert r.status_code == 200
-    assert "totalPredictions" in r.json()
+    body = r.json()
+    assert body["totalPredictions"] == 0
+    assert body["activeWarnings"] == 0
+    assert body["regionRisk"] == []
 
     r = client.get("/api/v1/dashboard/activities")
     assert r.status_code == 200
-    assert len(r.json()) >= 1
+    assert r.json() == []
+
+    r = client.get("/api/v1/dashboard/weekly-stats")
+    assert r.status_code == 200
+    assert len(r.json()) == 7
+
+    # After a prediction, all three endpoints reflect it.
+    pred = client.post(
+        "/api/v1/predictions",
+        json={"regionId": "jazan", "hazard": "flash-flood", "leadTimeHours": 24},
+    ).json()
+
+    r = client.get("/api/v1/dashboard/stats")
+    stats = r.json()
+    assert stats["totalPredictions"] == 1
+    assert {"regionId": "jazan", "regionName": "吉赞", "riskLevel": pred["riskLevel"]} in stats["regionRisk"]
+
+    r = client.get("/api/v1/dashboard/activities")
+    activities = r.json()
+    assert len(activities) == 1
+    assert activities[0]["id"] == pred["predictionId"]
+
+    r = client.get("/api/v1/dashboard/weekly-stats")
+    weekly = r.json()
+    assert sum(day["predictions"] for day in weekly) == 1
 
 
 @pytest.mark.parametrize("hazard", HAZARDS)

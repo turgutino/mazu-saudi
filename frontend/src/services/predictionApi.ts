@@ -2,6 +2,7 @@ import type { PredictionResult } from '@/mocks/predictions';
 import type { Region } from '@/mocks/regions';
 import type { HazardType } from '@/mocks/hazards';
 import type { ModelInfo } from '@/mocks/models';
+import type { DashboardStats, RecentActivity, WeeklyStat } from '@/mocks/dashboard';
 import { withCache, ONE_HOUR_MS } from './cache';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
@@ -69,4 +70,25 @@ export function fetchModels(): Promise<ModelInfo[]> {
       headers: { Accept: 'application/json' },
     }).then((response) => parseJson<ModelInfo[]>(response, '模型列表加载失败')),
   );
+}
+
+// Dashboard aggregates change whenever a new prediction is submitted, so
+// unlike regions/hazards/models these are not cached.
+
+export function fetchDashboardStats(): Promise<DashboardStats> {
+  return fetch(`${API_BASE}/dashboard/stats`, {
+    headers: { Accept: 'application/json' },
+  }).then((response) => parseJson<DashboardStats>(response, '仪表盘统计加载失败'));
+}
+
+export function fetchRecentActivities(): Promise<RecentActivity[]> {
+  return fetch(`${API_BASE}/dashboard/activities`, {
+    headers: { Accept: 'application/json' },
+  }).then((response) => parseJson<RecentActivity[]>(response, '近期动态加载失败'));
+}
+
+export function fetchWeeklyStats(): Promise<WeeklyStat[]> {
+  return fetch(`${API_BASE}/dashboard/weekly-stats`, {
+    headers: { Accept: 'application/json' },
+  }).then((response) => parseJson<WeeklyStat[]>(response, '周趋势加载失败'));
 }

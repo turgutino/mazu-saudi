@@ -5,15 +5,31 @@ import StatCard from '@/components/base/StatCard';
 import Badge from '@/components/base/Badge';
 import RiskBadge from '@/components/base/RiskBadge';
 import Button from '@/components/base/Button';
-import { dashboardStats, recentActivities, weeklyStats } from '@/mocks/dashboard';
+import type { DashboardStats, RecentActivity, WeeklyStat } from '@/mocks/dashboard';
 import type { PredictionResult } from '@/mocks/predictions';
-import { fetchPredictionsList } from '@/services/predictionApi';
+import {
+  fetchPredictionsList,
+  fetchDashboardStats,
+  fetchRecentActivities,
+  fetchWeeklyStats,
+} from '@/services/predictionApi';
+
+const EMPTY_STATS: DashboardStats = {
+  totalPredictions: 0,
+  activeWarnings: 0,
+  modelsOnline: 0,
+  regionsMonitored: 0,
+  regionRisk: [],
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [predictions, setPredictions] = useState<PredictionResult[]>([]);
   const [predictionsLoading, setPredictionsLoading] = useState(true);
   const [predictionsError, setPredictionsError] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
+  const [activities, setActivities] = useState<RecentActivity[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState<WeeklyStat[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,10 +46,26 @@ export default function Dashboard() {
       .finally(() => {
         if (!cancelled) setPredictionsLoading(false);
       });
+
+    Promise.all([fetchDashboardStats(), fetchRecentActivities(), fetchWeeklyStats()])
+      .then(([statsData, activitiesData, weeklyData]) => {
+        if (cancelled) return;
+        setStats(statsData);
+        setActivities(activitiesData);
+        setWeeklyStats(weeklyData);
+      })
+      .catch(() => {
+        // Non-critical widgets: leave stats/activities/weeklyStats at their
+        // empty defaults if this fails; the predictions table above still
+        // shows its own error state independently.
+      });
+
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const maxWeeklyPredictions = Math.max(1, ...weeklyStats.map((day) => day.predictions));
 
   return (
     <div className="min-h-screen bg-background-50">
@@ -45,26 +77,25 @@ export default function Dashboard() {
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatCard
               label="累计预测次数"
-              value={dashboardStats.totalPredictions.toLocaleString()}
+              value={stats.totalPredictions.toLocaleString()}
               icon="ri-bar-chart-line"
-              trend={{ value: '+12% 较上周', positive: true }}
               variant="primary"
             />
             <StatCard
               label="活跃预警"
-              value={dashboardStats.activeWarnings}
+              value={stats.activeWarnings}
               icon="ri-alert-line"
               variant="warning"
             />
             <StatCard
               label="在线模型"
-              value={`${dashboardStats.modelsOnline} 个`}
+              value={`${stats.modelsOnline} 个`}
               icon="ri-cpu-line"
               variant="accent"
             />
             <StatCard
               label="监测区域"
-              value={`${dashboardStats.regionsMonitored} 个`}
+              value={`${stats.regionsMonitored} 个`}
               icon="ri-map-pin-line"
             />
           </section>
@@ -77,25 +108,31 @@ export default function Dashboard() {
                 <Badge variant="secondary">近7天</Badge>
               </div>
               <div className="flex items-end gap-3 h-[180px]">
-                {weeklyStats.map((day) => (
-                  <div key={day.day} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="w-full flex flex-col items-center gap-1">
-                      <div className="relative w-full flex flex-col items-center">
-                        <div
-                          className="w-full max-w-[28px] bg-accent-500/80 rounded-t-md transition-all duration-500"
-                          style={{ height: `${(day.warnings / 7) * 140}px` }}
-                        ></div>
-                      </div>
-                      <div className="relative w-full flex flex-col items-center">
-                        <div
-                          className="w-full max-w-[28px] bg-primary-300/60 rounded-t-md transition-all duration-500"
-                          style={{ height: `${(day.predictions / 41) * 140}px` }}
-                        ></div>
-                      </div>
-                    </div>
-                    <span className="text-xs text-foreground-500">{day.day}</span>
+                {weeklyStats.length === 0 ? (
+                  <div className="w-full h-full flex items-center justify-center text-sm text-foreground-400">
+                    暂无近7天数据
                   </div>
-                ))}
+                ) : (
+                  weeklyStats.map((day) => (
+                    <div key={day.day} className="flex-1 flex flex-col items-center gap-2">
+                      <div className="w-full flex flex-col items-center gap-1">
+                        <div className="relative w-full flex flex-col items-center">
+                          <div
+                            className="w-full max-w-[28px] bg-accent-500/80 rounded-t-md transition-all duration-500"
+                            style={{ height: `${(day.warnings / maxWeeklyPredictions) * 140}px` }}
+                          ></div>
+                        </div>
+                        <div className="relative w-full flex flex-col items-center">
+                          <div
+                            className="w-full max-w-[28px] bg-primary-300/60 rounded-t-md transition-all duration-500"
+                            style={{ height: `${(day.predictions / maxWeeklyPredictions) * 140}px` }}
+                          ></div>
+                        </div>
+                      </div>
+                      <span className="text-xs text-foreground-500">{day.day}</span>
+                    </div>
+                  ))
+                )}
               </div>
               <div className="flex items-center gap-4 mt-4 pt-3 border-t border-background-200/50">
                 <div className="flex items-center gap-2">
@@ -156,22 +193,16 @@ export default function Dashboard() {
               <div className="mt-5 pt-4 border-t border-background-200/50">
                 <p className="text-xs text-foreground-500 mb-3">区域风险概况</p>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-foreground-700">吉赞</span>
-                    <RiskBadge level="orange" size="sm" />
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-foreground-700">利雅得</span>
-                    <RiskBadge level="yellow" size="sm" />
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-foreground-700">吉达</span>
-                    <RiskBadge level="yellow" size="sm" />
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-foreground-700">达曼</span>
-                    <RiskBadge level="green" size="sm" />
-                  </div>
+                  {stats.regionRisk.length === 0 ? (
+                    <p className="text-sm text-foreground-400">暂无预测记录</p>
+                  ) : (
+                    stats.regionRisk.map((region) => (
+                      <div key={region.regionId} className="flex items-center justify-between text-sm">
+                        <span className="text-foreground-700">{region.regionName}</span>
+                        <RiskBadge level={region.riskLevel} size="sm" />
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </section>
@@ -266,12 +297,17 @@ export default function Dashboard() {
           {/* Recent activity */}
           <section className="mt-8">
             <h3 className="font-heading text-base text-foreground-900 mb-4">最近动态</h3>
+            {activities.length === 0 ? (
+              <div className="bg-background-50 border border-background-200/70 rounded-lg p-10 text-center text-foreground-400">
+                <i className="ri-inbox-line text-2xl block mb-2"></i>暂无近期动态
+              </div>
+            ) : (
             <div className="bg-background-50 border border-background-200/70 rounded-lg p-1">
-              {recentActivities.map((activity, idx) => (
+              {activities.map((activity, idx) => (
                 <div
                   key={activity.id}
                   className={`flex items-start gap-4 px-4 py-3 ${
-                    idx < recentActivities.length - 1 ? 'border-b border-background-200/50' : ''
+                    idx < activities.length - 1 ? 'border-b border-background-200/50' : ''
                   }`}
                 >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
@@ -296,6 +332,7 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+            )}
           </section>
         </div>
       </main>
