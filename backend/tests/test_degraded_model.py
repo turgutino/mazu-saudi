@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.data.indicator_provider import normalized_severity
 from app.domain.forecast_case import ForecastCase
 from app.models.degraded_model import live_fusion_model
 
@@ -42,6 +43,11 @@ def test_predict_rejects_when_no_relevant_live_feature_exists():
         live_fusion_model.predict(_make_case("heavy-rain"), {"t2m": 40.0})
 
 
+def test_rain_score_requires_complete_24h_precipitation():
+    with pytest.raises(ValueError, match="No live fusion features"):
+        live_fusion_model.predict(_make_case("heavy-rain"), {"cape": 3000.0})
+
+
 def test_predict_is_deterministic():
     case = _make_case("flash-flood")
     indicators = {"cape": 900.0, "daily_precip": 15.0}
@@ -51,12 +57,19 @@ def test_predict_is_deterministic():
     assert raw1.important_features == raw2.important_features
 
 
-def test_predict_scores_tomorrowio_enrichment_when_present():
-    # dust-storm's HAZARD_WEIGHTS includes wind_gust; a plain wind_10m-only
-    # indicator set must NOT trip it, but adding wind_gust must.
+def test_predict_ignores_realtime_only_enrichment_fields():
     case = _make_case("dust-storm")
     without_gust = live_fusion_model.predict(case, {"wind_10m": 25.0})
-    assert "wind_gust" not in without_gust.important_features
-
     with_gust = live_fusion_model.predict(case, {"wind_10m": 25.0, "wind_gust": 30.0})
-    assert "wind_gust" in with_gust.important_features
+    assert without_gust.probability == with_gust.probability
+    assert "wind_gust" not in with_gust.important_features
+
+
+def test_normalized_severity_is_directional_and_clamped():
+    assert normalized_severity("cape", 800.0) == 0.0
+    assert normalized_severity("cape", 3200.0) == 1.0
+    assert normalized_severity("cape", 6000.0) == 1.0
+    assert normalized_severity("cape", 50.0) == -1.0
+    assert normalized_severity("visibility", 10.0) == 0.0
+    assert normalized_severity("visibility", 0.5) == 1.0
+    assert normalized_severity("visibility", 20.0) == -1.0

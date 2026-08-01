@@ -4,6 +4,7 @@ calls or require a real API key."""
 
 from __future__ import annotations
 
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
@@ -36,10 +37,13 @@ class _FakeResponse:
 
 
 def _hourly_payload(case: ForecastCase, **field_values: float) -> dict:
-    target = case.target_time.strftime("%Y-%m-%dT%H:%M")
-    payload = {"hourly": {"time": [target]}}
+    times = [
+        (case.target_time - timedelta(hours=23 - offset)).strftime("%Y-%m-%dT%H:%M")
+        for offset in range(24)
+    ]
+    payload = {"hourly": {"time": times}}
     for field, value in field_values.items():
-        payload["hourly"][field] = [value]
+        payload["hourly"][field] = [value] * 24
     return payload
 
 

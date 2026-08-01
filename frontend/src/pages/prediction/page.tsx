@@ -157,12 +157,13 @@ export default function PredictionDetail() {
 }
 
 function OverviewTab({ prediction }: { prediction: PredictionResult }) {
+  const isLiveRiskScore = prediction.modelId === 'live-fusion-v1';
   return (
     <div className="space-y-6">
       {/* Key metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="text-center py-6">
-          <p className="text-xs text-foreground-500 mb-2">校准后概率</p>
+          <p className="text-xs text-foreground-500 mb-2">{isLiveRiskScore ? '决策风险评分' : '校准后概率'}</p>
           <p className="text-3xl font-heading text-primary-600">
             {(prediction.calibratedProbability * 100).toFixed(0)}%
           </p>
@@ -174,7 +175,7 @@ function OverviewTab({ prediction }: { prediction: PredictionResult }) {
           </div>
         </Card>
         <Card className="text-center py-6">
-          <p className="text-xs text-foreground-500 mb-2">原始概率</p>
+          <p className="text-xs text-foreground-500 mb-2">{isLiveRiskScore ? '规则原始评分' : '原始概率'}</p>
           <p className="text-3xl font-heading text-foreground-900">
             {(prediction.probability * 100).toFixed(0)}%
           </p>

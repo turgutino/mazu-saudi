@@ -31,7 +31,7 @@ RiskLevel = Literal["green", "yellow", "orange", "red"]
 SensitivityLevel = Literal["high", "medium", "low"]
 ConfidenceLevel = Literal["high", "medium", "low"]
 TrendLevel = Literal["rising", "stable", "falling"]
-ModelType = Literal["tree", "deep", "physical", "ensemble"]
+ModelType = Literal["tree", "deep", "physical", "ensemble", "rule"]
 ActivityType = Literal["prediction", "warning", "report"]
 PredictionMode = Literal["auto", "live", "historical"]
 # Which input/model path produced a prediction. ``tier3_synthetic`` remains

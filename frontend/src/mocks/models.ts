@@ -11,7 +11,7 @@ export interface ModelInfo {
   id: string;
   name: string;
   version: string;
-  type: 'tree' | 'deep' | 'physical' | 'ensemble';
+  type: 'tree' | 'deep' | 'physical' | 'ensemble' | 'rule';
   icon: string;
   description: string;
   supportedHazards: string[];
@@ -66,11 +66,11 @@ export const models: ModelInfo[] = [
   },
   {
     id: 'live-fusion-v1',
-    name: '实时多源融合模型（加权基线）',
-    version: 'v1.0.0',
-    type: 'ensemble',
+    name: '实时预报风险评分（规则基线）',
+    version: 'v1.1.0',
+    type: 'rule',
     icon: 'ri-node-tree',
-    description: '融合 CMA/Open-Meteo 实时预报与 Tomorrow.io 补充指标的透明加权基线；四灾种共用，暂无独立回测指标。',
+    description: '使用 CMA 或 Open-Meteo 目标时刻预报与前24小时累计降水计算的透明风险评分；四灾种共用，未经观测频率校准。',
     supportedHazards: ['heavy-rain', 'extreme-heat', 'flash-flood', 'dust-storm'],
     lastTrained: 'N/A',
     metrics: {},

@@ -50,3 +50,11 @@
 - 归档含 `saudi_indicators_20250101.nc` 至 `saudi_indicators_20251231.nc`，共365个逐日文件。
 - HGB 特征日是 `target_date - 1 day`；在24小时时效下等于起报日期，其他时效必须仍由后端通过实际文件存在性判定。
 - 已使用2025-06-01吉赞高温+24h直接实测本机归档：成功加载106个指标并运行 `joblib-heatwave`，返回 `tier1_real`和概率0.0012。
+
+## Live fusion rule correction findings
+
+- Open-Meteo 官方文档明确：小时 `precipitation` 是“前一小时”的累计/平均量，不是日累计；当前把目标小时单值写入 `daily_precip` 属于时间尺度错误。官方文档同时支持 `past_days` 返回前一天数据，可用于构造目标时刻之前的完整24小时累计窗口：https://open-meteo.com/en/docs
+- 当前 `normalized_severity` 没有截断，CAPE 6000 在配置上限3200之外产生1.65严重度；实时规则应将严重度严格限制在[-1, 1]，避免单一越界值无限放大。
+- Tomorrow.io 当前接的是 realtime endpoint，不能把当前时刻的阵风/火险/雷暴概率混入6—72小时目标时刻；未来预测应只使用与目标时刻对齐的小时预报字段。
+- 实时融合结果应命名为“风险评分”而非观测校准概率；当前 calibration 是恒等函数，不能赋予频率概率含义。
+- 修正规则后的真实 Open-Meteo 冒烟结果（Jazan暴雨、+6h）：CAPE 6000、目标前24h降水0、温度34、湿度66、风速10.1、能见度20.28；CAPE严重度被正确截断为1，贡献0.9，零降水贡献-1.0，最终风险评分0.4013，不再出现旧规则的0.7513越界放大。

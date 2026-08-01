@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -86,27 +86,36 @@ class _FakeOpenMeteoResponse:
         return None
 
     def json(self) -> dict:
+        times = [
+            (datetime(2026, 8, 1, 1) + timedelta(hours=offset)).strftime("%Y-%m-%dT%H:%M")
+            for offset in range(24)
+        ]
         return {
             "hourly": {
-                "time": ["2026-08-02T00:00"],
-                "temperature_2m": [45.0],
-                "relative_humidity_2m": [20.0],
-                "cape": [900.0],
-                "precipitation": [8.0],
-                "wind_speed_10m": [15.0],
-                "visibility": [8000.0],
+                "time": times,
+                "temperature_2m": [45.0] * 24,
+                "relative_humidity_2m": [20.0] * 24,
+                "cape": [900.0] * 24,
+                "precipitation": [0.0] * 23 + [8.0],
+                "wind_speed_10m": [15.0] * 24,
+                "visibility": [8000.0] * 24,
             }
         }
 
 
 def test_heavy_rain_uses_live_fusion_model(service: PredictionService, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
-    request = PredictionRequest(region_id="jazan", hazard="heavy-rain", lead_time_hours=24)
+    request = PredictionRequest(
+        region_id="jazan", hazard="heavy-rain", lead_time_hours=24,
+        initial_time="2026-08-01T00:00:00Z",
+    )
     with patch("app.data.openmeteo_provider.requests.get", return_value=_FakeOpenMeteoResponse()):
         result = service.run_prediction(request)
     assert result.model_id == "live-fusion-v1"
     assert result.data_tier == "tier2_live"
     assert result.raw_indicators["daily_precip"] == 8.0
+    assert "风险评分" in result.risk_description
+    assert "概率" not in result.risk_description
 
 
 def test_historical_mode_rejects_hazard_without_trained_model(service: PredictionService):
@@ -151,7 +160,10 @@ def test_hazard_with_real_model_falls_back_to_degraded_when_no_archive(
 ):
     monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
     with patch("app.data.openmeteo_provider.requests.get", return_value=_FakeOpenMeteoResponse()):
-        request = PredictionRequest(region_id="jazan", hazard="extreme-heat", lead_time_hours=24)
+        request = PredictionRequest(
+            region_id="jazan", hazard="extreme-heat", lead_time_hours=24,
+            initial_time="2026-08-01T00:00:00Z",
+        )
         result = service.run_prediction(request)
     assert result.model_id == "live-fusion-v1"
     assert 0.0 <= result.probability <= 1.0
@@ -230,39 +242,24 @@ def test_falls_back_to_openmeteo_when_mirrorearth_fails(
     assert 0.0 <= result.probability <= 1.0
 
 
-def test_tomorrowio_enrichment_is_merged_when_configured(
+def test_future_prediction_does_not_use_tomorrowio_realtime_enrichment(
     service: PredictionService, monkeypatch: pytest.MonkeyPatch
 ):
     monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
     monkeypatch.delenv("MIRROR_EARTH_API_KEY", raising=False)
     monkeypatch.setenv("TOMORROW_IO_API_KEY", "test-key")
 
-    class _FakeTomorrowIoResponse:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict:
-            return {"data": {"values": {"windGust": 20.0, "fireIndex": 50.0, "thunderstormProbability": 10.0}}}
-
-    # OpenMeteoIndicatorProvider and tomorrowio_provider both call the module-
-    # level ``requests.get`` from the shared ``requests`` package, so a single
-    # dispatching side_effect (keyed on host) is needed -- two separate
-    # ``patch(...)`` calls on each module's ``requests.get`` attribute would
-    # both rebind the *same* underlying function and the second one applied
-    # would silently win for both call sites.
-    def _fake_get(url: str, **kwargs):
-        if "tomorrow.io" in url:
-            return _FakeTomorrowIoResponse()
-        return _FakeOpenMeteoResponse()
-
-    with patch("app.data.openmeteo_provider.requests.get", side_effect=_fake_get):
+    with patch(
+        "app.data.openmeteo_provider.requests.get", return_value=_FakeOpenMeteoResponse()
+    ), patch("app.data.tomorrowio_provider.fetch_enrichment") as tomorrow_fetch:
         request = PredictionRequest(
             region_id="jazan", hazard="dust-storm", lead_time_hours=24,
             initial_time="2026-08-01T00:00:00Z",
         )
         result = service.run_prediction(request)
 
-    assert any(f.feature == "wind_gust" for f in result.features)
+    tomorrow_fetch.assert_not_called()
+    assert all(f.feature != "wind_gust" for f in result.features)
 
 
 def test_real_archive_takes_priority_over_degraded_model(

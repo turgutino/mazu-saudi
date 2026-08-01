@@ -20,7 +20,7 @@ import os
 
 import requests
 
-from app.data.live_forecast_utils import nearest_hour_index
+from app.data.live_forecast_utils import nearest_hour_index, trailing_hourly_sum
 from app.data.regions import get_region
 from app.domain.forecast_case import ForecastCase
 
@@ -93,9 +93,11 @@ class MirrorEarthIndicatorProvider:
         cape = _at("cape")
         if cape is not None:
             overrides["cape"] = cape
-        precipitation = _at("precipitation")
-        if precipitation is not None:
-            overrides["daily_precip"] = precipitation
+        precipitation_24h = trailing_hourly_sum(
+            hourly.get("time", []), hourly.get("precipitation"), index, 24
+        )
+        if precipitation_24h is not None:
+            overrides["daily_precip"] = precipitation_24h
         temperature = _at("temperature_2m")
         if temperature is not None:
             overrides["t2m"] = temperature

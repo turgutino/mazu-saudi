@@ -72,7 +72,7 @@ function ModelAvailability({ model }: { model: ModelInfo }) {
         {historical ? '2025历史归档' : '实时预测'}
       </Badge>
       <span className="text-[10px] text-foreground-400">
-        {historical ? '需要完整NetCDF指标' : 'CMA / Open-Meteo / Tomorrow.io'}
+        {historical ? '需要完整NetCDF指标' : 'CMA 或 Open-Meteo 目标时刻预报'}
       </span>
     </div>
   );
@@ -93,7 +93,7 @@ function ComparisonRow({ model, hazardId, isBest, isSelected, onClick }: { model
 
   const fmt = (v: number) => (v * 100).toFixed(1) + '%';
 
-  const typeLabel = model.type === 'tree' ? '树模型' : model.type === 'deep' ? '深度学习' : model.type === 'ensemble' ? '集成模型' : '物理模型';
+  const typeLabel = model.type === 'tree' ? '树模型' : model.type === 'deep' ? '深度学习' : model.type === 'ensemble' ? '集成模型' : model.type === 'rule' ? '规则评分' : '物理模型';
 
   return (
     <tr
@@ -327,7 +327,7 @@ export default function Workspace() {
                       <span className="font-medium text-foreground-900">实时预测</span>
                       <Badge variant="success">当前与未来</Badge>
                     </div>
-                    <p className="text-xs text-foreground-500">使用CMA、Open-Meteo与Tomorrow.io指标，运行实时多源融合模型。</p>
+                    <p className="text-xs text-foreground-500">使用CMA或Open-Meteo目标时刻预报，计算透明的实时风险评分。</p>
                   </button>
                   <button
                     onClick={() => {
@@ -526,7 +526,7 @@ export default function Workspace() {
                 {selectedHazard?.id === 'heavy-rain' && (
                   <div className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-800">
                     <i className="ri-information-line mr-1.5"></i>
-                    暴雨暂无2025历史训练模型，因此仅显示实时多源融合模型。
+                    暴雨暂无2025历史训练模型，因此仅提供实时预报风险评分。
                   </div>
                 )}
 
@@ -574,7 +574,7 @@ export default function Workspace() {
                             </div>
                             <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                               <Badge variant={model.type === 'ensemble' ? 'accent' : model.type === 'deep' ? 'primary' : 'secondary'}>
-                                {model.type === 'tree' ? '树模型' : model.type === 'deep' ? '深度学习' : model.type === 'ensemble' ? '集成模型' : '物理模型'}
+                                {model.type === 'tree' ? '树模型' : model.type === 'deep' ? '深度学习' : model.type === 'ensemble' ? '集成模型' : model.type === 'rule' ? '规则评分' : '物理模型'}
                               </Badge>
                               <button
                                 onClick={(e) => {
@@ -772,15 +772,15 @@ export default function Workspace() {
                         <p className="mb-2">智能体将按以下流程执行：</p>
                         <ol className="list-decimal list-inside space-y-1">
                           <li>加载预测案例数据 (ForecastCase)</li>
-                          <li>根据起报日期与数据完整性自动选择历史训练模型或实时融合模型</li>
-                          <li>执行概率校准</li>
+                          <li>根据运行模式选择历史训练模型或实时风险评分规则</li>
+                          <li>{predictionMode === 'historical' ? '执行模型概率校准' : '生成未经观测频率校准的风险评分'}</li>
                           <li>运行 {selectedRegion?.name} 区域风险规则</li>
                           <li>调用解释引擎生成特征贡献和物理机制</li>
                           <li>查询相似历史事件</li>
                           <li>构建解释证据图谱</li>
                           <li>生成预测报告</li>
                         </ol>
-                        <p className="mt-2 text-foreground-400">智能体不会编造预测概率，所有数值由模型计算产生。</p>
+                        <p className="mt-2 text-foreground-400">历史模式输出模型概率；实时模式输出规则风险评分，二者都会记录实际输入和计算结果。</p>
                       </div>
                     </div>
                   </div>

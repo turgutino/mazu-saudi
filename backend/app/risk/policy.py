@@ -59,10 +59,13 @@ class RiskPolicy:
         calibrated_probability: float,
         indicators: dict[str, float],
         region: Region,
+        score_kind: str = "probability",
     ) -> RiskAssessment:
         config: HazardRiskConfig = RISK_CONFIGS[case.hazard]
         sensitivity = getattr(region.sensitivity, config.sensitivity_key)
         offset = SENSITIVITY_OFFSET[sensitivity]
+        score_label = "风险评分" if score_kind == "risk_score" else "概率"
+        score_field = "risk_score" if score_kind == "risk_score" else "calibrated_probability"
 
         prob_hits: list[RuleHitRecord] = []
         level = "green"
@@ -72,8 +75,8 @@ class RiskPolicy:
             prob_hits.append(
                 RuleHitRecord(
                     rule_id=f"{case.hazard}-prob-{pt.level}",
-                    rule_name=f"{config.hazard_label}概率{_LEVEL_LABELS_SHORT[pt.level]}阈值",
-                    condition=f"calibrated_probability >= {effective_threshold:g}",
+                    rule_name=f"{config.hazard_label}{score_label}{_LEVEL_LABELS_SHORT[pt.level]}阈值",
+                    condition=f"{score_field} >= {effective_threshold:g}",
                     actual_value=f"{calibrated_probability:g}",
                     threshold=f"{effective_threshold:g}",
                     met=met,
@@ -106,7 +109,7 @@ class RiskPolicy:
         ]
         if level == "green":
             risk_description = (
-                f"{config.hazard_label}概率{calibrated_probability:g}未超过黄色阈值；"
+                f"{config.hazard_label}{score_label}{calibrated_probability:g}未超过黄色阈值；"
                 + ("；".join(met_descriptions) + "；" if met_descriptions else "")
                 + "综合判断为低风险，建议持续监测。"
             )

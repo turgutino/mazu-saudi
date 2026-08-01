@@ -8,10 +8,9 @@ standalone Tier 2 base indicator source -- Tomorrow.io's realtime API has no
 raw CAPE/precipitation/wind-speed fields comparable to the others, only
 these three enrichment fields with no Tier-1/Tier-3 synthetic equivalent.
 PredictionService merges its output into whatever ``indicators`` dict Tier
-1/2/3 already produced; DegradedForecastModel/RuleBasedForecastModel and
-JoblibForecastModel simply score them if HAZARD_WEIGHTS/model features
-reference them, and skip them otherwise (both use a
-"key not in indicators/weights" guard already).
+1/2/3 already produced. It is retained for current-condition monitoring only;
+PredictionService deliberately excludes it from 6--72 hour forecasts because
+these realtime values are not valid at the forecast target time.
 
 Requires the ``TOMORROW_IO_API_KEY`` environment variable (same value as
 frontend's ``VITE_PUBLIC_TOMORROW_IO_KEY``). Failures here are always

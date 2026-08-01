@@ -242,7 +242,7 @@ export default function Dashboard() {
                       <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">区域</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">灾种</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">模型</th>
-                      <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">概率</th>
+                      <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">概率 / 风险评分</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">风险等级</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">操作</th>
                     </tr>

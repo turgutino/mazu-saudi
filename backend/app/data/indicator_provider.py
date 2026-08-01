@@ -87,15 +87,29 @@ indicator_provider = IndicatorProvider()
 
 
 def normalized_severity(key: str, actual: float) -> float:
-    """Map an indicator's actual value to a signed severity in roughly [-1, 1]
-    around its ``normal_value``, using ``INDICATOR_SPECS``. Shared by every
-    ForecastModel implementation (rule-based, joblib, degraded) so their
+    """Map an indicator's actual value to a signed severity in [-1, 1]
+    around its ``normal_value``, using separate safe/hazard-side spans. Shared by every
+    ForecastModel implementation (rule-based, joblib, live risk score) so their
     ``important_features`` explanations stay directly comparable regardless
     of which algorithm produced the probability.
     """
     spec = INDICATOR_SPECS[key]
-    span = spec.max_value - spec.min_value
-    return spec.direction * (actual - spec.normal_value) / span
+    directed_delta = spec.direction * (actual - spec.normal_value)
+    if directed_delta >= 0:
+        span = (
+            spec.max_value - spec.normal_value
+            if spec.direction > 0
+            else spec.normal_value - spec.min_value
+        )
+    else:
+        span = (
+            spec.normal_value - spec.min_value
+            if spec.direction > 0
+            else spec.max_value - spec.normal_value
+        )
+    if span <= 0:
+        return 0.0
+    return min(max(directed_delta / span, -1.0), 1.0)
 
 
 def with_overrides(case: ForecastCase, overrides: dict[str, float]) -> dict[str, float]:

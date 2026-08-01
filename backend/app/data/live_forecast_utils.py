@@ -12,6 +12,7 @@ import math
 from datetime import datetime, timezone
 
 MAX_FORECAST_DAYS = 16
+MAX_TARGET_OFFSET_SECONDS = 60 * 60
 
 
 def forecast_days_for(target_time: datetime) -> int:
@@ -30,7 +31,7 @@ def nearest_hour_index(time_strings: list[str], target_time: datetime) -> int | 
     if not time_strings:
         return None
     target = target_time.astimezone(timezone.utc).replace(tzinfo=None)
-    best_index = 0
+    best_index = None
     best_diff = None
     for index, raw in enumerate(time_strings):
         try:
@@ -41,4 +42,42 @@ def nearest_hour_index(time_strings: list[str], target_time: datetime) -> int | 
         if best_diff is None or diff < best_diff:
             best_diff = diff
             best_index = index
+    if best_diff is None or best_diff > MAX_TARGET_OFFSET_SECONDS:
+        return None
     return best_index
+
+
+def trailing_hourly_sum(
+    time_strings: list[str], values: list[float | None] | None, end_index: int, hours: int
+) -> float | None:
+    """Sum a complete, contiguous hourly window ending at ``end_index``.
+
+    Hourly precipitation values represent the preceding hour, so 24 values
+    ending at the target timestamp form the preceding 24-hour accumulation.
+    Incomplete or gapped windows return ``None`` instead of silently treating
+    missing hours as zero.
+    """
+    if values is None or hours <= 0:
+        return None
+    start_index = end_index - hours + 1
+    if start_index < 0 or end_index >= len(values) or end_index >= len(time_strings):
+        return None
+
+    parsed_times: list[datetime] = []
+    window_values: list[float] = []
+    for index in range(start_index, end_index + 1):
+        value = values[index]
+        if value is None:
+            return None
+        try:
+            parsed_times.append(datetime.fromisoformat(time_strings[index]))
+            window_values.append(float(value))
+        except (ValueError, TypeError):
+            return None
+
+    if any(
+        (current - previous).total_seconds() != 3600
+        for previous, current in zip(parsed_times, parsed_times[1:])
+    ):
+        return None
+    return round(sum(window_values), 3)

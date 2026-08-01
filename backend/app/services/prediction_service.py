@@ -19,7 +19,6 @@ from app.data.openmeteo_provider import OpenMeteoUnavailableError, openmeteo_pro
 from app.data.real_indicator_provider import available_for as real_data_available
 from app.data.real_indicator_provider import real_indicator_provider
 from app.data.regions import get_region
-from app.data.tomorrowio_provider import TomorrowIoUnavailableError, fetch_enrichment
 from app.domain.forecast_case import ForecastCase
 from app.explanation.feature_attribution import build_feature_contributions
 from app.explanation.mechanism_explanation import build_mechanisms
@@ -38,25 +37,6 @@ class PredictionServiceError(ValueError):
     """Raised when a prediction request references unknown region/hazard/model."""
 
 
-def _enrich_with_tomorrowio(case: ForecastCase, indicators: dict[str, float]) -> dict[str, float]:
-    """Best-effort merge of Tomorrow.io's derived risk indicators (wind_gust,
-    fire_index, thunderstorm_prob) into an already-resolved indicators dict.
-    Never raises and never changes which tier/model was selected -- if
-    Tomorrow.io isn't configured or the call fails, ``indicators`` is
-    returned unchanged (LiveFusionForecastModel/
-    JoblibForecastModel all tolerate these keys being absent)."""
-    region = get_region(case.region_id)
-    if region is None:
-        return indicators
-    try:
-        enrichment = fetch_enrichment(region.lat, region.lon)
-    except TomorrowIoUnavailableError:
-        return indicators
-    if not enrichment:
-        return indicators
-    return {**indicators, **enrichment}
-
-
 def _resolve_indicators_and_model(
     case: ForecastCase, prediction_mode: PredictionMode = "auto"
 ) -> tuple[dict[str, float], object, DataTier]:
@@ -70,9 +50,9 @@ def _resolve_indicators_and_model(
     of forecast fidelity -- Mirror Earth's CMA numerical model first (a real
     NWP model, closer in spirit to Tier 1's archive), Open-Meteo's blended
     forecast second -- plus LiveFusionForecastModel (the joblib models cannot
-    run on either's much smaller feature set). Tomorrow.io's fire_index /
-    thunderstorm_prob / wind_gust are merged in afterwards as a best-effort
-    enrichment regardless of which of the two base sources was used.
+    run on either's much smaller feature set). Tomorrow.io's realtime fields
+    are deliberately excluded because they are not valid at a 6--72 hour
+    forecast target time.
     Returns (indicators, model, data_tier) -- ``data_tier`` is persisted on
     the resulting PredictionResult for future dataset-building (see
     app.schemas.common.DataTier).
@@ -98,13 +78,13 @@ def _resolve_indicators_and_model(
 
     if mirrorearth_configured():
         try:
-            indicators = _enrich_with_tomorrowio(case, mirrorearth_provider.generate(case))
+            indicators = mirrorearth_provider.generate(case)
             if live_fusion_model.available_features(case, indicators):
                 return indicators, live_fusion_model, "tier2_live"
         except MirrorEarthUnavailableError:
             pass
     try:
-        indicators = _enrich_with_tomorrowio(case, openmeteo_provider.generate(case))
+        indicators = openmeteo_provider.generate(case)
         if live_fusion_model.available_features(case, indicators):
             return indicators, live_fusion_model, "tier2_live"
     except OpenMeteoUnavailableError:
@@ -155,7 +135,10 @@ class PredictionService:
         raw = active_model.predict(case, indicators)
         calibrated_probability = calibrate(raw.probability, case.hazard, raw.model_id)
 
-        risk = risk_policy.assess(case, calibrated_probability, indicators, region)
+        score_kind = "risk_score" if raw.model_id == live_fusion_model.model_id else "probability"
+        risk = risk_policy.assess(
+            case, calibrated_probability, indicators, region, score_kind=score_kind
+        )
 
         features = build_feature_contributions(raw, indicators)
         rule_hits = build_rule_hits(risk.rule_hits)

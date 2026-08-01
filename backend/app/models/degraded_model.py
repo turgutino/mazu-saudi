@@ -1,16 +1,14 @@
-"""LiveFusionForecastModel: lightweight model for live forecast inputs.
+"""LiveFusionForecastModel: transparent risk-score baseline for live forecasts.
 
 When a ForecastCase's date falls outside the 2025 NetCDF archive (see
 real_indicator_provider.py), the trained joblib models cannot be run (they
 need indicators, like ivt/pwat/wind850_speed/neigh_*, that no live API
-provides). This model scores the indicators OpenMeteoIndicatorProvider
-/ MirrorEarthIndicatorProvider can supply live (cape, daily_precip, t2m,
-rh_surface, wind_10m, visibility), plus -- when a Tomorrow.io call also
-succeeds (see app/data/tomorrowio_provider.py) -- its derived risk indicators
-(wind_gust, fire_index, thunderstorm_prob). Same linear-scoring-then-sigmoid
-shape as a transparent fusion baseline over a smaller live feature set. Any
-weighted key simply absent from ``indicators``
-(e.g. Tomorrow.io wasn't configured/reachable) is skipped, never treated as 0.
+provides). This model scores the indicators OpenMeteoIndicatorProvider /
+MirrorEarthIndicatorProvider can supply live (cape, trailing-24h
+precipitation, t2m, rh_surface, wind_10m, visibility). It uses a transparent
+linear-score-then-sigmoid baseline over this smaller live feature set. The
+result is an uncalibrated risk score, not an observed-frequency probability.
+Any weighted key absent from ``indicators`` is skipped, never treated as 0.
 """
 
 from __future__ import annotations
@@ -22,15 +20,21 @@ from app.domain.forecast_case import ForecastCase
 from app.domain.prediction import RawPrediction
 
 # Per-hazard weights, restricted to indicators available from a live
-# Open-Meteo/Mirror Earth call (see openmeteo_provider.py,
-# mirrorearth_provider.py) plus Tomorrow.io's enrichment fields
-# (tomorrowio_provider.py) when present. A strict subset of
-# rule_based_model.HAZARD_WEIGHTS's keys per hazard, plus the enrichment keys.
+# Open-Meteo/Mirror Earth call (see openmeteo_provider.py and
+# mirrorearth_provider.py). A strict subset of
+# rule_based_model.HAZARD_WEIGHTS's keys per hazard.
 HAZARD_WEIGHTS: dict[str, dict[str, float]] = {
-    "heavy-rain": {"cape": 0.9, "daily_precip": 1.0, "thunderstorm_prob": 0.4},
-    "extreme-heat": {"t2m": 1.1, "rh_surface": 0.5, "fire_index": 0.3},
-    "flash-flood": {"cape": 1.0, "daily_precip": 1.2, "thunderstorm_prob": 0.5},
-    "dust-storm": {"wind_10m": 1.1, "visibility": 0.6, "rh_surface": 0.5, "wind_gust": 0.4},
+    "heavy-rain": {"cape": 0.9, "daily_precip": 1.0},
+    "extreme-heat": {"t2m": 1.1, "rh_surface": 0.5},
+    "flash-flood": {"cape": 1.0, "daily_precip": 1.2},
+    "dust-storm": {"wind_10m": 1.1, "visibility": 0.6, "rh_surface": 0.5},
+}
+
+REQUIRED_FEATURES: dict[str, set[str]] = {
+    "heavy-rain": {"daily_precip"},
+    "extreme-heat": {"t2m"},
+    "flash-flood": {"daily_precip"},
+    "dust-storm": {"wind_10m"},
 }
 
 HAZARD_BASE_SCORE: dict[str, float] = {
@@ -41,8 +45,8 @@ HAZARD_BASE_SCORE: dict[str, float] = {
 }
 
 MODEL_ID = "live-fusion-v1"
-MODEL_VERSION = "v1.0.0"
-MODEL_NAME = "实时多源融合模型（加权基线）"
+MODEL_VERSION = "v1.1.0"
+MODEL_NAME = "实时预报风险评分（规则基线）"
 
 
 def _sigmoid(x: float) -> float:
@@ -66,6 +70,8 @@ class LiveFusionForecastModel:
 
     def available_features(self, case: ForecastCase, indicators: dict[str, float]) -> set[str]:
         """Return live fields that can contribute to this hazard's score."""
+        if not REQUIRED_FEATURES.get(case.hazard, set()).issubset(indicators):
+            return set()
         return set(HAZARD_WEIGHTS.get(case.hazard, {})).intersection(indicators)
 
     def predict(self, case: ForecastCase, indicators: dict[str, float]) -> RawPrediction:
