@@ -5,6 +5,7 @@ import Button from '@/components/base/Button';
 import Badge from '@/components/base/Badge';
 import { fetchKnowledgeGraph, type KnowledgeGraph, type GraphNode, type GraphEdge } from '@/services/knowledgeGraphApi';
 import { createFittedGraphViewBox, createNodeLabelPreview } from './viewBox';
+import { createKeyEvidenceProjection } from './graphProjection';
 
 interface NodeGroup { key: string; label: string; icon: string; color: string }
 
@@ -117,6 +118,7 @@ export default function KnowledgeGraphPage() {
   const [dimensions, setDimensions] = useState({ width: 900, height: 600 });
   const [hasMeasuredContainer, setHasMeasuredContainer] = useState(false);
   const fittedPredictionRef = useRef<string | null>(null);
+  const [showCompleteEvidence, setShowCompleteEvidence] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -126,6 +128,7 @@ export default function KnowledgeGraphPage() {
     }
     let cancelled = false;
     setIsLoading(true);
+    setShowCompleteEvidence(false);
     fetchKnowledgeGraph(id)
       .then((data) => { if (!cancelled) { setGraphData(data); setLoadError(null); } })
       .catch((error: unknown) => { if (!cancelled) setLoadError(error instanceof Error ? error.message : '未知加载错误'); })
@@ -139,14 +142,31 @@ export default function KnowledgeGraphPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const keyEvidenceProjection = useMemo(
+    () => createKeyEvidenceProjection(graphData.nodes, graphData.edges),
+    [graphData.edges, graphData.nodes],
+  );
+
+  const projectedNodeIds = useMemo(
+    () => showCompleteEvidence
+      ? new Set(graphData.nodes.map((node) => node.id))
+      : keyEvidenceProjection.nodeIds,
+    [graphData.nodes, keyEvidenceProjection.nodeIds, showCompleteEvidence],
+  );
+
   // Visible nodes & edges
   const visibleNodes = useMemo(() => {
     return graphData.nodes.filter((n) => {
+      if (!projectedNodeIds.has(n.id)) return false;
       if (collapsedGroups.has(n.group)) return false;
       if (n.step > currentStep) return false;
       return true;
     });
-  }, [graphData.nodes, collapsedGroups, currentStep]);
+  }, [graphData.nodes, projectedNodeIds, collapsedGroups, currentStep]);
+
+  useEffect(() => {
+    if (selectedNode && !projectedNodeIds.has(selectedNode)) setSelectedNode(null);
+  }, [projectedNodeIds, selectedNode]);
 
   const visibleEdges = useMemo(() => {
     const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
@@ -438,6 +458,11 @@ export default function KnowledgeGraphPage() {
             <div className="text-xs text-foreground-500 px-3 py-1.5 bg-background-100 rounded-full">
               {visibleNodes.length}/{graphData.nodes.length} 节点 · {visibleEdges.length}/{graphData.edges.length} 边
             </div>
+            {!showCompleteEvidence && keyEvidenceProjection.hiddenIndicatorCount > 0 && (
+              <div className="text-xs text-foreground-500 px-3 py-1.5 bg-green-50 border border-green-200/70 rounded-full">
+                关键投影 · 已收起 {keyEvidenceProjection.hiddenIndicatorCount} 个次要指标
+              </div>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -449,10 +474,18 @@ export default function KnowledgeGraphPage() {
             <Button
               variant="outline"
               size="sm"
+              icon={showCompleteEvidence ? 'ri-focus-3-line' : 'ri-node-tree'}
+              onClick={() => setShowCompleteEvidence((current) => !current)}
+            >
+              {showCompleteEvidence ? '关键投影' : '完整证据'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               icon="ri-play-list-2-line"
               onClick={showAllSteps}
             >
-              显示全部
+              全部步骤
             </Button>
           </div>
         </div>
@@ -465,7 +498,8 @@ export default function KnowledgeGraphPage() {
             {NODE_GROUPS.map((group) => {
               const isCollapsed = collapsedGroups.has(group.key);
               const groupNodes = graphData.nodes.filter((node) => node.group === group.key).map((node) => node.id);
-              const visibleCount = groupNodes.filter((nid) => {
+              const availableCount = groupNodes.filter((nid) => projectedNodeIds.has(nid));
+              const visibleCount = availableCount.filter((nid) => {
                 const node = graphData.nodes.find((n) => n.id === nid);
                 return node && node.step <= currentStep;
               }).length;
@@ -483,7 +517,9 @@ export default function KnowledgeGraphPage() {
                   <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: group.color }}></span>
                   <span className="flex-1 text-xs text-foreground-800 font-medium truncate">{group.label}</span>
                   <span className={`text-xs flex-shrink-0 ${isCollapsed ? 'text-foreground-300' : 'text-foreground-500'}`}>
-                    {visibleCount}
+                    {group.key === 'features' && availableCount.length !== groupNodes.length
+                      ? `${visibleCount}/${groupNodes.length}`
+                      : visibleCount}
                   </span>
                   <i className={`text-xs flex-shrink-0 transition-transform duration-200 ${isCollapsed ? 'text-foreground-300 ri-eye-off-line' : 'text-foreground-400 ri-eye-line'}`}></i>
                 </button>
