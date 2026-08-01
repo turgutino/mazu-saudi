@@ -2,6 +2,7 @@ import type { PredictionResult } from '@/mocks/predictions';
 import type { Region } from '@/mocks/regions';
 import type { HazardType } from '@/mocks/hazards';
 import type { ModelInfo } from '@/mocks/models';
+import { withCache, ONE_HOUR_MS } from './cache';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
 
@@ -43,20 +44,29 @@ export function fetchPredictionsList(): Promise<PredictionResult[]> {
   }).then((response) => parseJson<PredictionResult[]>(response, '预测列表加载失败'));
 }
 
+// Regions/hazards/models change rarely, so cache them in sessionStorage for
+// an hour instead of re-fetching on every Workspace page visit.
+
 export function fetchRegions(): Promise<Region[]> {
-  return fetch(`${API_BASE}/regions`, {
-    headers: { Accept: 'application/json' },
-  }).then((response) => parseJson<Region[]>(response, '区域列表加载失败'));
+  return withCache('regions', ONE_HOUR_MS, () =>
+    fetch(`${API_BASE}/regions`, {
+      headers: { Accept: 'application/json' },
+    }).then((response) => parseJson<Region[]>(response, '区域列表加载失败')),
+  );
 }
 
 export function fetchHazards(): Promise<HazardType[]> {
-  return fetch(`${API_BASE}/hazards`, {
-    headers: { Accept: 'application/json' },
-  }).then((response) => parseJson<HazardType[]>(response, '灾种列表加载失败'));
+  return withCache('hazards', ONE_HOUR_MS, () =>
+    fetch(`${API_BASE}/hazards`, {
+      headers: { Accept: 'application/json' },
+    }).then((response) => parseJson<HazardType[]>(response, '灾种列表加载失败')),
+  );
 }
 
 export function fetchModels(): Promise<ModelInfo[]> {
-  return fetch(`${API_BASE}/models`, {
-    headers: { Accept: 'application/json' },
-  }).then((response) => parseJson<ModelInfo[]>(response, '模型列表加载失败'));
+  return withCache('models', ONE_HOUR_MS, () =>
+    fetch(`${API_BASE}/models`, {
+      headers: { Accept: 'application/json' },
+    }).then((response) => parseJson<ModelInfo[]>(response, '模型列表加载失败')),
+  );
 }
