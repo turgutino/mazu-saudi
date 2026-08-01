@@ -1,41 +1,71 @@
-"""In-process prediction store (v1).
+"""SQLite-backed prediction store (v1).
 
-A plain dict keyed by predictionId, indexed additionally by caseId. Good
-enough for a single-process dev/demo backend; replace with a real database
-repository later without changing the service-layer interface
-(``services/prediction_service.py`` only calls ``save``/``get``/``list``).
+Persists ``PredictionResult`` rows in a local SQLite database (see
+``repositories/db.py`` / ``repositories/models.py``) so predictions survive
+process restarts, unlike the earlier in-memory dict. The public interface
+(``save``/``get``/``get_by_case_id``/``list``) is unchanged, so
+``services/prediction_service.py`` and the API routes needed no changes
+beyond this file.
 """
 
 from __future__ import annotations
 
+from sqlalchemy import select
+
+from app.repositories.db import build_session_factory
+from app.repositories.models import PredictionRow
 from app.schemas.prediction import PredictionResult
 
 
 class PredictionStore:
     def __init__(self) -> None:
-        self._by_id: dict[str, PredictionResult] = {}
-        self._by_case_id: dict[str, str] = {}
+        # Resolved at construction time (not import time) so tests can
+        # ``monkeypatch.setenv("MAZU_DB_PATH", ...)`` before instantiating a
+        # store and get full isolation from the real dev database.
+        self._session_factory = build_session_factory()
 
     def save(self, prediction: PredictionResult) -> None:
-        self._by_id[prediction.prediction_id] = prediction
-        self._by_case_id[prediction.case_id] = prediction.prediction_id
+        row = PredictionRow(
+            prediction_id=prediction.prediction_id,
+            case_id=prediction.case_id,
+            region_id=prediction.region_id,
+            hazard=prediction.hazard,
+            created_at=prediction.created_at,
+            payload=prediction.model_dump_json(by_alias=True),
+        )
+        with self._session_factory() as session:
+            session.merge(row)
+            session.commit()
 
     def get(self, prediction_id: str) -> PredictionResult | None:
-        return self._by_id.get(prediction_id)
+        with self._session_factory() as session:
+            row = session.get(PredictionRow, prediction_id)
+            return PredictionResult.model_validate_json(row.payload) if row else None
 
     def get_by_case_id(self, case_id: str) -> PredictionResult | None:
-        prediction_id = self._by_case_id.get(case_id)
-        return self._by_id.get(prediction_id) if prediction_id else None
+        with self._session_factory() as session:
+            stmt = select(PredictionRow).where(PredictionRow.case_id == case_id)
+            row = session.scalars(stmt).first()
+            return PredictionResult.model_validate_json(row.payload) if row else None
 
     def list(
         self, region_id: str | None = None, hazard: str | None = None
     ) -> list[PredictionResult]:
-        results = list(self._by_id.values())
-        if region_id:
-            results = [p for p in results if p.region_id == region_id]
-        if hazard:
-            results = [p for p in results if p.hazard == hazard]
-        return sorted(results, key=lambda p: p.created_at, reverse=True)
+        with self._session_factory() as session:
+            stmt = select(PredictionRow)
+            if region_id:
+                stmt = stmt.where(PredictionRow.region_id == region_id)
+            if hazard:
+                stmt = stmt.where(PredictionRow.hazard == hazard)
+            stmt = stmt.order_by(PredictionRow.created_at.desc())
+            rows = session.scalars(stmt).all()
+            return [PredictionResult.model_validate_json(row.payload) for row in rows]
+
+    def clear(self) -> None:
+        """Test-only helper: wipe all rows (keeps the same table/schema)."""
+        with self._session_factory() as session:
+            session.query(PredictionRow).delete()
+            session.commit()
 
 
 prediction_store = PredictionStore()

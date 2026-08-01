@@ -13,8 +13,7 @@ HAZARDS = ["heavy-rain", "extreme-heat", "flash-flood", "dust-storm"]
 
 @pytest.fixture()
 def client() -> TestClient:
-    prediction_store._by_id.clear()
-    prediction_store._by_case_id.clear()
+    prediction_store.clear()
     return TestClient(app)
 
 

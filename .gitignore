@@ -5,3 +5,4 @@ reference_code
 .DS_Store
 *.egg-info/
 frontend/node_modules/
+backend/var/

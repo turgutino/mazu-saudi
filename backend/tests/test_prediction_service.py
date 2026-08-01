@@ -68,7 +68,9 @@ def test_run_prediction_saves_to_store(service: PredictionService):
 
     request = PredictionRequest(region_id="riyadh", hazard="extreme-heat", lead_time_hours=48)
     result = service.run_prediction(request)
-    assert prediction_store.get(result.prediction_id) is result
+    # Persisted via SQLite now, so this round-trips through JSON rather than
+    # returning the same object -- assert value equality, not identity.
+    assert prediction_store.get(result.prediction_id) == result
 
 
 class _FakeOpenMeteoResponse:
