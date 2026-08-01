@@ -4,6 +4,7 @@ import Navbar from '@/components/feature/Navbar';
 import Button from '@/components/base/Button';
 import Badge from '@/components/base/Badge';
 import { fetchKnowledgeGraph, type KnowledgeGraph, type GraphNode, type GraphEdge } from '@/services/knowledgeGraphApi';
+import { createFittedGraphViewBox } from './viewBox';
 
 interface NodeGroup { key: string; label: string; icon: string; color: string }
 
@@ -98,6 +99,8 @@ export default function KnowledgeGraphPage() {
   const animFrameRef = useRef<number>(0);
   const positionsRef = useRef<Record<string, NodePos>>({});
   const [dimensions, setDimensions] = useState({ width: 900, height: 600 });
+  const [hasMeasuredContainer, setHasMeasuredContainer] = useState(false);
+  const fittedPredictionRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -166,6 +169,19 @@ export default function KnowledgeGraphPage() {
     positionsRef.current = nodePositions;
   }, [dimensions, graphData]);
 
+  const fitGraphToView = useCallback(() => {
+    setViewBox(createFittedGraphViewBox(dimensions));
+  }, [dimensions]);
+
+  // The force layout uses measured container dimensions. Match the SVG viewport
+  // after the first real measurement so nodes are visible without a manual reset.
+  useEffect(() => {
+    if (!hasMeasuredContainer || !graphData.predictionId || graphData.nodes.length === 0) return;
+    if (fittedPredictionRef.current === graphData.predictionId) return;
+    fitGraphToView();
+    fittedPredictionRef.current = graphData.predictionId;
+  }, [fitGraphToView, graphData.nodes.length, graphData.predictionId, hasMeasuredContainer]);
+
   // Resize observer
   useEffect(() => {
     const container = containerRef.current;
@@ -175,6 +191,7 @@ export default function KnowledgeGraphPage() {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         setDimensions({ width: Math.max(width, 800), height: Math.max(height, 500) });
+        setHasMeasuredContainer(true);
       }
     });
 
@@ -408,7 +425,7 @@ export default function KnowledgeGraphPage() {
               variant="outline"
               size="sm"
               icon="ri-fullscreen-line"
-              onClick={() => setViewBox({ x: -50, y: -50, w: dimensions.width + 100, h: dimensions.height + 100 })}
+              onClick={fitGraphToView}
             >
               重置视图
             </Button>
