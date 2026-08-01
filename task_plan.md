@@ -13,6 +13,10 @@
 - [x] Phase 5 — 实现解释、路径推断、相似案例检索 API，并接入前端替换 mock
 - [x] Phase 6 — 增加聚焦测试、运行完整适用测试与端到端验证
 - [x] Phase 7 — 完成架构/数据建设文档、更新领域词汇并提交 scoped git commit
+- [x] Phase 8 — 固定历史 HGB / 实时融合模型边界与输出元数据契约
+- [x] Phase 9 — 实现四灾种实时融合路由，将合成规则模型移出正式预测链
+- [x] Phase 10 — 补充聚焦测试并运行后端完整测试
+- [x] Phase 11 — 审查最终差异并提交 scoped git commit
 
 ## Guardrails
 
@@ -21,6 +25,8 @@
 - 相似案例必须严格早于当前预报起报时刻，并显示相似维度与数据来源。
 - 外部本体采用固定版本的映射/裁剪，不无边界导入。
 - 不改动或提交用户无关的工作区变化。
+- 本轮仅改造预测模型选择与实时融合路由，不扩展到新数据管道或新模型训练。
+- 已有 `backend/app/data/models.py` 和 `backend/tests/test_prediction_service.py` 未提交变更与本任务直接相关，只做必要整合，不覆盖其已有意图。
 
 ## Errors Encountered
 
@@ -34,3 +40,8 @@
 | 相似案例 UI 将 API 的 `null` 最高温渲染为“°C” | 1 | 类型显式允许 `null`，并用非空检查控制指标显示。 |
 | 浏览器控制台发现模型卡片 `<button>` 内嵌展开 `<button>` 的非法 HTML | 1 | 外层改为支持键盘操作的 `role=button` 容器，保留内部独立按钮。 |
 | 完整 pytest 发现 Open-Meteo 测试仍构造旧 `current` 响应，而实现已改为目标时刻 `hourly` 响应 | 1 | 将测试夹具固定起报时刻并更新为两时次 hourly 数据，同时验证选中目标时次。 |
+| 首次实时融合批量补丁与 `degraded_model.py` 实际文案不完全匹配 | 1 | 改为按实际文件内容分文件小步补丁。 |
+| 聚焦测试发现 Mirror Earth provider 返回 `None` | 1 | 移除 `with_overrides` 时漏保留返回语句，补回 `return overrides` 后重跑。 |
+| 后端全量测试有 6 个图谱测试依赖旧合成 Tier3 隐式产生预测 | 1 | 为这些服务集成测试显式 mock 实时指标，不恢复正式链的合成回退。 |
+| 清理旧名称文档的批量补丁未匹配 `with_overrides` 实际换行 | 1 | 拆成独立小补丁，避免影响已完成的功能代码。 |
+| 沙箱内 `git add` 无法写入 `.git/index.lock` | 1 | 按仓库提交要求申请已批准的 git 暂存权限后成功。 |

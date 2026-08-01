@@ -100,11 +100,9 @@ def normalized_severity(key: str, actual: float) -> float:
 
 def with_overrides(case: ForecastCase, overrides: dict[str, float]) -> dict[str, float]:
     """Deterministic placeholder indicators for ``case``, with ``overrides``
-    merged on top. Real/degraded providers use this so every narrow indicator
-    key required by RiskPolicy/explanation modules is always present (falling
-    back to the synthetic placeholder value when no real data source exists
-    for that key), while additional keys (e.g. raw model feature names) are
-    simply added.
+    merged on top. The archived provider uses this for its historical
+    explanation contract, while additional raw model feature names are simply
+    added. Live providers intentionally do not call this helper.
     """
     merged = indicator_provider.generate(case)
     merged.update(overrides)

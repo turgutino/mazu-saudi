@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from app.knowledge_graph.graph_builder import build_graph
 from app.schemas.prediction import PredictionRequest
 from app.services.prediction_service import PredictionService
@@ -10,7 +12,12 @@ from app.services.prediction_service import PredictionService
 def _build_prediction(hazard: str):
     service = PredictionService()
     request = PredictionRequest(region_id="jazan", hazard=hazard, lead_time_hours=24)
-    return service.run_prediction(request)
+    with patch(
+        "app.services.prediction_service.openmeteo_provider.generate",
+        return_value={"cape": 900.0, "daily_precip": 8.0, "t2m": 42.0,
+                      "rh_surface": 30.0, "wind_10m": 15.0, "visibility": 8.0},
+    ):
+        return service.run_prediction(request)
 
 
 def test_graph_has_case_and_prediction_anchor_nodes():

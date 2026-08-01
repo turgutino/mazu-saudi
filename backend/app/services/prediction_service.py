@@ -12,7 +12,6 @@ import uuid
 from datetime import datetime, timezone
 
 from app.data.hazards import get_hazard
-from app.data.indicator_provider import indicator_provider
 from app.data.mirrorearth_provider import MirrorEarthUnavailableError, mirrorearth_provider
 from app.data.mirrorearth_provider import is_configured as mirrorearth_configured
 from app.data.models import DEFAULT_MODEL_ID, get_model
@@ -26,9 +25,8 @@ from app.explanation.feature_attribution import build_feature_contributions
 from app.explanation.mechanism_explanation import build_mechanisms
 from app.explanation.rule_explanation import build_rule_hits
 from app.explanation.similar_events import find_similar_events
-from app.models.degraded_model import degraded_model
+from app.models.degraded_model import live_fusion_model
 from app.models.joblib_model import get_joblib_model
-from app.models.rule_based_model import rule_based_model
 from app.repositories.prediction_store import prediction_store
 from app.risk.calibration import calibrate
 from app.risk.policy import risk_policy
@@ -45,7 +43,7 @@ def _enrich_with_tomorrowio(case: ForecastCase, indicators: dict[str, float]) ->
     fire_index, thunderstorm_prob) into an already-resolved indicators dict.
     Never raises and never changes which tier/model was selected -- if
     Tomorrow.io isn't configured or the call fails, ``indicators`` is
-    returned unchanged (DegradedForecastModel/RuleBasedForecastModel/
+    returned unchanged (LiveFusionForecastModel/
     JoblibForecastModel all tolerate these keys being absent)."""
     region = get_region(case.region_id)
     if region is None:
@@ -60,22 +58,19 @@ def _enrich_with_tomorrowio(case: ForecastCase, indicators: dict[str, float]) ->
 
 
 def _resolve_indicators_and_model(case: ForecastCase) -> tuple[dict[str, float], object, DataTier]:
-    """Three-tier resolution (see 初步设计.md real-data integration notes):
+    """Resolve either the historical ML model or the live fusion model.
 
     Tier 1 (best): a real trained joblib model exists for this hazard AND the
     archived 2025 NetCDF indicators cover the feature date -> real data +
     real model.
-    Tier 2 (degraded): a real trained model exists but the date falls outside
-    the archive -> a live *forecast-model* indicator source, tried in order
+    Live fusion: every hazard whose historical ML inputs are unavailable uses
+    a live *forecast-model* indicator source, tried in order
     of forecast fidelity -- Mirror Earth's CMA numerical model first (a real
     NWP model, closer in spirit to Tier 1's archive), Open-Meteo's blended
-    forecast second -- plus DegradedForecastModel (the joblib models cannot
+    forecast second -- plus LiveFusionForecastModel (the joblib models cannot
     run on either's much smaller feature set). Tomorrow.io's fire_index /
     thunderstorm_prob / wind_gust are merged in afterwards as a best-effort
     enrichment regardless of which of the two base sources was used.
-    Tier 3 (placeholder): heavy-rain (no trained model at all), or Tier 2's
-    live API calls all fail -> synthetic IndicatorProvider + RuleBasedForecastModel.
-
     Returns (indicators, model, data_tier) -- ``data_tier`` is persisted on
     the resulting PredictionResult for future dataset-building (see
     app.schemas.common.DataTier).
@@ -84,20 +79,23 @@ def _resolve_indicators_and_model(case: ForecastCase) -> tuple[dict[str, float],
     if joblib_model is not None and real_data_available(case):
         return real_indicator_provider.generate(case), joblib_model, "tier1_real"
 
-    if joblib_model is not None:
-        if mirrorearth_configured():
-            try:
-                indicators = mirrorearth_provider.generate(case)
-                return _enrich_with_tomorrowio(case, indicators), degraded_model, "tier2_live"
-            except MirrorEarthUnavailableError:
-                pass
+    if mirrorearth_configured():
         try:
-            indicators = openmeteo_provider.generate(case)
-            return _enrich_with_tomorrowio(case, indicators), degraded_model, "tier2_live"
-        except OpenMeteoUnavailableError:
+            indicators = _enrich_with_tomorrowio(case, mirrorearth_provider.generate(case))
+            if live_fusion_model.available_features(case, indicators):
+                return indicators, live_fusion_model, "tier2_live"
+        except MirrorEarthUnavailableError:
             pass
+    try:
+        indicators = _enrich_with_tomorrowio(case, openmeteo_provider.generate(case))
+        if live_fusion_model.available_features(case, indicators):
+            return indicators, live_fusion_model, "tier2_live"
+    except OpenMeteoUnavailableError:
+        pass
 
-    return indicator_provider.generate(case), rule_based_model, "tier3_synthetic"
+    raise PredictionServiceError(
+        f"No live forecast indicators available for hazard: {case.hazard}"
+    )
 
 
 class PredictionService:
@@ -130,15 +128,13 @@ class PredictionService:
             initial_time=initial_time,
         )
 
-        # Three-tier resolution: real trained model + archived NetCDF data
-        # when available, else a degraded live-data model, else the fully
-        # synthetic placeholder (see _resolve_indicators_and_model above).
-        # The requested/displayed modelId (model_info) only affects
-        # PredictionResult's model_id/version/name metadata below -- it does
-        # not select the algorithm, matching v1's existing modelId semantics.
+        # Historical trained model when its archived feature contract is
+        # available, otherwise the live fusion model. The optional request
+        # modelId remains a known-model validation hint for API compatibility;
+        # result metadata always identifies the model that actually ran.
         indicators, active_model, data_tier = _resolve_indicators_and_model(case)
         raw = active_model.predict(case, indicators)
-        calibrated_probability = calibrate(raw.probability, case.hazard, model_info.id)
+        calibrated_probability = calibrate(raw.probability, case.hazard, raw.model_id)
 
         risk = risk_policy.assess(case, calibrated_probability, indicators, region)
 
@@ -155,9 +151,9 @@ class PredictionService:
         result = PredictionResult(
             prediction_id=prediction_id,
             case_id=case.case_id,
-            model_id=model_info.id,
-            model_version=model_info.version,
-            model_name=model_info.name,
+            model_id=raw.model_id,
+            model_version=raw.model_version,
+            model_name=raw.model_name,
             hazard=hazard.id,
             hazard_label=hazard.name,
             region_id=region.id,

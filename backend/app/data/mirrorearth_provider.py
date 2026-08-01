@@ -20,7 +20,6 @@ import os
 
 import requests
 
-from app.data.indicator_provider import with_overrides
 from app.data.live_forecast_utils import nearest_hour_index
 from app.data.regions import get_region
 from app.domain.forecast_case import ForecastCase
@@ -111,7 +110,7 @@ class MirrorEarthIndicatorProvider:
             # Mirror Earth reports visibility in meters; placeholder spec uses km.
             overrides["visibility"] = visibility / 1000.0
 
-        return with_overrides(case, overrides)
+        return overrides
 
 
 mirrorearth_provider = MirrorEarthIndicatorProvider()

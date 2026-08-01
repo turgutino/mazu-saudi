@@ -16,3 +16,11 @@
 - 前端 type-check、ESLint 与 production build 全部通过。
 - 应用浏览器端到端验证通过；修复测试中发现的 3001 CORS、null 指标渲染和嵌套按钮错误。
 - 已发现并隔离其他并发工作区改动，提交时只暂存本任务文件/片段。
+- 启动实时融合模型改造：保留 2025 历史 HGB 模型，将现有退化模型升级为四灾种实时融合模型，正式链路移除合成指标规则模型。
+- 当前阶段：Phase 8，核对模型元数据、路由与 API 契约。
+- Phase 8/9 完成：实时模型身份改为 `live-fusion-v1`；四灾种统一尝试 CMA/Open-Meteo + Tomorrow.io；服务结果记录实际运行模型元数据；正式链移除 `RuleBasedForecastModel`。
+- 实时 provider 改为只返回真实 API 字段，不再用伪随机指标补齐缺失值。
+- 当前阶段：Phase 10，运行聚焦和完整验证。
+- Phase 10 完成：实时融合聚焦测试 47 项通过；后端完整 pytest 103 项通过；前端 type-check、ESLint 与 production build 通过。
+- 当前阶段：Phase 11，最终差异审查与提交。
+- Phase 11 完成：`git diff --check` 通过，变更范围只包含实时融合模型、provider 真实字段契约、模型注册表和相关测试/进度文档。

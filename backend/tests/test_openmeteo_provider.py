@@ -54,13 +54,11 @@ def test_generate_maps_open_meteo_fields_to_placeholder_keys():
     assert indicators["visibility"] == 8.0  # meters -> km
 
 
-def test_generate_falls_back_to_placeholder_values_for_missing_fields():
+def test_generate_does_not_invent_values_for_missing_fields():
     payload = {"hourly": {"time": ["2026-08-02T00:00"]}}
     with patch("app.data.openmeteo_provider.requests.get", return_value=_FakeResponse(payload)):
         indicators = openmeteo_provider.generate(_make_case())
-    # no live override applied, but the narrow placeholder keys still exist
-    assert "t2m" in indicators
-    assert "rh_surface" in indicators
+    assert indicators == {}
 
 
 def test_generate_raises_on_network_error():

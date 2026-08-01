@@ -35,3 +35,10 @@
 - 相似案例严格按 forecast origin 过滤，使用天气、空间、季节三维分数，再以指标覆盖率和案例可靠度降权；完全移除“预测概率接近度”维度。
 - 前端工作台、预测详情与图谱页已接入 FastAPI，不再固定跳转 mock prediction ID；图谱节点详情展示证据类型、状态和可追溯属性。
 - 浏览器实测生成预测 `pred-09294d5256fc`，返回 26 节点/29 边，并确认 Literature、SWEET、MechanismCompatibility、AnalogCase 四类节点存在。
+
+## Live fusion model findings
+
+- 当前 `PredictionService` 只在灾种存在 joblib 模型时尝试 Mirror Earth / Open-Meteo，导致 `heavy-rain` 无条件进入合成数据规则模型。
+- `DegradedForecastModel` 已能处理四灾种及实时 API/Tomorrow.io 有限特征，可作为实时融合模型的现有实现起点。
+- `RuleBasedForecastModel` 依赖 `IndicatorProvider` 合成指标，应保留给测试，但不再由正式 `PredictionService` 调用。
+- 请求中的 `modelId` 目前只是展示元数据，结果应改为记录实际运行模型的 ID/版本/名称。

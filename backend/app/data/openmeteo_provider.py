@@ -1,8 +1,7 @@
 """OpenMeteoIndicatorProvider: Tier 2 degraded live-data indicator source.
 
-Used when a ForecastCase's date falls outside the archived 2025 NetCDF
-dataset (see real_indicator_provider.py), for hazards that otherwise have a
-real trained model. Calls the same free, keyless Open-Meteo forecast API
+Used when a ForecastCase cannot use the archived 2025 NetCDF feature contract
+(see real_indicator_provider.py). Calls the same free, keyless Open-Meteo forecast API
 frontend/src/services/weatherApi.ts already uses client-side, server-side via
 ``requests``, and maps its ~8 published variables onto the existing narrow
 placeholder indicator keys (cape, pw, daily_precip, t2m, wind_10m,
@@ -15,14 +14,13 @@ regardless of ``lead_time_hours``.
 
 This is a genuinely smaller feature set than the joblib models require (no
 ivt, pwat, wind850_speed, neigh_*, climatological anomalies) -- it backs
-DegradedForecastModel (app/models/degraded_model.py), never JoblibForecastModel.
+LiveFusionForecastModel (app/models/degraded_model.py), never JoblibForecastModel.
 """
 
 from __future__ import annotations
 
 import requests
 
-from app.data.indicator_provider import with_overrides
 from app.data.live_forecast_utils import forecast_days_for, nearest_hour_index
 from app.data.regions import get_region
 from app.domain.forecast_case import ForecastCase
@@ -101,7 +99,7 @@ class OpenMeteoIndicatorProvider:
             # Open-Meteo reports visibility in meters; placeholder spec uses km.
             overrides["visibility"] = visibility / 1000.0
 
-        return with_overrides(case, overrides)
+        return overrides
 
 
 openmeteo_provider = OpenMeteoIndicatorProvider()

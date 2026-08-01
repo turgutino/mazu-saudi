@@ -12,16 +12,9 @@ project's model/calibration_report.json (same held-out split). ``f1`` is
 derived from pod/far via precision = 1 - far (not separately reported
 upstream): f1 = 2·pod·precision / (pod + precision).
 
-heavy-rain has no trained model (see JoblibForecastModel.HAZARD_TO_ARTIFACT),
-so it is covered by a 4th entry mirroring RuleBasedForecastModel
-(app/models/rule_based_model.py) — a hand-tuned heuristic, not backtested
-against a held-out set, so its ``metrics`` is intentionally empty rather
-than fabricated.
-
-The requested/displayed modelId here does NOT select the prediction
-algorithm — PredictionService (services/prediction_service.py) independently
-routes to RuleBasedForecastModel / DegradedForecastModel / JoblibForecastModel
-based on hazard + real-data availability (see _resolve_indicators_and_model).
+The fourth entry is the live multi-source fusion baseline used for all four
+hazards when the archived feature contract is unavailable. It is transparent
+and not yet fitted against a held-out set, so its metrics remain empty.
 """
 
 from __future__ import annotations
@@ -60,17 +53,17 @@ MODELS: list[ModelInfo] = [
         },
     ),
     ModelInfo(
-        id="rule-based-v1", name="确定性规则基线模型", version="v1.0.0", type="physical",
-        icon="ri-guide-line",
-        description="暴雨暂无训练模型，使用透明的手工加权规则+逻辑斯谛链接作为基线；未经历史数据回测，故不提供评估指标。",
-        supported_hazards=["heavy-rain"],
+        id="live-fusion-v1", name="实时多源融合模型（加权基线）", version="v1.0.0", type="ensemble",
+        icon="ri-node-tree",
+        description="融合 CMA/Open-Meteo 实时预报与 Tomorrow.io 补充指标的透明加权基线；四灾种共用，暂无独立回测指标。",
+        supported_hazards=["heavy-rain", "extreme-heat", "flash-flood", "dust-storm"],
         last_trained="N/A",
         metrics={},
     ),
 ]
 
 MODELS_BY_ID: dict[str, ModelInfo] = {m.id: m for m in MODELS}
-DEFAULT_MODEL_ID = "rule-based-v1"
+DEFAULT_MODEL_ID = "live-fusion-v1"
 
 
 def get_model(model_id: str) -> ModelInfo | None:

@@ -6,6 +6,8 @@ from app.explanation.mechanism_explanation import build_mechanisms
 from app.explanation.similar_events import find_similar_events
 from app.knowledge_graph.graph_builder import build_graph
 from app.knowledge_graph.knowledge_base import load_knowledge_base
+from unittest.mock import patch
+
 from app.schemas.prediction import PredictionRequest
 from app.services.prediction_service import PredictionService
 
@@ -62,14 +64,18 @@ def test_mechanism_compatibility_is_grounded_but_not_causal():
 
 
 def test_explanation_graph_keeps_evidence_layers_and_rationales():
-    prediction = PredictionService().run_prediction(
-        PredictionRequest(
-            region_id="jazan",
-            hazard="flash-flood",
-            lead_time_hours=6,
-            initial_time="2026-08-01T00:00:00Z",
+    with patch(
+        "app.services.prediction_service.openmeteo_provider.generate",
+        return_value={"cape": 900.0, "daily_precip": 8.0},
+    ):
+        prediction = PredictionService().run_prediction(
+            PredictionRequest(
+                region_id="jazan",
+                hazard="flash-flood",
+                lead_time_hours=6,
+                initial_time="2026-08-01T00:00:00Z",
+            )
         )
-    )
     graph = build_graph(prediction)
 
     assert graph.graph_version == "1.0.0"

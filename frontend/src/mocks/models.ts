@@ -20,8 +20,8 @@ export interface ModelInfo {
 }
 
 // Mirrors backend/app/data/models.py -- the real HistGradientBoostingClassifier
-// models trained in reference_code/mazu-saudi-warning, plus the rule-based
-// baseline covering heavy-rain (no trained model exists for that hazard).
+// models trained in reference_code/mazu-saudi-warning, plus the live fusion
+// baseline used when the archived feature contract is unavailable.
 // This array is a type-safety/fallback aid only; the app always fetches the
 // live list via GET /api/v1/models (see services/predictionApi.ts).
 export const models: ModelInfo[] = [
@@ -65,13 +65,13 @@ export const models: ModelInfo[] = [
     },
   },
   {
-    id: 'rule-based-v1',
-    name: '确定性规则基线模型',
+    id: 'live-fusion-v1',
+    name: '实时多源融合模型（加权基线）',
     version: 'v1.0.0',
-    type: 'physical',
-    icon: 'ri-guide-line',
-    description: '暴雨暂无训练模型，使用透明的手工加权规则+逻辑斯谛链接作为基线；未经历史数据回测，故不提供评估指标。',
-    supportedHazards: ['heavy-rain'],
+    type: 'ensemble',
+    icon: 'ri-node-tree',
+    description: '融合 CMA/Open-Meteo 实时预报与 Tomorrow.io 补充指标的透明加权基线；四灾种共用，暂无独立回测指标。',
+    supportedHazards: ['heavy-rain', 'extreme-heat', 'flash-flood', 'dust-storm'],
     lastTrained: 'N/A',
     metrics: {},
   },

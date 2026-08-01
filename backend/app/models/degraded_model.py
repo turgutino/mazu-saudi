@@ -1,17 +1,15 @@
-"""DegradedForecastModel: Tier 2 fallback ForecastModel for out-of-archive
-dates.
+"""LiveFusionForecastModel: lightweight model for live forecast inputs.
 
 When a ForecastCase's date falls outside the 2025 NetCDF archive (see
 real_indicator_provider.py), the trained joblib models cannot be run (they
 need indicators, like ivt/pwat/wind850_speed/neigh_*, that no live API
-provides). This model instead scores the indicators OpenMeteoIndicatorProvider
+provides). This model scores the indicators OpenMeteoIndicatorProvider
 / MirrorEarthIndicatorProvider can supply live (cape, daily_precip, t2m,
 rh_surface, wind_10m, visibility), plus -- when a Tomorrow.io call also
 succeeds (see app/data/tomorrowio_provider.py) -- its derived risk indicators
 (wind_gust, fire_index, thunderstorm_prob). Same linear-scoring-then-sigmoid
-shape as RuleBasedForecastModel, just over a smaller, explicitly "degraded"
-feature set -- so its lower fidelity is structural and disclosed via
-model_name, not hidden. Any weighted key simply absent from ``indicators``
+shape as a transparent fusion baseline over a smaller live feature set. Any
+weighted key simply absent from ``indicators``
 (e.g. Tomorrow.io wasn't configured/reachable) is skipped, never treated as 0.
 """
 
@@ -42,9 +40,9 @@ HAZARD_BASE_SCORE: dict[str, float] = {
     "dust-storm": -0.5,
 }
 
-MODEL_ID = "degraded-live-v1"
+MODEL_ID = "live-fusion-v1"
 MODEL_VERSION = "v1.0.0"
-MODEL_NAME = "实时数据退化模型（有限指标）"
+MODEL_NAME = "实时多源融合模型（加权基线）"
 
 
 def _sigmoid(x: float) -> float:
@@ -59,15 +57,21 @@ def _classify(probability: float) -> str:
     return "low"
 
 
-class DegradedForecastModel:
-    """Lightweight rule model over live-API-only indicators (Tier 2)."""
+class LiveFusionForecastModel:
+    """Fuse the real indicators available from live forecast providers."""
 
     model_id = MODEL_ID
     model_version = MODEL_VERSION
     model_name = MODEL_NAME
 
+    def available_features(self, case: ForecastCase, indicators: dict[str, float]) -> set[str]:
+        """Return live fields that can contribute to this hazard's score."""
+        return set(HAZARD_WEIGHTS.get(case.hazard, {})).intersection(indicators)
+
     def predict(self, case: ForecastCase, indicators: dict[str, float]) -> RawPrediction:
         weights = HAZARD_WEIGHTS.get(case.hazard, {})
+        if not self.available_features(case, indicators):
+            raise ValueError(f"No live fusion features available for hazard: {case.hazard}")
         score = HAZARD_BASE_SCORE.get(case.hazard, -0.3)
         contributions: dict[str, float] = {}
         for key, weight in weights.items():
@@ -93,4 +97,8 @@ class DegradedForecastModel:
         )
 
 
-degraded_model = DegradedForecastModel()
+live_fusion_model = LiveFusionForecastModel()
+
+# Compatibility aliases for callers outside the formal prediction route.
+DegradedForecastModel = LiveFusionForecastModel
+degraded_model = live_fusion_model

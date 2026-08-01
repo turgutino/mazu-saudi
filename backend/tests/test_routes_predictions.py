@@ -17,6 +17,15 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def live_forecast(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        "app.services.prediction_service.openmeteo_provider.generate",
+        lambda case: {"cape": 900.0, "daily_precip": 8.0, "t2m": 42.0,
+                      "rh_surface": 30.0, "wind_10m": 15.0, "visibility": 8.0},
+    )
+
+
 def test_list_regions(client: TestClient):
     r = client.get("/api/v1/regions")
     assert r.status_code == 200

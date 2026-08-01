@@ -23,7 +23,12 @@ def service() -> PredictionService:
 @pytest.mark.parametrize("hazard", HAZARDS)
 def test_run_prediction_produces_complete_result(service: PredictionService, hazard: str):
     request = PredictionRequest(region_id="jazan", hazard=hazard, lead_time_hours=24)
-    result = service.run_prediction(request)
+    with patch(
+        "app.services.prediction_service.openmeteo_provider.generate",
+        return_value={"cape": 900.0, "daily_precip": 8.0, "t2m": 42.0,
+                      "rh_surface": 30.0, "wind_10m": 15.0, "visibility": 8.0},
+    ):
+        result = service.run_prediction(request)
 
     assert result.hazard == hazard
     assert result.region_id == "jazan"
@@ -39,16 +44,18 @@ def test_run_prediction_produces_complete_result(service: PredictionService, haz
 
 def test_run_prediction_uses_default_model_when_not_specified(service: PredictionService):
     request = PredictionRequest(region_id="jazan", hazard="heavy-rain", lead_time_hours=24)
-    result = service.run_prediction(request)
-    assert result.model_id
+    with patch("app.services.prediction_service.openmeteo_provider.generate", return_value={"daily_precip": 8.0}):
+        result = service.run_prediction(request)
+    assert result.model_id == "live-fusion-v1"
 
 
 def test_run_prediction_respects_explicit_model_id(service: PredictionService):
     request = PredictionRequest(
         region_id="jazan", hazard="heavy-rain", lead_time_hours=24, model_id="joblib-heatwave"
     )
-    result = service.run_prediction(request)
-    assert result.model_id == "joblib-heatwave"
+    with patch("app.services.prediction_service.openmeteo_provider.generate", return_value={"daily_precip": 8.0}):
+        result = service.run_prediction(request)
+    assert result.model_id == "live-fusion-v1"
 
 
 def test_run_prediction_rejects_unknown_region(service: PredictionService):
@@ -67,7 +74,8 @@ def test_run_prediction_saves_to_store(service: PredictionService):
     from app.repositories.prediction_store import prediction_store
 
     request = PredictionRequest(region_id="riyadh", hazard="extreme-heat", lead_time_hours=48)
-    result = service.run_prediction(request)
+    with patch("app.services.prediction_service.openmeteo_provider.generate", return_value={"t2m": 42.0}):
+        result = service.run_prediction(request)
     # Persisted via SQLite now, so this round-trips through JSON rather than
     # returning the same object -- assert value equality, not identity.
     assert prediction_store.get(result.prediction_id) == result
@@ -83,17 +91,22 @@ class _FakeOpenMeteoResponse:
                 "time": ["2026-08-02T00:00"],
                 "temperature_2m": [45.0],
                 "relative_humidity_2m": [20.0],
+                "cape": [900.0],
+                "precipitation": [8.0],
+                "wind_speed_10m": [15.0],
+                "visibility": [8000.0],
             }
         }
 
 
-def test_heavy_rain_always_uses_placeholder_model(service: PredictionService, monkeypatch: pytest.MonkeyPatch):
-    # heavy-rain has no trained joblib model, so it must never reach Tier 1/2
-    # even when MAZU_INDICATORS_DIR happens to be configured.
+def test_heavy_rain_uses_live_fusion_model(service: PredictionService, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
     request = PredictionRequest(region_id="jazan", hazard="heavy-rain", lead_time_hours=24)
-    result = service.run_prediction(request)
-    assert result.probability is not None
+    with patch("app.data.openmeteo_provider.requests.get", return_value=_FakeOpenMeteoResponse()):
+        result = service.run_prediction(request)
+    assert result.model_id == "live-fusion-v1"
+    assert result.data_tier == "tier2_live"
+    assert result.raw_indicators["daily_precip"] == 8.0
 
 
 def test_hazard_with_real_model_falls_back_to_degraded_when_no_archive(
@@ -103,11 +116,11 @@ def test_hazard_with_real_model_falls_back_to_degraded_when_no_archive(
     with patch("app.data.openmeteo_provider.requests.get", return_value=_FakeOpenMeteoResponse()):
         request = PredictionRequest(region_id="jazan", hazard="extreme-heat", lead_time_hours=24)
         result = service.run_prediction(request)
-    assert result.model_id  # displayed modelId unaffected by algorithm tier
+    assert result.model_id == "live-fusion-v1"
     assert 0.0 <= result.probability <= 1.0
 
 
-def test_hazard_with_real_model_falls_back_to_placeholder_when_openmeteo_fails(
+def test_prediction_fails_when_all_live_forecast_sources_fail(
     service: PredictionService, monkeypatch: pytest.MonkeyPatch
 ):
     monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
@@ -116,8 +129,8 @@ def test_hazard_with_real_model_falls_back_to_placeholder_when_openmeteo_fails(
         side_effect=requests.ConnectionError("boom"),
     ):
         request = PredictionRequest(region_id="jazan", hazard="dust-storm", lead_time_hours=24)
-        result = service.run_prediction(request)
-    assert 0.0 <= result.probability <= 1.0
+        with pytest.raises(PredictionServiceError, match="No live forecast indicators"):
+            service.run_prediction(request)
 
 
 def test_mirrorearth_is_tried_before_openmeteo_when_configured(
@@ -257,4 +270,6 @@ def test_real_archive_takes_priority_over_degraded_model(
         )
         result = service.run_prediction(request)
     mocked.assert_not_called()
+    assert result.model_id == "joblib-flash_flood"
+    assert result.data_tier == "tier1_real"
     assert 0.0 <= result.probability <= 1.0
