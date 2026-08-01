@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .common import CamelModel, ConfidenceLevel, RiskLevel
+from .common import CamelModel, ConfidenceLevel, DataTier, RiskLevel
 
 
 class FeatureContribution(CamelModel):
@@ -91,6 +91,12 @@ class PredictionResult(CamelModel):
     risk_description: str
     input_hash: str
     created_at: str
+    # Dataset-building provenance (not shown in the current UI): the raw
+    # indicator dict actually fed to the model (distinct from `features`,
+    # which are post-hoc contribution scores), and which of the 3 tiers
+    # produced it. See app.schemas.common.DataTier.
+    raw_indicators: dict[str, float] = {}
+    data_tier: DataTier
 
 
 class PredictionRequest(CamelModel):

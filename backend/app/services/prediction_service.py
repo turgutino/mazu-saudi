@@ -32,6 +32,7 @@ from app.models.rule_based_model import rule_based_model
 from app.repositories.prediction_store import prediction_store
 from app.risk.calibration import calibrate
 from app.risk.policy import risk_policy
+from app.schemas.common import DataTier
 from app.schemas.prediction import PredictionRequest, PredictionResult
 
 
@@ -58,7 +59,7 @@ def _enrich_with_tomorrowio(case: ForecastCase, indicators: dict[str, float]) ->
     return {**indicators, **enrichment}
 
 
-def _resolve_indicators_and_model(case: ForecastCase) -> tuple[dict[str, float], object]:
+def _resolve_indicators_and_model(case: ForecastCase) -> tuple[dict[str, float], object, DataTier]:
     """Three-tier resolution (see 初步设计.md real-data integration notes):
 
     Tier 1 (best): a real trained joblib model exists for this hazard AND the
@@ -74,25 +75,29 @@ def _resolve_indicators_and_model(case: ForecastCase) -> tuple[dict[str, float],
     enrichment regardless of which of the two base sources was used.
     Tier 3 (placeholder): heavy-rain (no trained model at all), or Tier 2's
     live API calls all fail -> synthetic IndicatorProvider + RuleBasedForecastModel.
+
+    Returns (indicators, model, data_tier) -- ``data_tier`` is persisted on
+    the resulting PredictionResult for future dataset-building (see
+    app.schemas.common.DataTier).
     """
     joblib_model = get_joblib_model(case.hazard)
     if joblib_model is not None and real_data_available(case):
-        return real_indicator_provider.generate(case), joblib_model
+        return real_indicator_provider.generate(case), joblib_model, "tier1_real"
 
     if joblib_model is not None:
         if mirrorearth_configured():
             try:
                 indicators = mirrorearth_provider.generate(case)
-                return _enrich_with_tomorrowio(case, indicators), degraded_model
+                return _enrich_with_tomorrowio(case, indicators), degraded_model, "tier2_live"
             except MirrorEarthUnavailableError:
                 pass
         try:
             indicators = openmeteo_provider.generate(case)
-            return _enrich_with_tomorrowio(case, indicators), degraded_model
+            return _enrich_with_tomorrowio(case, indicators), degraded_model, "tier2_live"
         except OpenMeteoUnavailableError:
             pass
 
-    return indicator_provider.generate(case), rule_based_model
+    return indicator_provider.generate(case), rule_based_model, "tier3_synthetic"
 
 
 class PredictionService:
@@ -131,7 +136,7 @@ class PredictionService:
         # The requested/displayed modelId (model_info) only affects
         # PredictionResult's model_id/version/name metadata below -- it does
         # not select the algorithm, matching v1's existing modelId semantics.
-        indicators, active_model = _resolve_indicators_and_model(case)
+        indicators, active_model, data_tier = _resolve_indicators_and_model(case)
         raw = active_model.predict(case, indicators)
         calibrated_probability = calibrate(raw.probability, case.hazard, model_info.id)
 
@@ -173,6 +178,8 @@ class PredictionService:
             risk_description=risk.risk_description,
             input_hash=case.input_hash,
             created_at=created_at.isoformat(),
+            raw_indicators=indicators,
+            data_tier=data_tier,
         )
 
         prediction_store.save(result)

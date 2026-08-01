@@ -13,7 +13,13 @@ from app.repositories.prediction_store import PredictionStore
 from app.schemas.prediction import PredictionResult
 
 
-def _make_result(prediction_id: str, case_id: str, region_id: str, hazard: str) -> PredictionResult:
+def _make_result(
+    prediction_id: str,
+    case_id: str,
+    region_id: str,
+    hazard: str,
+    data_tier: str = "tier1_real",
+) -> PredictionResult:
     return PredictionResult(
         prediction_id=prediction_id,
         case_id=case_id,
@@ -40,6 +46,8 @@ def _make_result(prediction_id: str, case_id: str, region_id: str, hazard: str) 
         risk_description="test",
         input_hash="hash",
         created_at="2025-06-01T00:00:00+00:00",
+        raw_indicators={"cape": 800.0},
+        data_tier=data_tier,
     )
 
 
@@ -51,6 +59,8 @@ def test_save_and_get_round_trip(tmp_path, monkeypatch):
     assert store.get("pred-1") == result
     assert store.get_by_case_id("case-1") == result
     assert store.get("does-not-exist") is None
+    assert store.get("pred-1").raw_indicators == {"cape": 800.0}
+    assert store.get("pred-1").data_tier == "tier1_real"
 
 
 def test_list_filters_by_region_and_hazard(tmp_path, monkeypatch):
@@ -63,6 +73,16 @@ def test_list_filters_by_region_and_hazard(tmp_path, monkeypatch):
     assert [p.prediction_id for p in store.list(region_id="jazan")] == ["pred-1"]
     assert [p.prediction_id for p in store.list(hazard="extreme-heat")] == ["pred-2"]
     assert store.list(region_id="jazan", hazard="extreme-heat") == []
+
+
+def test_list_filters_by_data_tier(tmp_path, monkeypatch):
+    monkeypatch.setenv("MAZU_DB_PATH", str(tmp_path / "t5.db"))
+    store = PredictionStore()
+    store.save(_make_result("pred-1", "case-1", "jazan", "flash-flood", data_tier="tier1_real"))
+    store.save(_make_result("pred-2", "case-2", "riyadh", "extreme-heat", data_tier="tier3_synthetic"))
+
+    assert [p.prediction_id for p in store.list(data_tier="tier1_real")] == ["pred-1"]
+    assert [p.prediction_id for p in store.list(data_tier="tier3_synthetic")] == ["pred-2"]
 
 
 def test_data_survives_new_store_instance_same_db_file(tmp_path, monkeypatch):

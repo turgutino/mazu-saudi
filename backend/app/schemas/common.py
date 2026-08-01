@@ -33,3 +33,10 @@ ConfidenceLevel = Literal["high", "medium", "low"]
 TrendLevel = Literal["rising", "stable", "falling"]
 ModelType = Literal["tree", "deep", "physical", "ensemble"]
 ActivityType = Literal["prediction", "warning", "report"]
+# Which of PredictionService's three data/model tiers produced a prediction's
+# indicators (see prediction_service._resolve_indicators_and_model): a real
+# trained model + archived NetCDF data, a real model + live forecast API
+# data, or the fully synthetic placeholder. Persisted alongside each
+# prediction so future dataset-building work can filter for high-quality
+# (tier1_real) samples instead of mixing in synthetic placeholder data.
+DataTier = Literal["tier1_real", "tier2_live", "tier3_synthetic"]

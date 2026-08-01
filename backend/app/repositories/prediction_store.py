@@ -31,6 +31,7 @@ class PredictionStore:
             region_id=prediction.region_id,
             hazard=prediction.hazard,
             created_at=prediction.created_at,
+            data_tier=prediction.data_tier,
             payload=prediction.model_dump_json(by_alias=True),
         )
         with self._session_factory() as session:
@@ -49,7 +50,10 @@ class PredictionStore:
             return PredictionResult.model_validate_json(row.payload) if row else None
 
     def list(
-        self, region_id: str | None = None, hazard: str | None = None
+        self,
+        region_id: str | None = None,
+        hazard: str | None = None,
+        data_tier: str | None = None,
     ) -> list[PredictionResult]:
         with self._session_factory() as session:
             stmt = select(PredictionRow)
@@ -57,6 +61,8 @@ class PredictionStore:
                 stmt = stmt.where(PredictionRow.region_id == region_id)
             if hazard:
                 stmt = stmt.where(PredictionRow.hazard == hazard)
+            if data_tier:
+                stmt = stmt.where(PredictionRow.data_tier == data_tier)
             stmt = stmt.order_by(PredictionRow.created_at.desc())
             rows = session.scalars(stmt).all()
             return [PredictionResult.model_validate_json(row.payload) for row in rows]

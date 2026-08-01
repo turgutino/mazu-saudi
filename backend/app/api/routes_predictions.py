@@ -25,9 +25,10 @@ def create_prediction(
 def list_predictions(
     region_id: str | None = Query(default=None, alias="regionId"),
     hazard: str | None = Query(default=None),
+    data_tier: str | None = Query(default=None, alias="dataTier"),
     store: PredictionStore = Depends(get_prediction_store),
 ) -> list[PredictionResult]:
-    return store.list(region_id=region_id, hazard=hazard)
+    return store.list(region_id=region_id, hazard=hazard, data_tier=data_tier)
 
 
 @router.get("/predictions/{prediction_id}", response_model=PredictionResult)

@@ -24,4 +24,8 @@ class PredictionRow(Base):
     region_id: Mapped[str] = mapped_column(String, index=True)
     hazard: Mapped[str] = mapped_column(String, index=True)
     created_at: Mapped[str] = mapped_column(String, index=True)
+    # tier1_real / tier2_live / tier3_synthetic (app.schemas.common.DataTier)
+    # -- indexed so future dataset-building can cheaply filter for
+    # high-quality (tier1_real) rows without deserializing every payload.
+    data_tier: Mapped[str] = mapped_column(String, index=True)
     payload: Mapped[str] = mapped_column(Text)

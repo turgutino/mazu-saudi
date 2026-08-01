@@ -86,6 +86,11 @@ export interface PredictionResult {
   riskDescription: string;
   inputHash: string;
   createdAt: string;
+  // Dataset-building provenance (not currently rendered in the UI): the raw
+  // indicator values actually fed to the model, and which of the 3 tiers
+  // (real archived data / live API / synthetic placeholder) produced them.
+  rawIndicators: Record<string, number>;
+  dataTier: 'tier1_real' | 'tier2_live' | 'tier3_synthetic';
 }
 
 export const predictions: PredictionResult[] = [
@@ -155,6 +160,8 @@ export const predictions: PredictionResult[] = [
     riskDescription: '暴雨概率0.82超过橙色阈值0.70；吉赞属于山洪高敏感区域；降水和CAPE两条规则同时命中；因此输出橙色山洪风险。',
     inputHash: 'a3f8c2e1b9d4',
     createdAt: '2026-07-30T18:05:23Z',
+    rawIndicators: { cape: 2350, pw: 58, daily_precip: 42, vapor_850: 22, shear_500: 28, rh_700: 92 },
+    dataTier: 'tier1_real',
   },
   {
     predictionId: 'pred-2026-07-30-002',
@@ -204,6 +211,8 @@ export const predictions: PredictionResult[] = [
     riskDescription: '高温概率0.68超过黄色阈值；利雅得属于高温高敏感区域；850hPa温度和2m气温均处于高位。',
     inputHash: 'b7d2f1a4c8e6',
     createdAt: '2026-07-30T15:08:45Z',
+    rawIndicators: { t850: 34, t2m: 48, rh_surface: 6, h500: 5970 },
+    dataTier: 'tier2_live',
   },
   {
     predictionId: 'pred-2026-07-29-003',
@@ -254,6 +263,8 @@ export const predictions: PredictionResult[] = [
     riskDescription: '暴雨概率0.69超过黄色阈值0.60；日降水预测28mm超过黄色阈值25mm；不确定性较高（0.28），建议持续关注。',
     inputHash: 'c1e8f3d5a7b2',
     createdAt: '2026-07-29T18:12:30Z',
+    rawIndicators: { cape: 1850, pw: 52, daily_precip: 28, vapor_850: 18, rh_700: 85 },
+    dataTier: 'tier2_live',
   },
   {
     predictionId: 'pred-2026-07-30-004',
@@ -301,5 +312,7 @@ export const predictions: PredictionResult[] = [
     riskDescription: '沙尘暴概率0.49低于黄色阈值；虽然风速超过20m/s阈值，但缺乏其他支持性指标。不确定性较高，建议持续监测。',
     inputHash: 'd9f2e4b6a1c3',
     createdAt: '2026-07-30T12:08:10Z',
+    rawIndicators: { wind_10m: 22, soil_moisture: 0.04, visibility: 5, rh_surface: 12 },
+    dataTier: 'tier3_synthetic',
   },
 ];
