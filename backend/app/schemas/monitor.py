@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from typing import Any, Literal
+
 from .common import CamelModel, RiskLevel, TrendLevel
+
+
+MonitorSource = Literal["open-meteo", "mirror-earth-cma", "tomorrow-io"]
 
 
 class MonitorReading(CamelModel):
@@ -45,3 +50,18 @@ class MonitorRegionData(CamelModel):
     highest_risk_level: RiskLevel
     last_update: str
     forecast: list[ForecastPoint] | None = None
+
+
+class MonitorSnapshotCreate(CamelModel):
+    source: MonitorSource
+    data: dict[str, Any] | list[Any]
+
+
+class MonitorDataSnapshot(CamelModel):
+    snapshot_id: str
+    source: MonitorSource
+    bucket_start: str
+    fetched_at: str
+    expires_at: str
+    cache_hit: bool
+    data: dict[str, Any] | list[Any]

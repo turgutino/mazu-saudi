@@ -7,6 +7,7 @@ import {
 } from '@/services/mirrorEarthApi';
 import { generateFallbackForecast } from '@/services/weatherUtils';
 import { monitorRegions as fallbackRegions } from '@/mocks/monitor';
+import { loadMonitorData } from '@/services/monitorSnapshotApi';
 
 interface UseMirrorEarthDataResult {
   regions: MonitorRegionData[] | null;
@@ -33,15 +34,19 @@ export function useMirrorEarthData(): UseMirrorEarthDataResult {
 
   const inFlightRef = useRef(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh = false) => {
     if (!enabled || inFlightRef.current) return;
     inFlightRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
-      const raw = await fetchAllRegionsCma();
-      const { regions: data, summary } = transformMirrorEarthData(raw);
+      const result = await loadMonitorData(
+        'mirror-earth-cma',
+        async () => transformMirrorEarthData(await fetchAllRegionsCma()),
+        forceRefresh,
+      );
+      const { regions: data, summary } = result.data;
       setRegions(data);
       setLastRefresh(summary.lastRefresh);
       setError(null);
@@ -57,12 +62,12 @@ export function useMirrorEarthData(): UseMirrorEarthDataResult {
 
   useEffect(() => {
     if (enabled) {
-      loadData();
+      loadData(false);
     }
   }, [enabled, loadData]);
 
   const refresh = useCallback(() => {
-    loadData();
+    loadData(true);
   }, [loadData]);
 
   return {

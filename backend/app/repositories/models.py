@@ -48,3 +48,14 @@ class ForecastDataSnapshotRow(Base):
     validation_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_payload: Mapped[str] = mapped_column(Text)
     indicators: Mapped[str] = mapped_column(Text)
+
+
+class MonitorDataSnapshotRow(Base):
+    __tablename__ = "monitor_data_snapshots"
+
+    snapshot_id: Mapped[str] = mapped_column(String, primary_key=True)
+    source: Mapped[str] = mapped_column(String, index=True)
+    bucket_start: Mapped[str] = mapped_column(String, index=True)
+    fetched_at: Mapped[str] = mapped_column(String, index=True)
+    expires_at: Mapped[str] = mapped_column(String, index=True)
+    payload: Mapped[str] = mapped_column(Text)

@@ -21,6 +21,7 @@ export default function MonitorPage() {
     error,
     lastRefresh,
     isRealData,
+    cacheHit,
     refresh: refreshOm,
   } = useWeatherData();
 
@@ -138,7 +139,7 @@ export default function MonitorPage() {
                 </p>
                 {isRealData && (
                   <span className="text-[10px] bg-accent-50 text-accent-700 px-1.5 py-0.5 rounded-full border border-accent-200">
-                    Open-Meteo 实时
+                    {cacheHit ? 'Open-Meteo · 数据库缓存' : 'Open-Meteo · 新快照'}
                   </span>
                 )}
                 {!isRealData && !loading && (
@@ -207,8 +208,8 @@ export default function MonitorPage() {
             {loading && regions.length === 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
                 <div className="w-10 h-10 border-2 border-primary-200 border-t-primary-500 rounded-full animate-spin" />
-                <p className="text-sm text-foreground-500 mt-3">正在同步 Open-Meteo 气象数据...</p>
-                <p className="text-xs text-foreground-400 mt-1">正在请求 8 个沙特监测站点</p>
+                <p className="text-sm text-foreground-500 mt-3">正在读取监测快照...</p>
+                <p className="text-xs text-foreground-400 mt-1">当前6小时时段无缓存时才会同步 8 个区域</p>
               </div>
             )}
             {error && regions.length === 0 && (

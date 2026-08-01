@@ -81,3 +81,5 @@
 - 历史HGB包含最多27个原始/邻域特征，而现有展示层只识别少量 `INDICATOR_SPECS` 并静默丢弃其余特征；真实归因实现必须保留完整模型特征集合，对未知常模的特征显示实际值但不虚构“正常值”。
 - 开发SQLite共有4条旧预测：2条 `live-api-hgb-heavy_rain/live-api-daily-v1` 保存了完整8特征，可用同一制品安全回填；1条 `live-fusion-v1` 与1条 `ensemble-v4` 已无对应制品，不能改用当前HGB解释。
 - 回填后两条HGB记录均保存 `tree_shap/raw_log_odds`、8个特征、基线 `-10.312786` 和模型输出 `-10.321232`；两条淘汰模型记录的 `features` 为0并保存明确不可用原因。
+- 监测地图当前由三个React hook在页面挂载时直接访问Open-Meteo、Mirror Earth CMA和Tomorrow.io；Open-Meteo另有30分钟定时重复请求，三者都不查询后端数据库。
+- 后端 `/monitor/regions` 仍返回静态占位数据；既有 `forecast_data_snapshots` 是按预测目标时刻/特征版本缓存的模型输入，不适合直接充当监测页面多区域、多数据源快照。

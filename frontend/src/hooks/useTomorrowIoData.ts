@@ -5,6 +5,7 @@ import {
   extractEnhancedData,
   isTomorrowIoConfigured,
 } from '@/services/tomorrowIoApi';
+import { loadMonitorData } from '@/services/monitorSnapshotApi';
 
 interface UseTomorrowIoDataResult {
   enhancedList: TomorrowIoEnhanced[] | null;
@@ -22,15 +23,19 @@ export function useTomorrowIoData(): UseTomorrowIoDataResult {
 
   const inFlightRef = useRef(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh = false) => {
     if (!enabled || inFlightRef.current) return;
     inFlightRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
-      const raw = await fetchAllRegionsTomorrowIo();
-      const enhanced = extractEnhancedData(raw);
+      const result = await loadMonitorData(
+        'tomorrow-io',
+        async () => extractEnhancedData(await fetchAllRegionsTomorrowIo()),
+        forceRefresh,
+      );
+      const enhanced = result.data;
       setEnhancedList(enhanced);
       setError(null);
     } catch (err) {
@@ -45,12 +50,12 @@ export function useTomorrowIoData(): UseTomorrowIoDataResult {
 
   useEffect(() => {
     if (enabled) {
-      loadData();
+      loadData(false);
     }
   }, [enabled, loadData]);
 
   const refresh = useCallback(() => {
-    loadData();
+    loadData(true);
   }, [loadData]);
 
   return {

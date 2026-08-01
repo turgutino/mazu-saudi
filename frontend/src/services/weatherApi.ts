@@ -86,7 +86,9 @@ export function transformWeatherData(
 ): { regions: MonitorRegionData[]; summary: { totalRegions: number; activeAlerts: number; lastRefresh: string; nextRefresh: string } } {
   const now = new Date();
   const lastRefresh = now.toISOString().replace('T', ' ').slice(0, 16);
-  const nextRefresh = new Date(now.getTime() + 30 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 16);
+  const nextBucket = new Date(now);
+  nextBucket.setUTCHours(Math.floor(now.getUTCHours() / 6) * 6 + 6, 0, 0, 0);
+  const nextRefresh = nextBucket.toISOString().replace('T', ' ').slice(0, 16);
 
   const regions = rawResponses.map((raw) => {
     const cfg = weatherRegions.find((r) =>

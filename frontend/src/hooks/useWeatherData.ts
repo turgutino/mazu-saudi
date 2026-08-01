@@ -5,6 +5,7 @@ import {
   transformWeatherData,
   getOpenMeteoFallbackData,
 } from '@/services/weatherApi';
+import { loadMonitorData } from '@/services/monitorSnapshotApi';
 
 interface UseWeatherDataResult {
   regions: MonitorRegionData[];
@@ -13,6 +14,7 @@ interface UseWeatherDataResult {
   lastRefresh: string;
   nextRefresh: string;
   isRealData: boolean;
+  cacheHit: boolean;
   refresh: () => void;
 }
 
@@ -23,23 +25,29 @@ export function useWeatherData(): UseWeatherDataResult {
   const [lastRefresh, setLastRefresh] = useState('');
   const [nextRefresh, setNextRefresh] = useState('');
   const [isRealData, setIsRealData] = useState(false);
+  const [cacheHit, setCacheHit] = useState(false);
 
   const inFlightRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh = false) => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
-      const raw = await fetchAllRegions();
-      const { regions: data, summary } = transformWeatherData(raw);
+      const result = await loadMonitorData(
+        'open-meteo',
+        async () => transformWeatherData(await fetchAllRegions()),
+        forceRefresh,
+      );
+      const { regions: data, summary } = result.data;
       setRegions(data);
       setLastRefresh(summary.lastRefresh);
       setNextRefresh(summary.nextRefresh);
       setIsRealData(true);
+      setCacheHit(result.cacheHit);
       setError(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '请求失败';
@@ -49,6 +57,7 @@ export function useWeatherData(): UseWeatherDataResult {
       setLastRefresh(fallback.summary.lastRefresh);
       setNextRefresh(fallback.summary.nextRefresh);
       setIsRealData(false);
+      setCacheHit(false);
     } finally {
       setLoading(false);
       inFlightRef.current = false;
@@ -56,18 +65,20 @@ export function useWeatherData(): UseWeatherDataResult {
   }, []);
 
   useEffect(() => {
-    loadData();
+    loadData(false);
   }, [loadData]);
 
   useEffect(() => {
-    intervalRef.current = setInterval(loadData, 30 * 60 * 1000);
+    // Check the database periodically; third-party data is fetched only when
+    // the fixed UTC six-hour bucket has no snapshot.
+    intervalRef.current = setInterval(() => loadData(false), 30 * 60 * 1000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [loadData]);
 
   const refresh = useCallback(() => {
-    loadData();
+    loadData(true);
   }, [loadData]);
 
   return {
@@ -77,6 +88,7 @@ export function useWeatherData(): UseWeatherDataResult {
     lastRefresh,
     nextRefresh,
     isRealData,
+    cacheHit,
     refresh,
   };
 }

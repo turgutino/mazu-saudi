@@ -10,6 +10,7 @@ later doesn't require touching the routes.
 from __future__ import annotations
 
 from app.repositories.prediction_store import PredictionStore, prediction_store
+from app.repositories.monitor_snapshot_store import MonitorSnapshotStore, monitor_snapshot_store
 from app.services.prediction_service import PredictionService, prediction_service
 
 
@@ -19,3 +20,7 @@ def get_prediction_service() -> PredictionService:
 
 def get_prediction_store() -> PredictionStore:
     return prediction_store
+
+
+def get_monitor_snapshot_store() -> MonitorSnapshotStore:
+    return monitor_snapshot_store

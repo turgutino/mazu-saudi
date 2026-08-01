@@ -68,3 +68,7 @@
 - 迁移后与备份逐条比较，4条记录的概率、风险等级和原始指标变化数为0。
 - Phase 30验证完成：后端完整pytest 124项通过；前端type-check、ESLint和production build通过。无归因记录现在显示明确空状态，不再渲染空白贡献表或遗留伪数值。
 - 回填CLI的后续备份改用SQLite在线backup API，避免运行中数据库直接文件复制的一致性风险；新增备份聚焦测试通过。
+- 启动监测地图六小时缓存改造：Phase 31完成。确定使用独立监测快照，而不是误用灾害预测记录或按目标时刻组织的模型输入快照。
+- Phase 32完成：新增不可变 `monitor_data_snapshots` 表、按数据源+固定UTC六小时时段查询的仓储和GET/POST API；5项聚焦测试通过。
+- Phase 33完成：Open-Meteo、CMA和Tomorrow.io三个hook均改为数据库优先，当前时段缺失才回源；手动刷新绕过缓存并保存新快照。主数据源标签会区分“数据库缓存/新快照”。
+- Phase 34完成：聚焦测试验证同一时段POST后连续GET返回同一snapshotId且 `cacheHit=true`，跨18:00 UTC边界不复用12:00时段数据；后端完整pytest 126项通过，前端type-check、ESLint和production build通过。
