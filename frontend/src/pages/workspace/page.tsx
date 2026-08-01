@@ -716,15 +716,10 @@ export default function Workspace() {
 
       <footer className="border-t border-background-200/70 bg-background-100 mt-12">
         <div className="max-w-[1280px] mx-auto px-6 md:px-8 py-5">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center justify-center">
             <div className="flex items-center gap-2 text-sm text-foreground-500">
               <i className="ri-shield-check-line text-accent-600"></i>
               <span>预测结果仅供参考，实际预警以官方发布为准</span>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-foreground-400">
-              <span>模型: HistGradientBoosting + 实时多源融合</span>
-              <span>数据: ERA5 + 数值预报</span>
-              <span>更新于 2025-06-30</span>
             </div>
           </div>
         </div>
