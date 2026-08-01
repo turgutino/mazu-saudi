@@ -103,6 +103,7 @@ class PredictionResult(CamelModel):
     data_tier: DataTier
     forecast_snapshot_id: str | None = None
     forecast_source: str | None = None
+    indicator_provenance_version: str | None = None
 
 
 class PredictionRequest(CamelModel):

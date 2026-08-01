@@ -34,7 +34,8 @@
 
 | 证据类型 | 回答的问题 | 禁止解读 |
 |---|---|---|
-| 模型归因 | 当前输入如何使模型输出偏离基线 | 物理因果或概率百分点 |
+| 指标值 | 模型、规则和机制实际看到了什么 | SHAP贡献或灾害事实 |
+| 模型归因边 | 当前输入如何使模型输出偏离基线 | 物理因果或概率百分点 |
 | 政策规则 | 为什么得到该风险等级 | 灾害发生概率 |
 | 机制相容性 | 当前指标组合与什么过程一致 | 个例因果证明 |
 | 文献/本体 | 机制概念从哪里来 | 本次天气事实 |
@@ -55,6 +56,31 @@ HGB 模型的局部归因使用 Tree SHAP，固定解释二分类器的原始 ma
 每次结果保存 `attributionMethod`、`attributionOutput`、基线值和模型原始输出，
 并校验“基线 + 全部特征 SHAP 值 = 模型原始输出”。正值提高模型的事件倾向，
 负值降低事件倾向；二者都不是概率百分点，也不能用作物理因果证据。
+
+运行时输入证据链固定为：
+
+```text
+PredictionInputSnapshot
+  ├─ PROVIDES → IndicatorValue
+  └─ 记录来源、有效范围、特征版本和数据层级
+
+IndicatorValue
+  ├─ USED_BY → ModelVersion
+  ├─ USES → PolicyRule
+  └─ CONSISTENT_WITH → MechanismCompatibility
+
+Prediction
+  └─ HAS_ATTRIBUTION → IndicatorValue
+       （边属性保存Tree SHAP方法、输出尺度和贡献值）
+```
+
+指标值只建一个节点；模型归因是计算边，不复制第二个同值节点。正式本体
+`urn:mazu-saudi:ontology` 的版本随图API返回，已有对应关系的指标同时返回本地本体IRI、
+CF Standard Name、cell methods和坐标限定；尚未对齐的模型派生特征明确标记为`unmapped`。
+
+实时预测优先读取已持久化的第三方预报快照元数据。历史预测使用冻结输入哈希生成归档快照
+身份。自`real-inputs-v1`起，历史正式链不再为缺失的机制解释指标生成合成补值；旧历史记录
+没有该来源版本时，图谱隐藏机制得分和相容边并标记`legacy-unverified-inputs`。
 
 ## 4. 相似案例算法
 

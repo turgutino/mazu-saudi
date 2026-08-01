@@ -1,4 +1,4 @@
-export type GraphNodeType = 'case' | 'prediction' | 'model' | 'hazard' | 'region' | 'feature' | 'rule' | 'mechanism' | 'risk' | 'event' | 'warning' | 'source' | 'ontology';
+export type GraphNodeType = 'case' | 'prediction' | 'model' | 'hazard' | 'region' | 'feature' | 'snapshot' | 'indicator' | 'rule' | 'mechanism' | 'risk' | 'event' | 'warning' | 'source' | 'ontology';
 export type GraphGroup = 'anchor' | 'input' | 'features' | 'rules' | 'mechanisms' | 'events' | 'sources';
 
 export interface GraphNode {
@@ -25,11 +25,14 @@ export interface GraphEdge {
   confidence?: number | null;
   rationale: string;
   evidenceIds: string[];
+  details: Record<string, string | number | boolean | null>;
 }
 
 export interface KnowledgeGraph {
   predictionId: string;
   graphVersion: string;
+  ontologyId: string;
+  ontologyVersion: string;
   generatedAt: string;
   disclaimer: string;
   nodes: GraphNode[];

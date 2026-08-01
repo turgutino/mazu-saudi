@@ -88,3 +88,8 @@
 - 运行进程500的精确原因是Riyadh样本 `sst_celsius=NaN`：HGB可处理NaN，但Starlette严格JSON序列化拒绝非有限浮点。API/数据库现在以 `null` 保留缺测语义，模型内部仍使用NaN推理。
 - 图谱节点按容器实测宽高布局，但原SVG视口首次固定为900×600；宽屏下节点可能落在视口外，“重置视图”因同步了真实尺寸才让节点出现。
 - 图谱节点原先直接按完整标签计算尺寸，长模型名、文献名和机制描述会产生过宽节点；画布标签应有稳定上限，完整文本通过SVG悬停提示和节点详情保留。
+- 当前 `PredictionResult.rawIndicators` 已保存模型与机制计算所见的真实输入，实时预测还保存不可变 `forecastSnapshotId/source`；因此无需新建图库或重复抓取数据即可补全来源链。
+- 最小正确图模型确定为：`InputSnapshot -PROVIDES-> IndicatorValue -USED_BY-> Model -GENERATED-> Prediction`，Tree SHAP作为 `Prediction -HAS_ATTRIBUTION-> IndicatorValue` 的计算边；同一指标值再通过 `USES/CONSISTENT_WITH` 连接政策规则和机制，避免值节点与归因节点重复膨胀。
+- 运行图目前只为模型特征建节点，机制实际读取但模型未使用的 `rh_surface/visibility` 等指标会从图中消失；正式本体2.0.0也未随运行图返回版本或指标IRI。
+- 真实历史复核发现 `RealIndicatorProvider` 仍通过旧 `with_overrides` 为归档不存在的T850/H500/地表湿度生成伪随机占位值；新证据链不能把这些值标成ERA5事实，正式历史链必须只保留归档实值及其等值别名。
+- 修正后真实Riyadh历史高温仍返回概率0.1126；运行图包含27个归档输入指标、27条PROVIDES/USED_BY/HAS_ATTRIBUTION和1条有真实输入支撑的机制相容边。旧历史记录的机制节点保留一般知识，但个例得分、置信度和相容边全部隐藏。

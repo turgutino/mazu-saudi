@@ -109,6 +109,14 @@ def test_generate_reads_nearest_stride2_cell(indicators_dir: Path):
     assert indicators["t2m"] == 41.0  # placeholder alias
 
 
+def test_generate_does_not_invent_missing_explanation_indicators(indicators_dir: Path):
+    indicators = RealIndicatorProvider().generate(_make_case())
+
+    assert "t850" not in indicators
+    assert "h500" not in indicators
+    assert "rh_surface" not in indicators
+
+
 def test_generate_sets_region_lat_lon_and_day_of_year(indicators_dir: Path):
     provider = RealIndicatorProvider()
     indicators = provider.generate(_make_case())

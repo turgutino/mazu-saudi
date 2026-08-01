@@ -17,6 +17,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 _CATALOG_PATH = _ROOT / "backend" / "data" / "knowledge" / "prediction_knowledge.json"
 _SWEET_PATH = _ROOT / "ontology" / "sweet_alignment.json"
 _LITERATURE_PATH = _ROOT / "ontology" / "literature_sources.json"
+_ONTOLOGY_PATH = _ROOT / "ontology" / "mazu_weather_ontology.jsonld"
 
 
 class KnowledgeBaseError(ValueError):
@@ -32,6 +33,7 @@ def load_knowledge_base() -> dict[str, Any]:
     catalog = _read_json(_CATALOG_PATH)
     sweet = _read_json(_SWEET_PATH)
     literature = _read_json(_LITERATURE_PATH)
+    ontology = _read_json(_ONTOLOGY_PATH)
 
     mechanism_ids = [item["id"] for item in catalog.get("mechanisms", [])]
     case_ids = [item["id"] for item in catalog.get("cases", [])]
@@ -51,6 +53,17 @@ def load_knowledge_base() -> dict[str, Any]:
     }
     catalog["sweetMappings"] = sweet.get("mappings", [])
     catalog["sweetSource"] = sweet.get("source", {})
+    concept_prefix = ontology.get("@context", {}).get("concept", "urn:mazu-saudi:concept:")
+    ontology_resources = ontology.get("@graph", [])
+    catalog["ontology"] = {
+        "id": ontology["@id"],
+        "version": ontology["versionInfo"],
+        "resourcesById": {
+            item["@id"].replace("concept:", concept_prefix): item
+            for item in ontology_resources
+            if isinstance(item, dict) and isinstance(item.get("@id"), str)
+        },
+    }
     return catalog
 
 
@@ -78,3 +91,15 @@ def sweet_mapping(local_suffix: str) -> dict[str, Any] | None:
         (item for item in load_knowledge_base()["sweetMappings"] if item["local_iri"].endswith(suffix)),
         None,
     )
+
+
+def ontology_metadata() -> dict[str, Any]:
+    return load_knowledge_base()["ontology"]
+
+
+def ontology_resource(concept_suffix: str) -> dict[str, Any] | None:
+    iri = f"urn:mazu-saudi:concept:{concept_suffix}"
+    resource = ontology_metadata()["resourcesById"].get(iri)
+    if resource is None:
+        return None
+    return {**resource, "iri": iri}

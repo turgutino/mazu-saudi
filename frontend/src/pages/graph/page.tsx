@@ -10,8 +10,8 @@ interface NodeGroup { key: string; label: string; icon: string; color: string }
 
 const NODE_GROUPS: NodeGroup[] = [
   { key: 'anchor', label: '预测与决策', icon: 'ri-links-line', color: '#ea580c' },
-  { key: 'input', label: '目标与上下文', icon: 'ri-database-2-line', color: '#0d9488' },
-  { key: 'features', label: '模型归因', icon: 'ri-bar-chart-2-line', color: '#16a34a' },
+  { key: 'input', label: '输入与上下文', icon: 'ri-database-2-line', color: '#0d9488' },
+  { key: 'features', label: '指标与归因', icon: 'ri-bar-chart-2-line', color: '#16a34a' },
   { key: 'rules', label: '政策规则', icon: 'ri-checkbox-multiple-line', color: '#d97706' },
   { key: 'mechanisms', label: '机制相容性', icon: 'ri-git-branch-line', color: '#b45309' },
   { key: 'events', label: '历史类比', icon: 'ri-history-line', color: '#ca8a04' },
@@ -20,15 +20,24 @@ const NODE_GROUPS: NodeGroup[] = [
 
 const TIMELINE_STEPS = [
   { step: 0, label: '预测案例', desc: '确定起报、有效时间和空间范围' },
-  { step: 1, label: '模型预测', desc: '生成并校准灾害概率' },
-  { step: 2, label: '模型归因', desc: '读取模型实际使用的特征贡献' },
+  { step: 1, label: '输入与模型', desc: '冻结数据快照并生成灾害概率' },
+  { step: 2, label: '指标与归因', desc: '区分指标值与模型特征贡献' },
   { step: 3, label: '政策规则', desc: '执行版本化风险政策' },
   { step: 4, label: '知识解释', desc: '检查机制相容性并回溯文献/本体' },
   { step: 5, label: '风险评估', desc: '区分概率、敏感性与风险等级' },
   { step: 6, label: '历史类比', desc: '检索起报前的多维相似案例' },
 ];
 
-const EMPTY_GRAPH: KnowledgeGraph = { predictionId: '', graphVersion: '', generatedAt: '', disclaimer: '', nodes: [], edges: [] };
+const EMPTY_GRAPH: KnowledgeGraph = {
+  predictionId: '',
+  graphVersion: '',
+  ontologyId: '',
+  ontologyVersion: '',
+  generatedAt: '',
+  disclaimer: '',
+  nodes: [],
+  edges: [],
+};
 
 const NODE_COLORS: Record<string, { fill: string; stroke: string; text: string }> = {
   case: { fill: '#fef3c7', stroke: '#d97706', text: '#92400e' },
@@ -37,6 +46,8 @@ const NODE_COLORS: Record<string, { fill: string; stroke: string; text: string }
   hazard: { fill: '#fef2f2', stroke: '#dc2626', text: '#991b1b' },
   region: { fill: '#ecfdf5', stroke: '#059669', text: '#065f46' },
   feature: { fill: '#f0fdf4', stroke: '#16a34a', text: '#14532d' },
+  snapshot: { fill: '#ecfeff', stroke: '#0891b2', text: '#164e63' },
+  indicator: { fill: '#f0fdf4', stroke: '#16a34a', text: '#14532d' },
   rule: { fill: '#fff7ed', stroke: '#ea580c', text: '#7c2d12' },
   mechanism: { fill: '#fef9f0', stroke: '#b45309', text: '#78350f' },
   risk: { fill: '#fef2f2', stroke: '#dc2626', text: '#991b1b' },
@@ -53,6 +64,8 @@ const NODE_LABELS: Record<string, string> = {
   hazard: '灾种',
   region: '区域',
   feature: '特征',
+  snapshot: '输入快照',
+  indicator: '指标值',
   rule: '规则',
   mechanism: '机制',
   risk: '风险评估',
@@ -68,6 +81,9 @@ const EDGE_COLORS: Record<string, string> = {
   FOR_REGION: '#0d9488',
   PREDICTS: '#e11d48',
   HAS_ATTRIBUTION: '#16a34a',
+  USES_INPUT: '#0891b2',
+  PROVIDES: '#0d9488',
+  USED_BY: '#c2410c',
   USES: '#ea580c',
   TRIGGERS: '#ea580c',
   CONSISTENT_WITH: '#b45309',
@@ -416,6 +432,7 @@ export default function KnowledgeGraphPage() {
             <h1 className="font-heading text-lg text-foreground-900">解释证据图谱</h1>
             <Badge variant="secondary">{graphData.predictionId}</Badge>
             {graphData.graphVersion && <Badge variant="secondary">KB {graphData.graphVersion}</Badge>}
+            {graphData.ontologyVersion && <Badge variant="secondary">Ontology {graphData.ontologyVersion}</Badge>}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="text-xs text-foreground-500 px-3 py-1.5 bg-background-100 rounded-full">
@@ -709,6 +726,11 @@ export default function KnowledgeGraphPage() {
                                   : (graphData.nodes.find((n) => n.id === e.source)?.label.split('\n')[0] || e.source)}
                               </span>
                               {e.confidence != null && <span className="text-foreground-500">{(e.confidence * 100).toFixed(0)}%</span>}
+                              {typeof e.details?.contribution === 'number' && (
+                                <span className={e.details.contribution >= 0 ? 'text-red-600' : 'text-blue-600'}>
+                                  SHAP {e.details.contribution >= 0 ? '+' : ''}{e.details.contribution.toFixed(3)}
+                                </span>
+                              )}
                             </div>
                           ))}
                         </div>

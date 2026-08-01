@@ -26,7 +26,6 @@ from pathlib import Path
 
 import numpy as np
 
-from app.data.indicator_provider import with_overrides
 from app.data.regions import get_region
 from app.domain.forecast_case import ForecastCase
 
@@ -188,9 +187,11 @@ class RealIndicatorProvider:
             for placeholder_key, real_key in _PLACEHOLDER_ALIASES.items()
             if real_key in raw
         }
-        merged = with_overrides(case, overrides)
-        merged.update(raw)
-        return merged
+        # Keep only archive-backed values and aliases of those same values.
+        # Missing explanation indicators must remain missing so mechanism
+        # coverage is reduced instead of silently receiving synthetic inputs.
+        raw.update(overrides)
+        return raw
 
 
 real_indicator_provider = RealIndicatorProvider()

@@ -240,6 +240,7 @@ class PredictionService:
             data_tier=data_tier,
             forecast_snapshot_id=snapshot_id,
             forecast_source=forecast_source,
+            indicator_provenance_version="real-inputs-v1",
         )
 
         prediction_store.save(result)

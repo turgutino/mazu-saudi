@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from app.repositories.prediction_store import PredictionStore, prediction_store
 from app.repositories.monitor_snapshot_store import MonitorSnapshotStore, monitor_snapshot_store
+from app.repositories.forecast_snapshot_store import ForecastSnapshotStore, forecast_snapshot_store
 from app.services.prediction_service import PredictionService, prediction_service
 
 
@@ -24,3 +25,7 @@ def get_prediction_store() -> PredictionStore:
 
 def get_monitor_snapshot_store() -> MonitorSnapshotStore:
     return monitor_snapshot_store
+
+
+def get_forecast_snapshot_store() -> ForecastSnapshotStore:
+    return forecast_snapshot_store
