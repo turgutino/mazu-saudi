@@ -30,7 +30,7 @@ from app.models.joblib_model import get_joblib_model
 from app.repositories.prediction_store import prediction_store
 from app.risk.calibration import calibrate
 from app.risk.policy import risk_policy
-from app.schemas.common import DataTier
+from app.schemas.common import DataTier, PredictionMode
 from app.schemas.prediction import PredictionRequest, PredictionResult
 
 
@@ -57,7 +57,9 @@ def _enrich_with_tomorrowio(case: ForecastCase, indicators: dict[str, float]) ->
     return {**indicators, **enrichment}
 
 
-def _resolve_indicators_and_model(case: ForecastCase) -> tuple[dict[str, float], object, DataTier]:
+def _resolve_indicators_and_model(
+    case: ForecastCase, prediction_mode: PredictionMode = "auto"
+) -> tuple[dict[str, float], object, DataTier]:
     """Resolve either the historical ML model or the live fusion model.
 
     Tier 1 (best): a real trained joblib model exists for this hazard AND the
@@ -76,7 +78,22 @@ def _resolve_indicators_and_model(case: ForecastCase) -> tuple[dict[str, float],
     app.schemas.common.DataTier).
     """
     joblib_model = get_joblib_model(case.hazard)
-    if joblib_model is not None and real_data_available(case):
+    if prediction_mode == "historical":
+        if joblib_model is None:
+            raise PredictionServiceError(
+                f"No historical trained model for hazard: {case.hazard}"
+            )
+        if not real_data_available(case):
+            raise PredictionServiceError(
+                f"No archived indicators available for historical replay: {case.target_time.date()}"
+            )
+        return real_indicator_provider.generate(case), joblib_model, "tier1_real"
+
+    if (
+        prediction_mode == "auto"
+        and joblib_model is not None
+        and real_data_available(case)
+    ):
         return real_indicator_provider.generate(case), joblib_model, "tier1_real"
 
     if mirrorearth_configured():
@@ -132,7 +149,9 @@ class PredictionService:
         # available, otherwise the live fusion model. The optional request
         # modelId remains a known-model validation hint for API compatibility;
         # result metadata always identifies the model that actually ran.
-        indicators, active_model, data_tier = _resolve_indicators_and_model(case)
+        indicators, active_model, data_tier = _resolve_indicators_and_model(
+            case, request.prediction_mode
+        )
         raw = active_model.predict(case, indicators)
         calibrated_probability = calibrate(raw.probability, case.hazard, raw.model_id)
 

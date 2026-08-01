@@ -42,3 +42,11 @@
 - `DegradedForecastModel` 已能处理四灾种及实时 API/Tomorrow.io 有限特征，可作为实时融合模型的现有实现起点。
 - `RuleBasedForecastModel` 依赖 `IndicatorProvider` 合成指标，应保留给测试，但不再由正式 `PredictionService` 调用。
 - 请求中的 `modelId` 目前只是展示元数据，结果应改为记录实际运行模型的 ID/版本/名称。
+
+## Historical replay findings
+
+- 工作台将可选起报时间藏在最后确认步骤，模型选择发生在日期之前，用户无法建立“2025日期 → 历史HGB”的清晰心智模型。
+- `MAZU_INDICATORS_DIR` 当前未配置，但本机真实归档位于 `/Volumes/E/气象数据/saudi_region_output/indicators`。
+- 归档含 `saudi_indicators_20250101.nc` 至 `saudi_indicators_20251231.nc`，共365个逐日文件。
+- HGB 特征日是 `target_date - 1 day`；在24小时时效下等于起报日期，其他时效必须仍由后端通过实际文件存在性判定。
+- 已使用2025-06-01吉赞高温+24h直接实测本机归档：成功加载106个指标并运行 `joblib-heatwave`，返回 `tier1_real`和概率0.0012。

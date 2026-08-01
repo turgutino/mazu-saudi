@@ -33,6 +33,7 @@ ConfidenceLevel = Literal["high", "medium", "low"]
 TrendLevel = Literal["rising", "stable", "falling"]
 ModelType = Literal["tree", "deep", "physical", "ensemble"]
 ActivityType = Literal["prediction", "warning", "report"]
+PredictionMode = Literal["auto", "live", "historical"]
 # Which input/model path produced a prediction. ``tier3_synthetic`` remains
 # only so legacy and test records can still be read; PredictionService no
 # longer emits it.

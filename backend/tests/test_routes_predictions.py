@@ -139,6 +139,21 @@ def test_prediction_rejects_unknown_region(client: TestClient):
     assert r.status_code == 422
 
 
+def test_historical_mode_rejects_hazard_without_trained_model(client: TestClient):
+    r = client.post(
+        "/api/v1/predictions",
+        json={
+            "regionId": "jazan",
+            "hazard": "heavy-rain",
+            "leadTimeHours": 24,
+            "initialTime": "2025-06-01T00:00:00Z",
+            "predictionMode": "historical",
+        },
+    )
+    assert r.status_code == 422
+    assert "No historical trained model" in r.json()["detail"]
+
+
 def test_get_prediction_404_when_missing(client: TestClient):
     r = client.get("/api/v1/predictions/does-not-exist")
     assert r.status_code == 404

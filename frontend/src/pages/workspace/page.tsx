@@ -9,7 +9,10 @@ import type { HazardType } from '@/mocks/hazards';
 import { type ModelInfo, type ModelMetrics, METRIC_LABELS } from '@/mocks/models';
 import { createPrediction, fetchRegions, fetchHazards, fetchModels } from '@/services/predictionApi';
 
-type Step = 'region' | 'hazard' | 'leadtime' | 'model' | 'confirm';
+type PredictionMode = 'live' | 'historical';
+type Step = 'mode' | 'region' | 'hazard' | 'leadtime' | 'model' | 'confirm';
+
+const STEP_ORDER: Step[] = ['mode', 'region', 'hazard', 'leadtime', 'model', 'confirm'];
 
 function MetricBar({ value, higherIsBetter, label }: { value: number; higherIsBetter: boolean; label: string }) {
   const pct = Math.round(value * 100);
@@ -52,6 +55,13 @@ function ModelMetricsPanel({ metrics, hazardId }: { metrics: Record<string, Mode
 
 function isHistoricalModel(model: ModelInfo) {
   return model.id.startsWith('joblib-');
+}
+
+function historicalFeatureDateFor(initialDate: string, leadTimeHours: number) {
+  const target = new Date(`${initialDate}T00:00:00Z`);
+  target.setUTCHours(target.getUTCHours() + leadTimeHours);
+  target.setUTCDate(target.getUTCDate() - 1);
+  return target.toISOString().slice(0, 10);
 }
 
 function ModelAvailability({ model }: { model: ModelInfo }) {
@@ -110,7 +120,7 @@ function ComparisonRow({ model, hazardId, isBest, isSelected, onClick }: { model
 
 export default function Workspace() {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState<Step>('region');
+  const [currentStep, setCurrentStep] = useState<Step>('mode');
   const [regions, setRegions] = useState<Region[]>([]);
   const [hazards, setHazards] = useState<HazardType[]>([]);
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -120,7 +130,8 @@ export default function Workspace() {
   const [selectedHazard, setSelectedHazard] = useState<HazardType | null>(null);
   const [selectedLeadTime, setSelectedLeadTime] = useState<number | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null);
-  const [initialTime, setInitialTime] = useState('');
+  const [predictionMode, setPredictionMode] = useState<PredictionMode | null>(null);
+  const [historicalDate, setHistoricalDate] = useState('2025-06-01');
   const [isRunning, setIsRunning] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
   const [runError, setRunError] = useState<string | null>(null);
@@ -150,15 +161,27 @@ export default function Workspace() {
     };
   }, []);
 
-  const availableModels = selectedHazard
-    ? models.filter((m) => m.supportedHazards.includes(selectedHazard.id))
+  const availableModels = selectedHazard && predictionMode
+    ? models.filter((model) =>
+        model.supportedHazards.includes(selectedHazard.id)
+        && (predictionMode === 'historical' ? isHistoricalModel(model) : model.id === 'live-fusion-v1'))
     : [];
 
   const availableLeadTimes = selectedHazard ? selectedHazard.leadTimes : [];
+  const historicalFeatureDate = predictionMode === 'historical' && selectedLeadTime
+    ? historicalFeatureDateFor(historicalDate, selectedLeadTime)
+    : null;
+  const historicalFeatureAvailable = historicalFeatureDate === null
+    || (historicalFeatureDate >= '2025-01-01' && historicalFeatureDate <= '2025-12-31');
 
   const resetToStep = (step: Step) => {
     setCurrentStep(step);
-    if (step === 'region') {
+    if (step === 'mode') {
+      setSelectedRegion(null);
+      setSelectedHazard(null);
+      setSelectedLeadTime(null);
+      setSelectedModel(null);
+    } else if (step === 'region') {
       setSelectedHazard(null);
       setSelectedLeadTime(null);
       setSelectedModel(null);
@@ -171,18 +194,20 @@ export default function Workspace() {
   };
 
   const steps: { key: Step; label: string; number: number }[] = [
-    { key: 'region', label: '选择区域', number: 1 },
-    { key: 'hazard', label: '选择灾种', number: 2 },
-    { key: 'leadtime', label: '预测时效', number: 3 },
-    { key: 'model', label: '选择模型', number: 4 },
-    { key: 'confirm', label: '确认执行', number: 5 },
+    { key: 'mode', label: '运行模式', number: 1 },
+    { key: 'region', label: '选择区域', number: 2 },
+    { key: 'hazard', label: '选择灾种', number: 3 },
+    { key: 'leadtime', label: '预测时效', number: 4 },
+    { key: 'model', label: '确认模型', number: 5 },
+    { key: 'confirm', label: '确认执行', number: 6 },
   ];
 
   const canProceed = () => {
     switch (currentStep) {
+      case 'mode': return !!predictionMode && (predictionMode === 'live' || !!historicalDate);
       case 'region': return !!selectedRegion;
       case 'hazard': return !!selectedHazard;
-      case 'leadtime': return !!selectedLeadTime;
+      case 'leadtime': return !!selectedLeadTime && historicalFeatureAvailable;
       case 'model': return !!selectedModel;
       case 'confirm': return true;
       default: return false;
@@ -190,13 +215,15 @@ export default function Workspace() {
   };
 
   const handleNext = () => {
-    const order: Step[] = ['region', 'hazard', 'leadtime', 'model', 'confirm'];
-    const idx = order.indexOf(currentStep);
-    if (idx < order.length - 1) setCurrentStep(order[idx + 1]);
+    const idx = STEP_ORDER.indexOf(currentStep);
+    if (currentStep === 'leadtime') {
+      setSelectedModel(availableModels[0] ?? null);
+    }
+    if (idx < STEP_ORDER.length - 1) setCurrentStep(STEP_ORDER[idx + 1]);
   };
 
   const handleRunPrediction = async () => {
-    if (!selectedRegion || !selectedHazard || !selectedLeadTime || !selectedModel) return;
+    if (!predictionMode || !selectedRegion || !selectedHazard || !selectedLeadTime || !selectedModel) return;
 
     setIsRunning(true);
     setRunError(null);
@@ -207,7 +234,8 @@ export default function Workspace() {
         hazard: selectedHazard.id,
         leadTimeHours: selectedLeadTime,
         modelId: selectedModel.id,
-        ...(initialTime ? { initialTime: new Date(initialTime).toISOString() } : {}),
+        predictionMode,
+        ...(predictionMode === 'historical' ? { initialTime: `${historicalDate}T00:00:00Z` } : {}),
       });
       setProgressMessage('预测与解释证据已生成，正在打开结果…');
       navigate(`/prediction/${result.predictionId}`);
@@ -274,7 +302,76 @@ export default function Workspace() {
               </div>
             ) : (
             <>
-            {/* Step 1: Region */}
+            {/* Step 1: Mode */}
+            {currentStep === 'mode' && (
+              <div>
+                <h2 className="font-heading text-lg text-foreground-900 mb-1">选择运行模式</h2>
+                <p className="text-sm text-foreground-500 mb-5">实时预测使用第三方数值预报；历史回放使用2025归档指标和自有训练模型</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => {
+                      setPredictionMode('live');
+                      setSelectedRegion(null);
+                      setSelectedHazard(null);
+                      setSelectedLeadTime(null);
+                      setSelectedModel(null);
+                    }}
+                    className={`text-left p-5 rounded-lg border cursor-pointer transition-all ${
+                      predictionMode === 'live'
+                        ? 'border-primary-400 bg-primary-50 ring-1 ring-primary-300'
+                        : 'border-background-200/70 bg-background-50 hover:border-background-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <i className="ri-radar-line text-xl text-primary-600"></i>
+                      <span className="font-medium text-foreground-900">实时预测</span>
+                      <Badge variant="success">当前与未来</Badge>
+                    </div>
+                    <p className="text-xs text-foreground-500">使用CMA、Open-Meteo与Tomorrow.io指标，运行实时多源融合模型。</p>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPredictionMode('historical');
+                      setSelectedRegion(null);
+                      setSelectedHazard(null);
+                      setSelectedLeadTime(null);
+                      setSelectedModel(null);
+                    }}
+                    className={`text-left p-5 rounded-lg border cursor-pointer transition-all ${
+                      predictionMode === 'historical'
+                        ? 'border-secondary-400 bg-secondary-50 ring-1 ring-secondary-300'
+                        : 'border-background-200/70 bg-background-50 hover:border-background-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <i className="ri-history-line text-xl text-secondary-600"></i>
+                      <span className="font-medium text-foreground-900">2025历史回放</span>
+                      <Badge variant="secondary">自有HGB模型</Badge>
+                    </div>
+                    <p className="text-xs text-foreground-500">读取2025年高精度NetCDF归档，运行高温、山洪或沙尘暴训练模型。</p>
+                  </button>
+                </div>
+                {predictionMode === 'historical' && (
+                  <div className="mt-5 p-4 rounded-lg bg-background-100 border border-background-200">
+                    <label htmlFor="historical-date" className="text-sm font-medium text-foreground-700 block mb-2">
+                      历史起报日期
+                    </label>
+                    <input
+                      id="historical-date"
+                      type="date"
+                      min="2025-01-01"
+                      max="2025-12-31"
+                      value={historicalDate}
+                      onChange={(event) => setHistoricalDate(event.target.value)}
+                      className="w-full sm:w-64 px-3 py-2 text-sm rounded-md border border-background-200 bg-background-50 text-foreground-900 focus:outline-none focus:ring-1 focus:ring-secondary-300"
+                    />
+                    <p className="text-xs text-foreground-400 mt-2">归档覆盖2025-01-01至2025-12-31；最终可用性还会结合所选预报时效检查对应特征日文件。</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 2: Region */}
             {currentStep === 'region' && (
               <div>
                 <h2 className="font-heading text-lg text-foreground-900 mb-1">选择监测区域</h2>
@@ -313,41 +410,49 @@ export default function Workspace() {
               </div>
             )}
 
-            {/* Step 2: Hazard */}
+            {/* Step 3: Hazard */}
             {currentStep === 'hazard' && (
               <div>
                 <h2 className="font-heading text-lg text-foreground-900 mb-1">选择预测灾种</h2>
                 <p className="text-sm text-foreground-500 mb-5">选择需要预测的极端天气类型</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {hazards.map((hazard) => (
-                    <button
-                      key={hazard.id}
-                      onClick={() => setSelectedHazard(hazard)}
-                      className={`text-left p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
-                        selectedHazard?.id === hazard.id
-                          ? 'border-primary-400 bg-primary-50 ring-1 ring-primary-300'
-                          : 'border-background-200/70 bg-background-50 hover:border-background-300 hover:bg-background-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${hazard.color}15` }}>
-                          <i className={`${hazard.icon} text-lg`} style={{ color: hazard.color }}></i>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-foreground-900">{hazard.name}</span>
-                            <span className="text-xs text-foreground-400">{hazard.nameEn}</span>
+                  {hazards.map((hazard) => {
+                    const unavailableInHistorical = predictionMode === 'historical'
+                      && !models.some((model) => isHistoricalModel(model) && model.supportedHazards.includes(hazard.id));
+                    return (
+                      <button
+                        key={hazard.id}
+                        disabled={unavailableInHistorical}
+                        onClick={() => setSelectedHazard(hazard)}
+                        className={`text-left p-4 rounded-lg border transition-all duration-200 ${
+                          unavailableInHistorical
+                            ? 'border-background-200 bg-background-100 opacity-55 cursor-not-allowed'
+                            : selectedHazard?.id === hazard.id
+                            ? 'border-primary-400 bg-primary-50 ring-1 ring-primary-300 cursor-pointer'
+                            : 'border-background-200/70 bg-background-50 hover:border-background-300 hover:bg-background-100 cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${hazard.color}15` }}>
+                            <i className={`${hazard.icon} text-lg`} style={{ color: hazard.color }}></i>
                           </div>
-                          <p className="text-xs text-foreground-500 mt-1">{hazard.description}</p>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-foreground-900">{hazard.name}</span>
+                              <span className="text-xs text-foreground-400">{hazard.nameEn}</span>
+                              {unavailableInHistorical && <Badge variant="warning">无历史模型</Badge>}
+                            </div>
+                            <p className="text-xs text-foreground-500 mt-1">{hazard.description}</p>
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Step 3: Lead Time */}
+            {/* Step 4: Lead Time */}
             {currentStep === 'leadtime' && (
               <div>
                 <h2 className="font-heading text-lg text-foreground-900 mb-1">选择预测时效</h2>
@@ -370,14 +475,26 @@ export default function Workspace() {
                     </button>
                   ))}
                 </div>
+                {predictionMode === 'historical' && historicalFeatureDate && (
+                  <div className={`mt-4 p-3 rounded-lg border text-xs ${
+                    historicalFeatureAvailable
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-red-50 border-red-200 text-red-700'
+                  }`}>
+                    <i className={`${historicalFeatureAvailable ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'} mr-1.5`}></i>
+                    {historicalFeatureAvailable
+                      ? `该组合将读取 saudi_indicators_${historicalFeatureDate.replaceAll('-', '')}.nc`
+                      : `该时效需要 ${historicalFeatureDate} 的特征文件，超出2025归档范围，请调整起报日期。`}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Step 4: Model */}
+            {/* Step 5: Model */}
             {currentStep === 'model' && (
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <h2 className="font-heading text-lg text-foreground-900">选择预测模型</h2>
+                  <h2 className="font-heading text-lg text-foreground-900">确认实际运行模型</h2>
                   <div className="flex items-center gap-1 bg-background-100 rounded-lg p-1">
                     <button
                       onClick={() => setModelViewMode('cards')}
@@ -398,10 +515,10 @@ export default function Workspace() {
                   </div>
                 </div>
                 <p className="text-sm text-foreground-500 mb-5">
-                  为 {selectedRegion?.name} 的 {selectedHazard?.name} 展示 {availableModels.length} 个可用模型
+                  {predictionMode === 'historical' ? '2025历史回放' : '实时预测'}将运行以下模型
                   {selectedHazard && (
                     <span className="ml-1 text-foreground-400">
-                      — 系统会根据起报日期和数据完整性自动运行满足条件的模型
+                      — {selectedRegion?.name} / {selectedHazard.name}
                     </span>
                   )}
                 </p>
@@ -558,7 +675,7 @@ export default function Workspace() {
               </div>
             )}
 
-            {/* Step 5: Confirm */}
+            {/* Step 6: Confirm */}
             {currentStep === 'confirm' && (
               <div>
                 <h2 className="font-heading text-lg text-foreground-900 mb-1">确认预测参数</h2>
@@ -566,6 +683,15 @@ export default function Workspace() {
 
                 <div className="bg-background-100 rounded-lg p-5 mb-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-xs text-foreground-500 block mb-1">运行模式</span>
+                      <span className="text-sm font-medium text-foreground-900">
+                        {predictionMode === 'historical' ? '2025历史回放' : '实时预测'}
+                      </span>
+                      {predictionMode === 'historical' && (
+                        <p className="text-xs text-foreground-400 mt-0.5">起报日期：{historicalDate}</p>
+                      )}
+                    </div>
                     <div>
                       <span className="text-xs text-foreground-500 block mb-1">区域</span>
                       <span className="text-sm font-medium text-foreground-900">{selectedRegion?.name} ({selectedRegion?.nameEn})</span>
@@ -609,22 +735,6 @@ export default function Workspace() {
                       )}
                     </div>
                   </div>
-                </div>
-
-                <div className="bg-background-100 rounded-lg p-5 mb-5">
-                  <label htmlFor="initial-time" className="text-xs text-foreground-500 block mb-1">
-                    起报时间（可选）
-                  </label>
-                  <input
-                    id="initial-time"
-                    type="datetime-local"
-                    value={initialTime}
-                    onChange={(e) => setInitialTime(e.target.value)}
-                    className="w-full sm:w-64 px-3 py-2 text-sm rounded-md border border-background-200 bg-background-50 text-foreground-900 focus:outline-none focus:ring-1 focus:ring-primary-300"
-                  />
-                  <p className="text-xs text-foreground-400 mt-1.5">
-                    不填默认使用当前时间与实时融合模型；选择2025年内日期且归档指标完整时，系统自动运行对应历史训练模型。
-                  </p>
                 </div>
 
                 {/* Execution progress */}
@@ -687,11 +797,10 @@ export default function Workspace() {
               variant="ghost"
               icon="ri-arrow-left-line"
               onClick={() => {
-                const order: Step[] = ['region', 'hazard', 'leadtime', 'model', 'confirm'];
-                const idx = order.indexOf(currentStep);
-                if (idx > 0) setCurrentStep(order[idx - 1]);
+                const idx = STEP_ORDER.indexOf(currentStep);
+                if (idx > 0) setCurrentStep(STEP_ORDER[idx - 1]);
               }}
-              disabled={currentStep === 'region'}
+              disabled={currentStep === 'mode'}
             >
               上一步
             </Button>

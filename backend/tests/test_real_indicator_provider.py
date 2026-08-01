@@ -75,9 +75,18 @@ def _make_case(hazard: str = "extreme-heat") -> ForecastCase:
     )
 
 
-def test_available_for_false_without_env_var(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
+def test_available_for_false_when_archive_is_explicitly_disabled(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(INDICATORS_DIR_ENV, "")
     assert available_for(_make_case()) is False
+
+
+def test_available_for_auto_discovers_local_archive(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
+    monkeypatch.setattr(
+        "app.data.real_indicator_provider.DEFAULT_LOCAL_INDICATORS_DIR", tmp_path
+    )
+    (tmp_path / f"saudi_indicators_{FEATURE_DATE}.nc").touch()
+    assert available_for(_make_case()) is True
 
 
 def test_available_for_false_when_file_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -122,8 +131,8 @@ def test_generate_computes_neighbor_means_for_heatwave_vars(indicators_dir: Path
     assert "neigh_pwat" in indicators
 
 
-def test_generate_raises_without_env_var(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
+def test_generate_raises_when_archive_is_explicitly_disabled(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(INDICATORS_DIR_ENV, "")
     with pytest.raises(RuntimeError):
         RealIndicatorProvider().generate(_make_case())
 

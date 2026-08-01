@@ -7,8 +7,9 @@ are built from the PREVIOUS day's indicators (t-1 -> t), read from
 ``saudi_indicators_YYYYMMDD.nc`` files, at the stride-2-subsampled grid cell
 nearest the region's lat/lon. Only available when:
 
-  1. ``MAZU_INDICATORS_DIR`` env var points at a directory containing these
-     files (defaults to None -- no hardcoded path to any one machine's disk).
+  1. ``MAZU_INDICATORS_DIR`` points at a directory containing these files, or
+     the project's known local archive mount exists. An explicitly empty env
+     value disables archive discovery for tests or live-only deployments.
   2. the feature-day file actually exists on disk (2025 historical archive
      only; see this repo's data source note).
 
@@ -30,6 +31,7 @@ from app.data.regions import get_region
 from app.domain.forecast_case import ForecastCase
 
 INDICATORS_DIR_ENV = "MAZU_INDICATORS_DIR"
+DEFAULT_LOCAL_INDICATORS_DIR = Path("/Volumes/E/气象数据/saudi_region_output/indicators")
 STRIDE = 2
 
 # neighbor-mean features required only by the heatwave model (see
@@ -52,8 +54,12 @@ _PLACEHOLDER_ALIASES: dict[str, str] = {
 
 
 def _indicators_root() -> Path | None:
-    value = os.environ.get(INDICATORS_DIR_ENV)
-    return Path(value) if value else None
+    if INDICATORS_DIR_ENV in os.environ:
+        value = os.environ[INDICATORS_DIR_ENV]
+        return Path(value) if value else None
+    if DEFAULT_LOCAL_INDICATORS_DIR.is_dir():
+        return DEFAULT_LOCAL_INDICATORS_DIR
+    return None
 
 
 def _file_for_date(root: Path, date: dt.date) -> Path:

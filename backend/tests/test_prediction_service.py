@@ -109,6 +109,43 @@ def test_heavy_rain_uses_live_fusion_model(service: PredictionService, monkeypat
     assert result.raw_indicators["daily_precip"] == 8.0
 
 
+def test_historical_mode_rejects_hazard_without_trained_model(service: PredictionService):
+    request = PredictionRequest(
+        region_id="jazan",
+        hazard="heavy-rain",
+        lead_time_hours=24,
+        initial_time="2025-06-01T00:00:00Z",
+        prediction_mode="historical",
+    )
+    with pytest.raises(PredictionServiceError, match="No historical trained model"):
+        service.run_prediction(request)
+
+
+def test_live_mode_does_not_use_archive_even_when_it_is_available(
+    service: PredictionService,
+):
+    request = PredictionRequest(
+        region_id="jazan",
+        hazard="extreme-heat",
+        lead_time_hours=24,
+        initial_time="2025-06-01T00:00:00Z",
+        prediction_mode="live",
+    )
+    with patch(
+        "app.services.prediction_service.real_data_available", return_value=True
+    ), patch(
+        "app.services.prediction_service.openmeteo_provider.generate",
+        return_value={"t2m": 42.0},
+    ), patch(
+        "app.services.prediction_service.real_indicator_provider.generate"
+    ) as archived_generate:
+        result = service.run_prediction(request)
+
+    archived_generate.assert_not_called()
+    assert result.model_id == "live-fusion-v1"
+    assert result.data_tier == "tier2_live"
+
+
 def test_hazard_with_real_model_falls_back_to_degraded_when_no_archive(
     service: PredictionService, monkeypatch: pytest.MonkeyPatch
 ):

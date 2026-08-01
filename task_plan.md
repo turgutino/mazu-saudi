@@ -17,6 +17,10 @@
 - [x] Phase 9 — 实现四灾种实时融合路由，将合成规则模型移出正式预测链
 - [x] Phase 10 — 补充聚焦测试并运行后端完整测试
 - [x] Phase 11 — 审查最终差异并提交 scoped git commit
+- [x] Phase 12 — 定义实时预测 / 2025历史回放的前后端契约
+- [x] Phase 13 — 实现本机历史归档自动发现与后端聚焦测试
+- [x] Phase 14 — 重构工作台步骤，按运行模式选日期并自动匹配模型
+- [x] Phase 15 — 运行完整验证、浏览器实测并提交
 
 ## Guardrails
 
@@ -27,6 +31,8 @@
 - 不改动或提交用户无关的工作区变化。
 - 本轮仅改造预测模型选择与实时融合路由，不扩展到新数据管道或新模型训练。
 - 已有 `backend/app/data/models.py` 和 `backend/tests/test_prediction_service.py` 未提交变更与本任务直接相关，只做必要整合，不覆盖其已有意图。
+- 双模式改造不改变 HGB 或实时融合的算法，只修复时间输入、归档发现和模型路由的可用性。
+- 历史模式仅提供已有 HGB 的 extreme-heat、flash-flood、dust-storm；heavy-rain 仅支持实时模式。
 
 ## Errors Encountered
 

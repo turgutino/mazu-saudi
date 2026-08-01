@@ -25,6 +25,7 @@ export function createPrediction(request: {
   leadTimeHours: number;
   modelId: string;
   initialTime?: string;
+  predictionMode: 'live' | 'historical';
 }): Promise<PredictionResult> {
   return fetch(`${API_BASE}/predictions`, {
     method: 'POST',

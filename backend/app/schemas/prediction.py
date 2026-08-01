@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .common import CamelModel, ConfidenceLevel, DataTier, RiskLevel
+from .common import CamelModel, ConfidenceLevel, DataTier, PredictionMode, RiskLevel
 
 
 class FeatureContribution(CamelModel):
@@ -105,3 +105,4 @@ class PredictionRequest(CamelModel):
     lead_time_hours: int
     model_id: str | None = None
     initial_time: str | None = None
+    prediction_mode: PredictionMode = "auto"

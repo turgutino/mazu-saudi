@@ -24,3 +24,13 @@
 - Phase 10 完成：实时融合聚焦测试 47 项通过；后端完整 pytest 103 项通过；前端 type-check、ESLint 与 production build 通过。
 - 当前阶段：Phase 11，最终差异审查与提交。
 - Phase 11 完成：`git diff --check` 通过，变更范围只包含实时融合模型、provider 真实字段契约、模型注册表和相关测试/进度文档。
+- 启动双模式工作台改造：实时预测使用实时融合，2025历史回放使用归档指标和对应HGB。
+- 已确认根因：前端日期入口太晚，后端 `MAZU_INDICATORS_DIR` 未设置；本机2025归档实际完整存在。
+- 当前阶段：Phase 12，固定双模式契约。
+- Phase 12/13 完成：API请求新增 `predictionMode`；`historical`强制HGB+归档且禁止静默降级，`live`强制实时融合。
+- 后端在无环境变量时自动发现本机归档目录；空环境变量可显式禁用。
+- 后端聚焦测试41项通过，并完成真实2025 NetCDF + HGB推理实测。
+- Phase 14 完成：工作台新增“实时预测 / 2025历史回放”首步骤；历史日期提前选择，并按预报时效检查实际特征日；模型步骤只展示当前模式真正运行的一个模型。
+- Phase 15 完成：后端完整 pytest 107 项通过；前端 type-check、ESLint 与 production build 全部通过。
+- 浏览器实测通过：历史模式中暴雨禁用，极端高温正确展示自有 HistGradientBoosting 模型；实时模式中暴雨可选且只展示实时多源融合模型。
+- 真实归档推理验证：Jazan / extreme-heat / 2025-06-01 / 24小时成功读取106项指标并运行 `joblib-heatwave`，模型层级为 `tier1_real`。
