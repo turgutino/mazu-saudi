@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/feature/Navbar';
 import StatCard from '@/components/base/StatCard';
@@ -5,10 +6,34 @@ import Badge from '@/components/base/Badge';
 import RiskBadge from '@/components/base/RiskBadge';
 import Button from '@/components/base/Button';
 import { dashboardStats, recentActivities, weeklyStats } from '@/mocks/dashboard';
-import { predictions } from '@/mocks/predictions';
+import type { PredictionResult } from '@/mocks/predictions';
+import { fetchPredictionsList } from '@/services/predictionApi';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [predictions, setPredictions] = useState<PredictionResult[]>([]);
+  const [predictionsLoading, setPredictionsLoading] = useState(true);
+  const [predictionsError, setPredictionsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPredictionsList()
+      .then((data) => {
+        if (!cancelled) {
+          setPredictions(data);
+          setPredictionsError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setPredictionsError(error instanceof Error ? error.message : '预测列表加载失败');
+      })
+      .finally(() => {
+        if (!cancelled) setPredictionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background-50">
@@ -158,6 +183,24 @@ export default function Dashboard() {
               <h3 className="font-heading text-base text-foreground-900">近期预测</h3>
               <Badge variant="secondary">{predictions.length} 条记录</Badge>
             </div>
+            {predictionsError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-sm text-red-700">
+                <i className="ri-error-warning-line mr-2"></i>{predictionsError}
+              </div>
+            )}
+            {predictionsLoading ? (
+              <div className="bg-background-50 border border-background-200/70 rounded-lg p-10 text-center text-foreground-400">
+                <i className="ri-loader-4-line animate-spin text-2xl block mb-2"></i>正在加载预测记录…
+              </div>
+            ) : predictions.length === 0 ? (
+              <div className="bg-background-50 border border-background-200/70 rounded-lg p-10 text-center text-foreground-400">
+                <i className="ri-inbox-line text-2xl block mb-2"></i>
+                <p className="mb-3">暂无预测记录</p>
+                <Button variant="primary" size="sm" icon="ri-add-line" onClick={() => navigate('/workspace')}>
+                  去发起一个预测
+                </Button>
+              </div>
+            ) : (
             <div className="bg-background-50 border border-background-200/70 rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -217,6 +260,7 @@ export default function Dashboard() {
                 </table>
               </div>
             </div>
+            )}
           </section>
 
           {/* Recent activity */}

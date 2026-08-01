@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/feature/Navbar';
 import Button from '@/components/base/Button';
 import Badge from '@/components/base/Badge';
 import Card from '@/components/base/Card';
-import { regions, type Region } from '@/mocks/regions';
-import { hazards, type HazardType } from '@/mocks/hazards';
-import { models, type ModelInfo, type ModelMetrics, METRIC_LABELS } from '@/mocks/models';
-import { createPrediction } from '@/services/predictionApi';
+import type { Region } from '@/mocks/regions';
+import type { HazardType } from '@/mocks/hazards';
+import { type ModelInfo, type ModelMetrics, METRIC_LABELS } from '@/mocks/models';
+import { createPrediction, fetchRegions, fetchHazards, fetchModels } from '@/services/predictionApi';
 
 type Step = 'region' | 'hazard' | 'leadtime' | 'model' | 'confirm';
 
@@ -92,15 +92,44 @@ function ComparisonRow({ model, hazardId, isBest, isSelected, onClick }: { model
 export default function Workspace() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<Step>('region');
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [hazards, setHazards] = useState<HazardType[]>([]);
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [metaError, setMetaError] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [selectedHazard, setSelectedHazard] = useState<HazardType | null>(null);
   const [selectedLeadTime, setSelectedLeadTime] = useState<number | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null);
+  const [initialTime, setInitialTime] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
   const [runError, setRunError] = useState<string | null>(null);
   const [modelViewMode, setModelViewMode] = useState<'cards' | 'compare'>('cards');
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMetaLoading(true);
+    Promise.all([fetchRegions(), fetchHazards(), fetchModels()])
+      .then(([regionsData, hazardsData, modelsData]) => {
+        if (cancelled) return;
+        setRegions(regionsData);
+        setHazards(hazardsData);
+        setModels(modelsData);
+        setMetaError(null);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setMetaError(error instanceof Error ? error.message : '基础数据加载失败');
+      })
+      .finally(() => {
+        if (!cancelled) setMetaLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const availableModels = selectedHazard
     ? models.filter((m) => m.supportedHazards.includes(selectedHazard.id))
@@ -159,6 +188,7 @@ export default function Workspace() {
         hazard: selectedHazard.id,
         leadTimeHours: selectedLeadTime,
         modelId: selectedModel.id,
+        ...(initialTime ? { initialTime: new Date(initialTime).toISOString() } : {}),
       });
       setProgressMessage('预测与解释证据已生成，正在打开结果…');
       navigate(`/prediction/${result.predictionId}`);
@@ -212,7 +242,19 @@ export default function Workspace() {
             ))}
           </div>
 
+          {metaError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-5 text-sm text-red-700">
+              <i className="ri-error-warning-line mr-2"></i>基础数据加载失败：{metaError}
+            </div>
+          )}
+
           <Card className="p-6 min-h-[360px]">
+            {metaLoading ? (
+              <div className="flex items-center justify-center h-[300px] text-foreground-400">
+                <i className="ri-loader-4-line animate-spin text-2xl mr-2"></i>正在加载区域/灾种/模型数据…
+              </div>
+            ) : (
+            <>
             {/* Step 1: Region */}
             {currentStep === 'region' && (
               <div>
@@ -541,6 +583,22 @@ export default function Workspace() {
                   </div>
                 </div>
 
+                <div className="bg-background-100 rounded-lg p-5 mb-5">
+                  <label htmlFor="initial-time" className="text-xs text-foreground-500 block mb-1">
+                    起报时间（可选）
+                  </label>
+                  <input
+                    id="initial-time"
+                    type="datetime-local"
+                    value={initialTime}
+                    onChange={(e) => setInitialTime(e.target.value)}
+                    className="w-full sm:w-64 px-3 py-2 text-sm rounded-md border border-background-200 bg-background-50 text-foreground-900 focus:outline-none focus:ring-1 focus:ring-primary-300"
+                  />
+                  <p className="text-xs text-foreground-400 mt-1.5">
+                    不填默认使用当前时间（实时数据+简化模型）；选择 2025 年内日期可命中真实训练模型与历史归档数据。
+                  </p>
+                </div>
+
                 {/* Execution progress */}
                 {isRunning && (
                   <div className="bg-background-100 rounded-lg p-5 mb-5">
@@ -590,6 +648,8 @@ export default function Workspace() {
                   </div>
                 )}
               </div>
+            )}
+            </>
             )}
           </Card>
 
