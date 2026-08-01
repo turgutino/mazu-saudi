@@ -50,13 +50,31 @@ function ModelMetricsPanel({ metrics, hazardId }: { metrics: Record<string, Mode
   );
 }
 
+function isHistoricalModel(model: ModelInfo) {
+  return model.id.startsWith('joblib-');
+}
+
+function ModelAvailability({ model }: { model: ModelInfo }) {
+  const historical = isHistoricalModel(model);
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <Badge variant={historical ? 'secondary' : 'success'} size="sm">
+        {historical ? '2025历史归档' : '实时预测'}
+      </Badge>
+      <span className="text-[10px] text-foreground-400">
+        {historical ? '需要完整NetCDF指标' : 'CMA / Open-Meteo / Tomorrow.io'}
+      </span>
+    </div>
+  );
+}
+
 function ComparisonRow({ model, hazardId, isBest, isSelected, onClick }: { model: ModelInfo; hazardId: string; isBest: boolean; isSelected: boolean; onClick: () => void }) {
   const m = model.metrics[hazardId];
-  if (!m) return null;
 
   const metricKeys: (keyof ModelMetrics)[] = ['auc', 'pod', 'far', 'csi', 'f1', 'brier'];
 
   const cellColor = (key: keyof ModelMetrics) => {
+    if (!m) return 'text-foreground-300';
     const v = m[key];
     const h = METRIC_LABELS[key].higherIsBetter;
     if (h) return v >= 0.85 ? 'text-accent-700 font-semibold' : v >= 0.75 ? 'text-foreground-700' : 'text-foreground-400';
@@ -78,11 +96,12 @@ function ComparisonRow({ model, hazardId, isBest, isSelected, onClick }: { model
           <span className="text-sm font-medium text-foreground-900">{model.name}</span>
           <Badge variant="secondary" size="sm">{model.version}</Badge>
         </div>
+        <div className="mt-1"><ModelAvailability model={model} /></div>
         <span className="text-[10px] text-foreground-400">{typeLabel}</span>
       </td>
       {metricKeys.map((key) => (
         <td key={key} className={`py-2.5 px-2 text-center text-sm ${cellColor(key)}`}>
-          {fmt(m[key])}
+          {m ? fmt(m[key]) : '—'}
         </td>
       ))}
     </tr>
@@ -379,13 +398,20 @@ export default function Workspace() {
                   </div>
                 </div>
                 <p className="text-sm text-foreground-500 mb-5">
-                  为 {selectedRegion?.name} 的 {selectedHazard?.name} 预测选择合适的模型
+                  为 {selectedRegion?.name} 的 {selectedHazard?.name} 展示 {availableModels.length} 个可用模型
                   {selectedHazard && (
                     <span className="ml-1 text-foreground-400">
-                      — 下方指标基于 <strong className="text-foreground-600">{selectedHazard.name}</strong> 灾种的验证集评估
+                      — 系统会根据起报日期和数据完整性自动运行满足条件的模型
                     </span>
                   )}
                 </p>
+
+                {selectedHazard?.id === 'heavy-rain' && (
+                  <div className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-800">
+                    <i className="ri-information-line mr-1.5"></i>
+                    暴雨暂无2025历史训练模型，因此仅显示实时多源融合模型。
+                  </div>
+                )}
 
                 {modelViewMode === 'cards' && (
                   <div className="space-y-4">
@@ -426,6 +452,7 @@ export default function Workspace() {
                                   {isBestAuc && <Badge variant="accent" size="sm">最高 AUC</Badge>}
                                 </div>
                                 <p className="text-xs text-foreground-500 mt-0.5 truncate">{model.description}</p>
+                                <div className="mt-1.5"><ModelAvailability model={model} /></div>
                               </div>
                             </div>
                             <div className="flex items-center gap-3 flex-shrink-0 ml-4">
@@ -514,6 +541,7 @@ export default function Workspace() {
                       <p className="text-[10px] text-foreground-400">
                         <i className="ri-information-line mr-1"></i>
                         指标基于 {selectedHazard?.name} 灾种的验证集评估（2025-2026 数据）。
+                        “—”表示实时融合基线暂无独立验证集指标。
                         标 <i className="ri-star-fill text-accent-500 text-[9px]"></i> 为该指标当前最优模型。
                         点击模型行选择，指标说明悬停表头查看。
                       </p>
@@ -595,7 +623,7 @@ export default function Workspace() {
                     className="w-full sm:w-64 px-3 py-2 text-sm rounded-md border border-background-200 bg-background-50 text-foreground-900 focus:outline-none focus:ring-1 focus:ring-primary-300"
                   />
                   <p className="text-xs text-foreground-400 mt-1.5">
-                    不填默认使用当前时间（实时数据+简化模型）；选择 2025 年内日期可命中真实训练模型与历史归档数据。
+                    不填默认使用当前时间与实时融合模型；选择2025年内日期且归档指标完整时，系统自动运行对应历史训练模型。
                   </p>
                 </div>
 
@@ -634,7 +662,7 @@ export default function Workspace() {
                         <p className="mb-2">智能体将按以下流程执行：</p>
                         <ol className="list-decimal list-inside space-y-1">
                           <li>加载预测案例数据 (ForecastCase)</li>
-                          <li>调用 {selectedModel?.name} {selectedModel?.version} 模型预测</li>
+                          <li>根据起报日期与数据完整性自动选择历史训练模型或实时融合模型</li>
                           <li>执行概率校准</li>
                           <li>运行 {selectedRegion?.name} 区域风险规则</li>
                           <li>调用解释引擎生成特征贡献和物理机制</li>
@@ -694,7 +722,7 @@ export default function Workspace() {
               <span>预测结果仅供参考，实际预警以官方发布为准</span>
             </div>
             <div className="flex items-center gap-4 text-xs text-foreground-400">
-              <span>模型: HistGradientBoosting + 规则基线</span>
+              <span>模型: HistGradientBoosting + 实时多源融合</span>
               <span>数据: ERA5 + 数值预报</span>
               <span>更新于 2025-06-30</span>
             </div>
