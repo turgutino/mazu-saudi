@@ -62,3 +62,9 @@
 - Phase 27 验证完成：后端完整pytest 122项通过；前端type-check、ESLint和production build通过。
 - 真实 `live-api-hgb-heavy_rain` 制品复核返回8个Tree SHAP特征，贡献同时保留正负号，基线加贡献和 `-10.321231` 与模型raw输出 `-10.321232` 在序列化精度内一致。
 - 最终补充旧记录保护：缺少 `attributionMethod=tree_shap` 的历史预测明确标为“旧记录/未验证”，前端和图谱都不会把遗留数值冒充SHAP。该调整后再次完成122项后端测试及前端type-check、ESLint、production build。
+- 启动旧预测回填：Phase 28完成。确认4条旧记录中2条当前HGB记录可重算，2条已淘汰模型只能移除伪贡献并标记归因不可用；预测概率、风险和原始指标均不改。
+- Phase 29完成：新增幂等回填服务与默认dry-run的CLI；22项聚焦测试通过。正式迁移前dry-run结果与预期一致。
+- 已备份 `backend/var/mazu.db` 到 `backend/var/mazu.db.bak-20260801T141706Z` 后执行迁移：2条当前HGB记录回填8特征Tree SHAP，2条淘汰模型记录清空伪贡献并标记制品不可用。
+- 迁移后与备份逐条比较，4条记录的概率、风险等级和原始指标变化数为0。
+- Phase 30验证完成：后端完整pytest 124项通过；前端type-check、ESLint和production build通过。无归因记录现在显示明确空状态，不再渲染空白贡献表或遗留伪数值。
+- 回填CLI的后续备份改用SQLite在线backup API，避免运行中数据库直接文件复制的一致性风险；新增备份聚焦测试通过。

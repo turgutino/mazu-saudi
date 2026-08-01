@@ -79,3 +79,5 @@
 - SHAP 0.50.0 的TreeExplainer已实测支持项目两类 HistGradientBoostingClassifier。采用无额外背景数据的 `tree_path_dependent` 模式解释raw margin：实时暴雨样例 `base=-10.312786`、SHAP和 `-0.008445`、模型margin `-10.321232`；历史高温样例同样满足加和一致性。
 - 正式API必须同时返回归因方法、输出尺度、基线和模型原始输出；前端以正负方向显示log-odds贡献，不称为概率百分点。
 - 历史HGB包含最多27个原始/邻域特征，而现有展示层只识别少量 `INDICATOR_SPECS` 并静默丢弃其余特征；真实归因实现必须保留完整模型特征集合，对未知常模的特征显示实际值但不虚构“正常值”。
+- 开发SQLite共有4条旧预测：2条 `live-api-hgb-heavy_rain/live-api-daily-v1` 保存了完整8特征，可用同一制品安全回填；1条 `live-fusion-v1` 与1条 `ensemble-v4` 已无对应制品，不能改用当前HGB解释。
+- 回填后两条HGB记录均保存 `tree_shap/raw_log_odds`、8个特征、基线 `-10.312786` 和模型输出 `-10.321232`；两条淘汰模型记录的 `features` 为0并保存明确不可用原因。

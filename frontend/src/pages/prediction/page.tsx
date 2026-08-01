@@ -241,6 +241,7 @@ function MetadataItem({ label, value }: { label: string; value: string }) {
 function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
   const features = prediction.features;
   const verifiedTreeShap = prediction.attributionMethod === 'tree_shap';
+  const attributionUnavailable = prediction.attributionMethod?.startsWith('unavailable:') ?? false;
   const maxContrib = Math.max(...features.map((f) => Math.abs(f.contribution)), 0.01);
   const contributionSum = features.reduce((sum, feature) => sum + feature.contribution, 0);
   const signed = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(4)}`;
@@ -248,11 +249,15 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
   return (
     <div className="space-y-6">
       <Card>
-        <h3 className="font-heading text-base text-foreground-900 mb-1">{verifiedTreeShap ? 'Tree SHAP 局部归因' : '特征信息（旧记录）'}</h3>
+        <h3 className="font-heading text-base text-foreground-900 mb-1">
+          {verifiedTreeShap ? 'Tree SHAP 局部归因' : attributionUnavailable ? '模型归因不可用' : '特征信息（旧记录）'}
+        </h3>
         <p className="text-xs text-foreground-500 mb-2">
           {verifiedTreeShap
             ? '解释当前样本在模型原始 log-odds 尺度上为何偏离基线：正值提高事件倾向，负值降低事件倾向；它不是概率百分点，也不表示物理因果。'
-            : '该记录未保存可验证的归因方法，以下数值不能解读为 SHAP 贡献。请重新运行预测以生成真实 Tree SHAP 解释。'}
+            : attributionUnavailable
+              ? '该预测来自已经停用且无可复现制品的旧模型，因此无法生成可信 SHAP；原预测结果仍保留，但旧伪贡献已移除。'
+              : '该记录未保存可验证的归因方法，以下数值不能解读为 SHAP 贡献。请重新运行预测以生成真实 Tree SHAP 解释。'}
         </p>
         {verifiedTreeShap && prediction.attributionBaseValue != null && prediction.attributionModelOutput != null && (
           <p className="text-xs text-foreground-600 bg-background-100 rounded-md px-3 py-2 mb-5 font-mono">
@@ -260,6 +265,11 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
           </p>
         )}
         <div className="space-y-3">
+          {features.length === 0 && (
+            <div className="rounded-md border border-background-200 bg-background-100 px-4 py-5 text-sm text-foreground-500">
+              没有可验证的模型特征归因。
+            </div>
+          )}
           {features.map((feat) => (
             <div key={feat.feature} className="flex items-center gap-4">
               <div className="w-28 flex-shrink-0">
@@ -288,7 +298,7 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
       </Card>
 
       {/* Feature comparison table */}
-      <Card>
+      {features.length > 0 && <Card>
         <h3 className="font-heading text-base text-foreground-900 mb-3">指标对比</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -326,7 +336,7 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
             </tbody>
           </table>
         </div>
-      </Card>
+      </Card>}
     </div>
   );
 }
