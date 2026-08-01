@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from app.domain.forecast_case import ForecastCase
@@ -61,7 +63,15 @@ def test_predict_produces_valid_raw_prediction(hazard: str):
     assert 0.0 <= raw.uncertainty <= 1.0
     assert raw.predicted_class in {"low", "moderate", "high"}
     assert raw.model_id == f"joblib-{HAZARD_TO_ARTIFACT[hazard]}"
-    assert raw.important_features
+    assert set(raw.important_features) == set(model.features)
+    assert raw.attribution_method == "tree_shap"
+    assert raw.attribution_output == "raw_log_odds"
+    assert raw.attribution_base_value is not None
+    assert raw.attribution_model_output is not None
+    reconstructed = raw.attribution_base_value + sum(raw.important_features.values())
+    assert reconstructed == pytest.approx(raw.attribution_model_output, abs=1e-5)
+    sigmoid = 1 / (1 + math.exp(-raw.attribution_model_output))
+    assert sigmoid == pytest.approx(raw.probability, abs=1e-4)
 
 
 @pytest.mark.parametrize("hazard", REAL_MODEL_HAZARDS)

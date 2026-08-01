@@ -11,6 +11,7 @@ import numpy as np
 from app.data.live_feature_contract import MODEL_FEATURES
 from app.domain.forecast_case import ForecastCase
 from app.domain.prediction import RawPrediction
+from app.explanation.tree_shap import TreeShapAttributor
 
 ARTIFACTS_DIR = Path(__file__).parent / "artifacts"
 META_PATH = ARTIFACTS_DIR / "live_api_model_meta.json"
@@ -51,6 +52,7 @@ class LiveApiForecastModel:
         self.model_version = MODEL_VERSION
         self.model_name = MODEL_NAMES[hazard]
         self._estimator = None
+        self._attributor = None
 
     @classmethod
     def _meta(cls) -> dict:
@@ -78,6 +80,11 @@ class LiveApiForecastModel:
             self._estimator = joblib.load(path)
         return self._estimator
 
+    def _attributor_(self) -> TreeShapAttributor:
+        if self._attributor is None:
+            self._attributor = TreeShapAttributor(self._estimator_(), self.features)
+        return self._attributor
+
     def available_features(
         self, case: ForecastCase, indicators: dict[str, float]
     ) -> bool:
@@ -93,16 +100,7 @@ class LiveApiForecastModel:
             [[indicators[feature] for feature in self.features]], dtype="float64"
         )
         probability = round(float(self._estimator_().predict_proba(row)[0, 1]), 4)
-        important_features = {
-            alias: round(float(indicators[source]), 4)
-            for alias, source in {
-                "daily_precip": "daily_precip_total",
-                "t2m": "t2m_c",
-                "wind_10m": "wind10_speed",
-            }.items()
-        }
-        if "cape" in indicators:
-            important_features["cape"] = round(float(indicators["cape"]), 4)
+        attribution = self._attributor_().explain(row)
         uncertainty = round(
             min(max(0.35 - 0.4 * abs(probability - 0.5), 0.05), 0.35), 4
         )
@@ -113,7 +111,11 @@ class LiveApiForecastModel:
             probability=probability,
             uncertainty=uncertainty,
             predicted_class=_classify(probability),
-            important_features=important_features,
+            important_features=attribution.values,
+            attribution_method=attribution.method,
+            attribution_output=attribution.output_scale,
+            attribution_base_value=attribution.base_value,
+            attribution_model_output=attribution.model_output,
         )
 
 

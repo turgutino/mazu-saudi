@@ -114,11 +114,14 @@ def test_prediction_end_to_end_per_hazard(client: TestClient, hazard: str):
         "leadTimeHours", "initialTime", "probability", "calibratedProbability",
         "predictedClass", "uncertainty", "features", "ruleHits", "mechanisms",
         "similarEvents", "riskLevel", "riskLabel", "riskDescription",
-        "inputHash", "createdAt",
+        "inputHash", "createdAt", "attributionMethod", "attributionOutput",
+        "attributionBaseValue", "attributionModelOutput",
     }
     assert required_fields <= body.keys()
     assert body["hazard"] == hazard
     assert body["riskLevel"] in {"green", "yellow", "orange", "red"}
+    assert body["attributionMethod"] == "tree_shap"
+    assert body["attributionOutput"] == "raw_log_odds"
 
     # GET by id round-trips the same prediction
     get_r = client.get(f"/api/v1/predictions/{body['predictionId']}")

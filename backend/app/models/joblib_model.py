@@ -13,7 +13,6 @@ that module for how each raw NetCDF-derived feature name lands there.
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 
 import joblib
@@ -21,6 +20,7 @@ import numpy as np
 
 from app.domain.forecast_case import ForecastCase
 from app.domain.prediction import RawPrediction
+from app.explanation.tree_shap import TreeShapAttributor
 
 ARTIFACTS_DIR = Path(__file__).parent / "artifacts"
 
@@ -62,6 +62,7 @@ class JoblibForecastModel:
         self.model_version = MODEL_VERSION
         self.model_name = MODEL_NAMES[self.artifact_key]
         self._estimator = None
+        self._attributor = None
 
     @classmethod
     def _meta(cls) -> dict:
@@ -80,6 +81,11 @@ class JoblibForecastModel:
             self._estimator = joblib.load(path)
         return self._estimator
 
+    def _attributor_(self) -> TreeShapAttributor:
+        if self._attributor is None:
+            self._attributor = TreeShapAttributor(self._estimator_(), self.features)
+        return self._attributor
+
     def predict(self, case: ForecastCase, indicators: dict[str, float]) -> RawPrediction:
         feature_names = self.features
         missing = [f for f in feature_names if f not in indicators]
@@ -92,14 +98,7 @@ class JoblibForecastModel:
         probability = float(estimator.predict_proba(row)[0, 1])
         probability = round(probability, 4)
 
-        # feature-level contributions: not real SHAP values (the estimator
-        # is a boosted-tree ensemble, not linear), so we report a signed
-        # z-score-like deviation from each feature's dataset-agnostic sign
-        # convention -- purely descriptive context alongside the model's own
-        # point probability, matching RuleBasedForecastModel's contract shape.
-        important_features = {
-            f: round(indicators[f], 4) for f in feature_names if f in indicators
-        }
+        attribution = self._attributor_().explain(row)
 
         uncertainty = round(min(max(0.35 - 0.4 * abs(probability - 0.5), 0.05), 0.35), 4)
 
@@ -110,7 +109,11 @@ class JoblibForecastModel:
             probability=probability,
             uncertainty=uncertainty,
             predicted_class=_classify(probability),
-            important_features=important_features,
+            important_features=attribution.values,
+            attribution_method=attribution.method,
+            attribution_output=attribution.output_scale,
+            attribution_base_value=attribution.base_value,
+            attribution_model_output=attribution.model_output,
         )
 
 

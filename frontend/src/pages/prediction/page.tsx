@@ -5,7 +5,7 @@ import Button from '@/components/base/Button';
 import Badge from '@/components/base/Badge';
 import RiskBadge from '@/components/base/RiskBadge';
 import Card from '@/components/base/Card';
-import { type PredictionResult, type FeatureContribution, type RuleHit, type MechanismPath, type HistoricalEvent } from '@/mocks/predictions';
+import { type PredictionResult, type RuleHit, type MechanismPath, type HistoricalEvent } from '@/mocks/predictions';
 import { fetchPrediction } from '@/services/predictionApi';
 import { buildChatContext } from '@/mocks/chatResponses';
 import { useSetChatContext } from '@/hooks/useChatContext';
@@ -129,7 +129,7 @@ export default function PredictionDetail() {
           {/* Tab Content */}
           <div className="animate-[fadeIn_0.2s_ease-in-out]">
             {activeTab === 'overview' && <OverviewTab prediction={prediction} />}
-            {activeTab === 'features' && <FeaturesTab features={prediction.features} />}
+            {activeTab === 'features' && <FeaturesTab prediction={prediction} />}
             {activeTab === 'rules' && <RulesTab rules={prediction.ruleHits} />}
             {activeTab === 'mechanisms' && <MechanismsTab mechanisms={prediction.mechanisms} />}
             {activeTab === 'history' && <HistoryTab events={prediction.similarEvents} />}
@@ -238,14 +238,27 @@ function MetadataItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function FeaturesTab({ features }: { features: FeatureContribution[] }) {
+function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
+  const features = prediction.features;
+  const verifiedTreeShap = prediction.attributionMethod === 'tree_shap';
   const maxContrib = Math.max(...features.map((f) => Math.abs(f.contribution)), 0.01);
+  const contributionSum = features.reduce((sum, feature) => sum + feature.contribution, 0);
+  const signed = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(4)}`;
 
   return (
     <div className="space-y-6">
       <Card>
-        <h3 className="font-heading text-base text-foreground-900 mb-1">SHAP 特征贡献</h3>
-        <p className="text-xs text-foreground-500 mb-5">模型解释：为什么给出这个概率？以下关键变量的正向贡献推动了概率上升。</p>
+        <h3 className="font-heading text-base text-foreground-900 mb-1">{verifiedTreeShap ? 'Tree SHAP 局部归因' : '特征信息（旧记录）'}</h3>
+        <p className="text-xs text-foreground-500 mb-2">
+          {verifiedTreeShap
+            ? '解释当前样本在模型原始 log-odds 尺度上为何偏离基线：正值提高事件倾向，负值降低事件倾向；它不是概率百分点，也不表示物理因果。'
+            : '该记录未保存可验证的归因方法，以下数值不能解读为 SHAP 贡献。请重新运行预测以生成真实 Tree SHAP 解释。'}
+        </p>
+        {verifiedTreeShap && prediction.attributionBaseValue != null && prediction.attributionModelOutput != null && (
+          <p className="text-xs text-foreground-600 bg-background-100 rounded-md px-3 py-2 mb-5 font-mono">
+            基线 {prediction.attributionBaseValue.toFixed(4)} + 贡献和 {signed(contributionSum)} = 模型输出 {prediction.attributionModelOutput.toFixed(4)}
+          </p>
+        )}
         <div className="space-y-3">
           {features.map((feat) => (
             <div key={feat.feature} className="flex items-center gap-4">
@@ -256,16 +269,16 @@ function FeaturesTab({ features }: { features: FeatureContribution[] }) {
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-foreground-500">
-                    实际 {feat.actualValue} {feat.unit} (正常 {feat.normalValue})
+                    实际 {feat.actualValue} {feat.unit}{feat.normalValue != null ? `（参考 ${feat.normalValue} ${feat.unit}）` : ''}
                   </span>
-                  <span className="text-xs font-medium text-primary-600">
-                    +{feat.contribution.toFixed(2)}
+                  <span className={`text-xs font-medium ${feat.contribution >= 0 ? 'text-red-500' : 'text-accent-600'}`}>
+                    {signed(feat.contribution)}
                   </span>
                 </div>
                 <div className="w-full bg-background-200 rounded-full h-2">
                   <div
-                    className="h-full rounded-full bg-primary-500 transition-all duration-700"
-                    style={{ width: `${(feat.contribution / maxContrib) * 100}%` }}
+                    className={`h-full rounded-full transition-all duration-700 ${feat.contribution >= 0 ? 'bg-red-400' : 'bg-accent-500'}`}
+                    style={{ width: `${(Math.abs(feat.contribution) / maxContrib) * 100}%` }}
                   ></div>
                 </div>
               </div>
@@ -290,19 +303,23 @@ function FeaturesTab({ features }: { features: FeatureContribution[] }) {
             </thead>
             <tbody>
               {features.map((feat) => {
-                const deviation = feat.normalValue !== 0 ? ((feat.actualValue - feat.normalValue) / Math.abs(feat.normalValue) * 100).toFixed(0) : '0';
-                const isPositive = Number(deviation) > 0;
+                const deviation = feat.normalValue != null && feat.normalValue !== 0
+                  ? ((feat.actualValue - feat.normalValue) / Math.abs(feat.normalValue) * 100).toFixed(0)
+                  : null;
+                const isPositive = deviation != null && Number(deviation) > 0;
                 return (
                   <tr key={feat.feature} className="border-b border-background-200/50">
                     <td className="px-4 py-2.5 font-medium text-foreground-900">{feat.featureLabel}</td>
-                    <td className="px-4 py-2.5 text-foreground-700">{feat.normalValue} {feat.unit}</td>
+                    <td className="px-4 py-2.5 text-foreground-700">{feat.normalValue != null ? `${feat.normalValue} ${feat.unit}` : '—'}</td>
                     <td className="px-4 py-2.5 text-foreground-900">{feat.actualValue} {feat.unit}</td>
                     <td className="px-4 py-2.5">
-                      <span className={isPositive ? 'text-red-500' : 'text-accent-600'}>
-                        {isPositive ? '+' : ''}{deviation}%
-                      </span>
+                      {deviation == null ? '—' : (
+                        <span className={isPositive ? 'text-red-500' : 'text-accent-600'}>
+                          {isPositive ? '+' : ''}{deviation}%
+                        </span>
+                      )}
                     </td>
-                    <td className="px-4 py-2.5 text-primary-600 font-medium">+{feat.contribution.toFixed(2)}</td>
+                    <td className={`px-4 py-2.5 font-medium ${feat.contribution >= 0 ? 'text-red-500' : 'text-accent-600'}`}>{signed(feat.contribution)}</td>
                   </tr>
                 );
               })}

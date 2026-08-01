@@ -50,3 +50,15 @@
 - 后端完整120项测试通过；前端type-check和production build通过。浏览器真实执行 Jazan 暴雨 +24h 成功运行 `live-api-hgb-heavy_rain` 并生成快照 `forecast-96570b3a450f4129`。
 - 真实缓存复核：同一目标时刻连续两次预测均引用同一个快照；数据库只有1条原始预报快照、2条预测记录，证明第二次未重复获取。
 - Phase 23 验证完成：仓库完整pytest 120项通过；前端ESLint、type-check、production build通过；浏览器模型选择与预测详情验收通过。训练元数据补充估计器和scikit-learn版本用于制品审计。
+- 启动真实模型归因修复：当前Phase 24。已确认运行环境安装SHAP 0.50.0，但项目依赖尚未声明；现有历史/实时HGB均把原始指标值误写为贡献。
+- Phase 24 完成：选择TreeExplainer `tree_path_dependent + raw` 契约，SHAP值单位为二分类原始margin/log-odds；基线值与逐特征SHAP之和必须等于 `decision_function`，再由sigmoid对应模型概率。
+- 已在真实 `live-api-hgb-heavy_rain`（8特征）和 `joblib-heatwave`（27特征）制品上验证SHAP 0.50.0加和一致性。
+- 当前阶段：Phase 25，正在将两类HGB包装器的原始指标伪贡献替换为可校验的Tree SHAP归因，并补齐模型聚焦测试。
+- Phase 25 完成：历史与实时HGB均缓存真实TreeExplainer，返回完整模型特征的有符号归因、基线和raw log-odds输出；17项模型/格式化聚焦测试通过。
+- 当前阶段：Phase 26，正在同步API、图谱和前端归因语义与正负展示。
+- API已新增归因方法、输出尺度、基线和模型原始输出；前端开始按正负方向展示完整Tree SHAP特征，并对无可靠常模的特征显示“—”。
+- Phase 26 完成：API/SQLite JSON契约、解释图谱、对话语义与前端正负条形图均已切换到真实Tree SHAP；图谱/路由/持久化聚焦测试30项通过，前端type-check与ESLint通过。
+- 当前阶段：Phase 27，执行完整测试、真实制品预测复核、差异审查与提交。
+- Phase 27 验证完成：后端完整pytest 122项通过；前端type-check、ESLint和production build通过。
+- 真实 `live-api-hgb-heavy_rain` 制品复核返回8个Tree SHAP特征，贡献同时保留正负号，基线加贡献和 `-10.321231` 与模型raw输出 `-10.321232` 在序列化精度内一致。
+- 最终补充旧记录保护：缺少 `attributionMethod=tree_shap` 的历史预测明确标为“旧记录/未验证”，前端和图谱都不会把遗留数值冒充SHAP。该调整后再次完成122项后端测试及前端type-check、ESLint、production build。

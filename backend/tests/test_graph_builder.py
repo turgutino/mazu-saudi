@@ -51,6 +51,18 @@ def test_graph_node_count_matches_feature_rule_mechanism_counts():
     assert len(rule_nodes) == len([h for h in prediction.rule_hits if h.met])
 
 
+def test_graph_records_verified_tree_shap_semantics():
+    prediction = _build_prediction("heavy-rain")
+    graph = build_graph(prediction)
+
+    prediction_node = next(node for node in graph.nodes if node.type == "prediction")
+    assert prediction_node.details["attributionMethod"] == "tree_shap"
+    assert prediction_node.details["attributionOutput"] == "raw_log_odds"
+    attribution_edges = [edge for edge in graph.edges if edge.type == "HAS_ATTRIBUTION"]
+    assert attribution_edges
+    assert all("Tree SHAP" in edge.rationale for edge in attribution_edges)
+
+
 def test_graph_edges_reference_existing_node_ids():
     prediction = _build_prediction("dust-storm")
     graph = build_graph(prediction)

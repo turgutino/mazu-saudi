@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import math
 
 import pytest
 
@@ -42,6 +43,16 @@ def test_live_api_artifacts_run_real_predict_proba(hazard: str):
     assert model.features == MODEL_FEATURES
     assert raw.model_id.startswith("live-api-hgb-")
     assert 0.0 <= raw.probability <= 1.0
+    assert set(raw.important_features) == set(MODEL_FEATURES)
+    assert raw.important_features["daily_precip_total"] != _indicators()["daily_precip_total"]
+    assert raw.attribution_method == "tree_shap"
+    assert raw.attribution_output == "raw_log_odds"
+    assert raw.attribution_base_value is not None
+    assert raw.attribution_model_output is not None
+    reconstructed = raw.attribution_base_value + sum(raw.important_features.values())
+    assert reconstructed == pytest.approx(raw.attribution_model_output, abs=1e-5)
+    sigmoid = 1 / (1 + math.exp(-raw.attribution_model_output))
+    assert sigmoid == pytest.approx(raw.probability, abs=1e-4)
 
 
 def test_live_api_model_rejects_missing_required_feature():

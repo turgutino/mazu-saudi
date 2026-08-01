@@ -47,7 +47,7 @@ export const NODE_GROUPS: NodeGroup[] = [
 export const TIMELINE_STEPS = [
   { step: 0, label: '预测案例', desc: 'ForecastCase 初始化' },
   { step: 1, label: '模型预测', desc: '模型生成预测结果' },
-  { step: 2, label: '特征归因', desc: 'SHAP 特征贡献分析' },
+  { step: 2, label: '特征归因', desc: 'Tree SHAP 原始 log-odds 局部归因' },
   { step: 3, label: '规则触发', desc: '风险规则命中判断' },
   { step: 4, label: '物理机制', desc: '物理解释链构建' },
   { step: 5, label: '风险评估', desc: '综合风险等级输出' },

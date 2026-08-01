@@ -7,7 +7,7 @@ class FeatureContribution(CamelModel):
     feature: str
     feature_label: str
     contribution: float
-    normal_value: float
+    normal_value: float | None = None
     actual_value: float
     unit: str
 
@@ -82,6 +82,10 @@ class PredictionResult(CamelModel):
     calibrated_probability: float
     predicted_class: str
     uncertainty: float
+    attribution_method: str | None = None
+    attribution_output: str | None = None
+    attribution_base_value: float | None = None
+    attribution_model_output: float | None = None
     features: list[FeatureContribution]
     rule_hits: list[RuleHit]
     mechanisms: list[MechanismPath]

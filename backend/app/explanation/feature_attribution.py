@@ -1,14 +1,4 @@
-"""Model explanation (初步设计.md 第4节: 模型解释).
-
-Turns a RawPrediction's ``important_features`` (per-indicator contributions
-already computed by the ForecastModel, see models/rule_based_model.py) plus
-the actual indicator values into the API-facing ``FeatureContribution`` list.
-
-This is explicitly *not* SHAP — RuleBasedForecastModel's contributions are
-plain linear-term outputs. If a real SHAP-explainable model is plugged in
-later, only the ``important_features`` values change; this module's shape
-stays the same.
-"""
+"""Format model-native local attributions without changing their meaning."""
 
 from __future__ import annotations
 
@@ -17,35 +7,73 @@ from app.domain.prediction import RawPrediction
 from app.schemas.prediction import FeatureContribution
 
 
+FEATURE_ALIASES = {
+    "daily_precip_total": "daily_precip",
+    "t2m_c": "t2m",
+    "pwat": "pw",
+    "wind10_speed": "wind_10m",
+}
+
+FEATURE_LABELS = {
+    "daily_precip_total": ("24小时累计降水", "mm"),
+    "daily_convective_precip": ("24小时对流降水", "mm"),
+    "daily_large_scale_precip": ("24小时大尺度降水", "mm"),
+    "t2m_c": ("24小时平均2m气温", "°C"),
+    "tmax_c": ("24小时最高2m气温", "°C"),
+    "tmin_c": ("24小时最低2m气温", "°C"),
+    "heat_index_c": ("体感温度", "°C"),
+    "vpd_kpa": ("饱和水汽压差", "kPa"),
+    "cape": ("CAPE", "J/kg"),
+    "pwat": ("可降水量", "mm"),
+    "ivt": ("整层水汽输送", "kg/(m·s)"),
+    "wind850_speed": ("850hPa风速", "m/s"),
+    "wind_shear_850_200": ("850–200hPa风切变", "m/s"),
+    "daily_precip_anomaly": ("日降水距平", "mm"),
+    "t2m_anomaly_c": ("2m气温距平", "°C"),
+    "tmax_anomaly_c": ("最高气温距平", "°C"),
+    "sst_celsius": ("海表温度", "°C"),
+    "wind10_speed": ("24小时平均10m风速", "m/s"),
+    "dewpoint_depression_c": ("露点差", "°C"),
+    "lat": ("纬度", "°"),
+    "lon": ("经度", "°"),
+    "day_of_year": ("年内日序", "day"),
+}
+
+
+def _display_metadata(feature: str) -> tuple[str, str, float | None]:
+    base_feature = feature.removeprefix("neigh_")
+    alias = FEATURE_ALIASES.get(base_feature, base_feature)
+    spec = INDICATOR_SPECS.get(alias)
+    label, unit = FEATURE_LABELS.get(
+        base_feature,
+        (base_feature.replace("_", " "), spec.unit if spec else ""),
+    )
+    if feature.startswith("neigh_"):
+        label = f"邻域{label}"
+    return label, unit, spec.normal_value if spec else None
+
+
 def build_feature_contributions(
     prediction: RawPrediction, indicators: dict[str, float]
 ) -> list[FeatureContribution]:
-    """Rank indicators by |contribution| and format them as FeatureContribution.
-
-    Only features with a known ``INDICATOR_SPECS`` entry are included: a real
-    trained model's ``important_features`` (see models/joblib_model.py) uses
-    raw NetCDF variable names (e.g. ``t2m_c``, ``pwat``) that have no display
-    spec, so those are skipped here rather than raising -- they are still
-    exposed to downstream physics via the model itself, just not surfaced as
-    a labeled UI contribution row.
-    """
+    """Rank by absolute attribution and retain every explained model input."""
 
     ranked = sorted(
         prediction.important_features.items(), key=lambda kv: abs(kv[1]), reverse=True
     )
     contributions: list[FeatureContribution] = []
     for key, contribution in ranked:
-        spec = INDICATOR_SPECS.get(key)
-        if spec is None or key not in indicators:
+        if key not in indicators:
             continue
+        label, unit, normal_value = _display_metadata(key)
         contributions.append(
             FeatureContribution(
                 feature=key,
-                feature_label=spec.label,
+                feature_label=label,
                 contribution=contribution,
-                normal_value=spec.normal_value,
+                normal_value=normal_value,
                 actual_value=indicators[key],
-                unit=spec.unit,
+                unit=unit,
             )
         )
     return contributions

@@ -21,3 +21,7 @@ class RawPrediction:
     uncertainty: float
     predicted_class: str
     important_features: dict[str, float] = field(default_factory=dict)
+    attribution_method: str | None = None
+    attribution_output: str | None = None
+    attribution_base_value: float | None = None
+    attribution_model_output: float | None = None

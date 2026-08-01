@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.explanation.feature_attribution import FEATURE_ALIASES
 from app.knowledge_graph.knowledge_base import literature, load_knowledge_base, mechanisms_for, sweet_mapping
 from app.schemas.graph import GraphEdge, GraphNode, KnowledgeGraph
 from app.schemas.prediction import PredictionResult
@@ -53,7 +54,7 @@ def build_graph(prediction: PredictionResult) -> KnowledgeGraph:
     add_node(id=case_id, label=f"ForecastCase\n{prediction.region_name}", type="case", group="anchor", step=0,
              evidence_kind="run", status="materialized", details={"initialTime": prediction.initial_time, "targetTime": prediction.target_time, "leadTimeHours": prediction.lead_time_hours})
     add_node(id=pred_id, label=f"Prediction\n{prediction.hazard_label}概率 {prediction.calibrated_probability:g}", type="prediction", group="anchor", step=1,
-             evidence_kind="model", status="computed", details={"rawProbability": prediction.probability, "calibratedProbability": prediction.calibrated_probability, "uncertainty": prediction.uncertainty, "inputHash": prediction.input_hash})
+             evidence_kind="model", status="computed", details={"rawProbability": prediction.probability, "calibratedProbability": prediction.calibrated_probability, "uncertainty": prediction.uncertainty, "inputHash": prediction.input_hash, "attributionMethod": prediction.attribution_method, "attributionOutput": prediction.attribution_output, "attributionBaseValue": prediction.attribution_base_value, "attributionModelOutput": prediction.attribution_model_output})
     add_node(id=model_id, label=f"ModelVersion\n{prediction.model_name} {prediction.model_version}", type="model", group="input", step=1,
              evidence_kind="model", status="declared", details={"modelId": prediction.model_id, "version": prediction.model_version})
     add_node(id=hazard_id, label=f"HazardType\n{prediction.hazard_label}", type="hazard", group="input", step=1,
@@ -66,12 +67,21 @@ def build_graph(prediction: PredictionResult) -> KnowledgeGraph:
     add_edge(pred_id, hazard_id, "PREDICTS", "PREDICTS", 1, "asserted", "预测目标灾种。")
 
     feature_node_ids: dict[str, str] = {}
+    verified_tree_shap = prediction.attribution_method == "tree_shap"
+    attribution_rationale = (
+        "Tree SHAP在模型raw log-odds尺度上的局部归因；正值提高事件倾向、负值降低事件倾向，不表示物理因果。"
+        if verified_tree_shap
+        else "该旧记录未声明可验证的归因方法，不应解读为SHAP贡献或物理因果。"
+    )
     for feature in prediction.features:
         fid = f"feat-{feature.feature}"
         feature_node_ids[feature.feature] = fid
+        alias = FEATURE_ALIASES.get(feature.feature)
+        if alias:
+            feature_node_ids[alias] = fid
         add_node(id=fid, label=f"{feature.feature_label}\n{feature.actual_value:g} {feature.unit}", type="feature", group="features", step=2,
-                 navigate_tab="features", evidence_kind="model", status="computed-attribution", details={"indicator": feature.feature, "actualValue": feature.actual_value, "normalValue": feature.normal_value, "unit": feature.unit, "contribution": feature.contribution})
-        add_edge(pred_id, fid, "HAS_ATTRIBUTION", "HAS_ATTRIBUTION", 2, "computed", "模型适配器返回的逐特征贡献；不是物理因果贡献。", confidence=None)
+                 navigate_tab="features", evidence_kind="model", status="computed-attribution" if verified_tree_shap else "legacy-unverified", details={"indicator": feature.feature, "actualValue": feature.actual_value, "normalValue": feature.normal_value, "unit": feature.unit, "contribution": feature.contribution, "method": prediction.attribution_method, "outputScale": prediction.attribution_output})
+        add_edge(pred_id, fid, "HAS_ATTRIBUTION", "HAS_ATTRIBUTION", 2, "computed" if verified_tree_shap else "asserted", attribution_rationale, confidence=None)
 
     for rule in prediction.rule_hits:
         if not rule.met:

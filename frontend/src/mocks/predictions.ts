@@ -2,7 +2,7 @@ export interface FeatureContribution {
   feature: string;
   featureLabel: string;
   contribution: number;
-  normalValue: number;
+  normalValue: number | null;
   actualValue: number;
   unit: string;
 }
@@ -77,6 +77,10 @@ export interface PredictionResult {
   calibratedProbability: number;
   predictedClass: string;
   uncertainty: number;
+  attributionMethod?: string | null;
+  attributionOutput?: string | null;
+  attributionBaseValue?: number | null;
+  attributionModelOutput?: number | null;
   features: FeatureContribution[];
   ruleHits: RuleHit[];
   mechanisms: MechanismPath[];

@@ -71,3 +71,11 @@
 - 验证集结果：高温AUC 0.9846 / FAR 0.5161；山洪AUC 0.8421 / FAR 0.8166；沙尘暴代理AUC 0.9901 / FAR 0.6236。山洪与沙尘暴空报率仍高，不能表述成生产级高精度灾害模型。
 - 强降雨标签与输入中的24小时累计降水同源，验证AUC=1属于阈值关系泄漏，不代表独立预报技巧；前后端模型描述已明确提示这一限制。
 - 真实Open-Meteo端到端预测确认API返回的是小时要素；后端聚合并持久化原始JSON（4636字符）和13个派生指标，再运行真实joblib HGB。相同目标小时的第二次预测复用同一快照。
+
+## Real model attribution findings
+
+- `LiveApiForecastModel` 与 `JoblibForecastModel` 当前都把输入原值写入 `important_features`；前端和图谱却标记为SHAP贡献，构成语义错误。
+- 当前开发环境存在SHAP 0.50.0，但 `pyproject.toml` 尚未声明依赖；正式实现必须加入可复现依赖并验证对 sklearn 1.7 HistGradientBoostingClassifier 的解释输出。
+- SHAP 0.50.0 的TreeExplainer已实测支持项目两类 HistGradientBoostingClassifier。采用无额外背景数据的 `tree_path_dependent` 模式解释raw margin：实时暴雨样例 `base=-10.312786`、SHAP和 `-0.008445`、模型margin `-10.321232`；历史高温样例同样满足加和一致性。
+- 正式API必须同时返回归因方法、输出尺度、基线和模型原始输出；前端以正负方向显示log-odds贡献，不称为概率百分点。
+- 历史HGB包含最多27个原始/邻域特征，而现有展示层只识别少量 `INDICATOR_SPECS` 并静默丢弃其余特征；真实归因实现必须保留完整模型特征集合，对未知常模的特征显示实际值但不虚构“正常值”。
