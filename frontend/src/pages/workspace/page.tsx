@@ -694,9 +694,9 @@ export default function Workspace() {
               <span>预测结果仅供参考，实际预警以官方发布为准</span>
             </div>
             <div className="flex items-center gap-4 text-xs text-foreground-400">
-              <span>模型版本: v4.1.0</span>
+              <span>模型: HistGradientBoosting + 规则基线</span>
               <span>数据: ERA5 + 数值预报</span>
-              <span>更新于 2026-07-30</span>
+              <span>更新于 2025-06-30</span>
             </div>
           </div>
         </div>

@@ -45,10 +45,10 @@ def test_run_prediction_uses_default_model_when_not_specified(service: Predictio
 
 def test_run_prediction_respects_explicit_model_id(service: PredictionService):
     request = PredictionRequest(
-        region_id="jazan", hazard="heavy-rain", lead_time_hours=24, model_id="xgb-v3"
+        region_id="jazan", hazard="heavy-rain", lead_time_hours=24, model_id="joblib-heatwave"
     )
     result = service.run_prediction(request)
-    assert result.model_id == "xgb-v3"
+    assert result.model_id == "joblib-heatwave"
 
 
 def test_run_prediction_rejects_unknown_region(service: PredictionService):
