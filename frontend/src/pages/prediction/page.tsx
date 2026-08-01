@@ -279,7 +279,7 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-foreground-500">
-                    实际 {feat.actualValue} {feat.unit}{feat.normalValue != null ? `（参考 ${feat.normalValue} ${feat.unit}）` : ''}
+                    实际 {feat.actualValue != null ? `${feat.actualValue} ${feat.unit}` : '—'}{feat.normalValue != null ? `（参考 ${feat.normalValue} ${feat.unit}）` : ''}
                   </span>
                   <span className={`text-xs font-medium ${feat.contribution >= 0 ? 'text-red-500' : 'text-accent-600'}`}>
                     {signed(feat.contribution)}
@@ -313,7 +313,7 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
             </thead>
             <tbody>
               {features.map((feat) => {
-                const deviation = feat.normalValue != null && feat.normalValue !== 0
+                const deviation = feat.actualValue != null && feat.normalValue != null && feat.normalValue !== 0
                   ? ((feat.actualValue - feat.normalValue) / Math.abs(feat.normalValue) * 100).toFixed(0)
                   : null;
                 const isPositive = deviation != null && Number(deviation) > 0;
@@ -321,7 +321,7 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
                   <tr key={feat.feature} className="border-b border-background-200/50">
                     <td className="px-4 py-2.5 font-medium text-foreground-900">{feat.featureLabel}</td>
                     <td className="px-4 py-2.5 text-foreground-700">{feat.normalValue != null ? `${feat.normalValue} ${feat.unit}` : '—'}</td>
-                    <td className="px-4 py-2.5 text-foreground-900">{feat.actualValue} {feat.unit}</td>
+                    <td className="px-4 py-2.5 text-foreground-900">{feat.actualValue != null ? `${feat.actualValue} ${feat.unit}` : '—'}</td>
                     <td className="px-4 py-2.5">
                       {deviation == null ? '—' : (
                         <span className={isPositive ? 'text-red-500' : 'text-accent-600'}>

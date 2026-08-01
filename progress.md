@@ -72,3 +72,7 @@
 - Phase 32完成：新增不可变 `monitor_data_snapshots` 表、按数据源+固定UTC六小时时段查询的仓储和GET/POST API；5项聚焦测试通过。
 - Phase 33完成：Open-Meteo、CMA和Tomorrow.io三个hook均改为数据库优先，当前时段缺失才回源；手动刷新绕过缓存并保存新快照。主数据源标签会区分“数据库缓存/新快照”。
 - Phase 34完成：聚焦测试验证同一时段POST后连续GET返回同一snapshotId且 `cacheHit=true`，跨18:00 UTC边界不复用12:00时段数据；后端完整pytest 126项通过，前端type-check、ESLint和production build通过。
+- 启动历史回放时效修复：Phase 35完成。已复现运行中后端500，同时证明相同参数在当前代码和真实归档上可成功推理；历史模型契约确认仅为前一日到目标日。
+- Phase 36完成：历史模式前端仅展示24小时，起报日期限制到2025-12-30；后端拒绝非24小时及会使目标日越出2025的请求，无法通过直接API绕过。
+- Phase 37完成：非有限归档指标在模型内部保持NaN、在API/SQLite中表示为null；重启后端后真实Riyadh高温请求返回200、概率0.1126、缺测SST为null，48小时请求返回明确422。
+- Phase 38完成：历史回放与归因聚焦测试33项通过，后端完整pytest 135项通过；前端type-check、ESLint和production build通过。现有历史HGB的产品契约固定为T+1日/24小时，不再把同一制品冒充其他时效模型。

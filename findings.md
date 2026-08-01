@@ -83,3 +83,6 @@
 - 回填后两条HGB记录均保存 `tree_shap/raw_log_odds`、8个特征、基线 `-10.312786` 和模型输出 `-10.321232`；两条淘汰模型记录的 `features` 为0并保存明确不可用原因。
 - 监测地图当前由三个React hook在页面挂载时直接访问Open-Meteo、Mirror Earth CMA和Tomorrow.io；Open-Meteo另有30分钟定时重复请求，三者都不查询后端数据库。
 - 后端 `/monitor/regions` 仍返回静态占位数据；既有 `forecast_data_snapshots` 是按预测目标时刻/特征版本缓存的模型输入，不适合直接充当监测页面多区域、多数据源快照。
+- 截图参数通过当前 `PredictionService` 直接运行成功（Riyadh/高温/2025-06-01/24h，概率0.1126），但正在监听8000端口的uvicorn进程返回500；失败来自运行进程而非归档缺失。
+- 参考工具明确使用 `target_date-1` 的整日指标预测 `target_date` 风险；当前历史HGB是T+1日模型，而前端错误复用了灾种通用时效列表。
+- 运行进程500的精确原因是Riyadh样本 `sst_celsius=NaN`：HGB可处理NaN，但Starlette严格JSON序列化拒绝非有限浮点。API/数据库现在以 `null` 保留缺测语义，模型内部仍使用NaN推理。

@@ -8,7 +8,7 @@ class FeatureContribution(CamelModel):
     feature_label: str
     contribution: float
     normal_value: float | None = None
-    actual_value: float
+    actual_value: float | None = None
     unit: str
 
 
@@ -99,7 +99,7 @@ class PredictionResult(CamelModel):
     # indicator dict actually fed to the model (distinct from `features`,
     # which are post-hoc contribution scores), and which of the 3 tiers
     # produced it. See app.schemas.common.DataTier.
-    raw_indicators: dict[str, float] = {}
+    raw_indicators: dict[str, float | None] = {}
     data_tier: DataTier
     forecast_snapshot_id: str | None = None
     forecast_source: str | None = None

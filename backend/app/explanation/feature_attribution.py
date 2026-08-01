@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from app.data.indicator_provider import INDICATOR_SPECS
 from app.domain.prediction import RawPrediction
 from app.schemas.prediction import FeatureContribution
@@ -66,13 +68,14 @@ def build_feature_contributions(
         if key not in indicators:
             continue
         label, unit, normal_value = _display_metadata(key)
+        actual_value = float(indicators[key])
         contributions.append(
             FeatureContribution(
                 feature=key,
                 feature_label=label,
                 contribution=contribution,
                 normal_value=normal_value,
-                actual_value=indicators[key],
+                actual_value=actual_value if math.isfinite(actual_value) else None,
                 unit=unit,
             )
         )

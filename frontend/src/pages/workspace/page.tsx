@@ -167,7 +167,9 @@ export default function Workspace() {
         && (predictionMode === 'historical' ? isHistoricalModel(model) : model.id.startsWith('live-api-hgb-')))
     : [];
 
-  const availableLeadTimes = selectedHazard ? selectedHazard.leadTimes : [];
+  const availableLeadTimes = selectedHazard
+    ? (predictionMode === 'historical' ? [24] : selectedHazard.leadTimes)
+    : [];
   const historicalFeatureDate = predictionMode === 'historical' && selectedLeadTime
     ? historicalFeatureDateFor(historicalDate, selectedLeadTime)
     : null;
@@ -360,12 +362,12 @@ export default function Workspace() {
                       id="historical-date"
                       type="date"
                       min="2025-01-01"
-                      max="2025-12-31"
+                      max="2025-12-30"
                       value={historicalDate}
                       onChange={(event) => setHistoricalDate(event.target.value)}
                       className="w-full sm:w-64 px-3 py-2 text-sm rounded-md border border-background-200 bg-background-50 text-foreground-900 focus:outline-none focus:ring-1 focus:ring-secondary-300"
                     />
-                    <p className="text-xs text-foreground-400 mt-2">归档覆盖2025-01-01至2025-12-31；最终可用性还会结合所选预报时效检查对应特征日文件。</p>
+                    <p className="text-xs text-foreground-400 mt-2">历史HGB固定使用起报日指标预测下一日（T+1日/24小时）；起报日可选2025-01-01至2025-12-30。</p>
                   </div>
                 )}
               </div>
@@ -457,7 +459,9 @@ export default function Workspace() {
               <div>
                 <h2 className="font-heading text-lg text-foreground-900 mb-1">选择预测时效</h2>
                 <p className="text-sm text-foreground-500 mb-5">
-                  为 <Badge variant="primary">{selectedHazard?.name}</Badge> 选择提前预报的时间范围
+                  {predictionMode === 'historical'
+                    ? <>现有历史HGB仅支持 <Badge variant="secondary">T+1日 / 24小时</Badge></>
+                    : <>为 <Badge variant="primary">{selectedHazard?.name}</Badge> 选择提前预报的时间范围</>}
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                   {availableLeadTimes.map((lt) => (

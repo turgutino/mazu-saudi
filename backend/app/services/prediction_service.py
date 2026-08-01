@@ -8,8 +8,9 @@ directly; they only call this service and the repository it saves into.
 
 from __future__ import annotations
 
+import math
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from app.data.hazards import get_hazard
 from app.data.mirrorearth_provider import MirrorEarthUnavailableError, mirrorearth_provider
@@ -37,6 +38,11 @@ class PredictionServiceError(ValueError):
     """Raised when a prediction request references unknown region/hazard/model."""
 
 
+HISTORICAL_LEAD_TIME_HOURS = 24
+HISTORICAL_FIRST_INITIAL_DATE = date(2025, 1, 1)
+HISTORICAL_LAST_INITIAL_DATE = date(2025, 12, 30)
+
+
 def _resolve_indicators_and_model(
     case: ForecastCase, prediction_mode: PredictionMode = "auto"
 ) -> tuple[dict[str, float], object, DataTier, str | None, str]:
@@ -52,6 +58,20 @@ def _resolve_indicators_and_model(
     """
     joblib_model = get_joblib_model(case.hazard)
     if prediction_mode == "historical":
+        if case.lead_time_hours != HISTORICAL_LEAD_TIME_HOURS:
+            raise PredictionServiceError(
+                "Historical replay only supports T+1 day (24 hours); "
+                f"got {case.lead_time_hours} hours"
+            )
+        if not (
+            HISTORICAL_FIRST_INITIAL_DATE
+            <= case.initial_time.date()
+            <= HISTORICAL_LAST_INITIAL_DATE
+        ):
+            raise PredictionServiceError(
+                "Historical replay initial date must be between "
+                "2025-01-01 and 2025-12-30 so the T+1 target remains in 2025"
+            )
         if joblib_model is None:
             raise PredictionServiceError(
                 f"No historical trained model for hazard: {case.hazard}"
@@ -213,7 +233,10 @@ class PredictionService:
             risk_description=risk.risk_description,
             input_hash=case.input_hash,
             created_at=created_at.isoformat(),
-            raw_indicators=indicators,
+            raw_indicators={
+                key: value if math.isfinite(float(value)) else None
+                for key, value in indicators.items()
+            },
             data_tier=data_tier,
             forecast_snapshot_id=snapshot_id,
             forecast_source=forecast_source,

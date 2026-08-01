@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import json
+import math
 from unittest.mock import patch
 
 import pytest
@@ -10,6 +12,7 @@ import requests
 
 from app.data.real_indicator_provider import INDICATORS_DIR_ENV
 from app.domain.forecast_data import ForecastIndicatorBundle
+from app.models.joblib_model import get_joblib_model
 from app.schemas.prediction import PredictionRequest
 from app.services.prediction_service import PredictionService, PredictionServiceError
 
@@ -156,6 +159,75 @@ def test_historical_mode_rejects_hazard_without_trained_model(service: Predictio
     )
     with pytest.raises(PredictionServiceError, match="No historical trained model"):
         service.run_prediction(request)
+
+
+@pytest.mark.parametrize("lead_time", [1, 6, 12, 48, 72])
+def test_historical_mode_rejects_non_t_plus_one_horizons(
+    service: PredictionService, lead_time: int
+):
+    request = PredictionRequest(
+        region_id="riyadh",
+        hazard="extreme-heat",
+        lead_time_hours=lead_time,
+        initial_time="2025-06-01T00:00:00Z",
+        prediction_mode="historical",
+    )
+    with pytest.raises(PredictionServiceError, match=r"T\+1 day \(24 hours\)"):
+        service.run_prediction(request)
+
+
+def test_historical_mode_keeps_t_plus_one_target_inside_2025(
+    service: PredictionService,
+):
+    request = PredictionRequest(
+        region_id="riyadh",
+        hazard="extreme-heat",
+        lead_time_hours=24,
+        initial_time="2025-12-31T00:00:00Z",
+        prediction_mode="historical",
+    )
+    with pytest.raises(PredictionServiceError, match="target remains in 2025"):
+        service.run_prediction(request)
+
+
+def test_historical_missing_model_input_is_json_null_not_nan(
+    service: PredictionService,
+):
+    model = get_joblib_model("extreme-heat")
+    indicators = {feature: 1.0 for feature in model.features}
+    indicators.update(
+        {
+            "sst_celsius": math.nan,
+            "t2m_c": 41.0,
+            "tmax_c": 47.0,
+            "tmin_c": 34.0,
+            "t2m": 41.0,
+            "rh_surface": 20.0,
+            "t850": 31.0,
+            "h500": 5920.0,
+        }
+    )
+    request = PredictionRequest(
+        region_id="riyadh",
+        hazard="extreme-heat",
+        lead_time_hours=24,
+        initial_time="2025-06-01T00:00:00Z",
+        prediction_mode="historical",
+    )
+    with patch(
+        "app.services.prediction_service.real_data_available", return_value=True
+    ), patch(
+        "app.services.prediction_service.real_indicator_provider.generate",
+        return_value=indicators,
+    ):
+        result = service.run_prediction(request)
+
+    assert result.raw_indicators["sst_celsius"] is None
+    sst_feature = next(
+        feature for feature in result.features if feature.feature == "sst_celsius"
+    )
+    assert sst_feature.actual_value is None
+    json.dumps(result.model_dump(by_alias=True), allow_nan=False)
 
 
 def test_live_mode_does_not_use_archive_even_when_it_is_available(

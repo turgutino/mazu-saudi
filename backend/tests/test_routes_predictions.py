@@ -149,6 +149,21 @@ def test_prediction_rejects_unknown_region(client: TestClient):
     assert r.status_code == 422
 
 
+def test_historical_route_rejects_non_24_hour_model_use(client: TestClient):
+    response = client.post(
+        "/api/v1/predictions",
+        json={
+            "regionId": "riyadh",
+            "hazard": "extreme-heat",
+            "leadTimeHours": 48,
+            "initialTime": "2025-06-01T00:00:00Z",
+            "predictionMode": "historical",
+        },
+    )
+    assert response.status_code == 422
+    assert "T+1 day (24 hours)" in response.json()["detail"]
+
+
 def test_historical_mode_rejects_hazard_without_trained_model(client: TestClient):
     r = client.post(
         "/api/v1/predictions",

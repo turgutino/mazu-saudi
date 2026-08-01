@@ -79,7 +79,8 @@ def build_graph(prediction: PredictionResult) -> KnowledgeGraph:
         alias = FEATURE_ALIASES.get(feature.feature)
         if alias:
             feature_node_ids[alias] = fid
-        add_node(id=fid, label=f"{feature.feature_label}\n{feature.actual_value:g} {feature.unit}", type="feature", group="features", step=2,
+        actual_label = "缺测" if feature.actual_value is None else f"{feature.actual_value:g} {feature.unit}"
+        add_node(id=fid, label=f"{feature.feature_label}\n{actual_label}", type="feature", group="features", step=2,
                  navigate_tab="features", evidence_kind="model", status="computed-attribution" if verified_tree_shap else "legacy-unverified", details={"indicator": feature.feature, "actualValue": feature.actual_value, "normalValue": feature.normal_value, "unit": feature.unit, "contribution": feature.contribution, "method": prediction.attribution_method, "outputScale": prediction.attribution_output})
         add_edge(pred_id, fid, "HAS_ATTRIBUTION", "HAS_ATTRIBUTION", 2, "computed" if verified_tree_shap else "asserted", attribution_rationale, confidence=None)
 

@@ -3,7 +3,7 @@ export interface FeatureContribution {
   featureLabel: string;
   contribution: number;
   normalValue: number | null;
-  actualValue: number;
+  actualValue: number | null;
   unit: string;
 }
 
@@ -93,7 +93,7 @@ export interface PredictionResult {
   // Dataset-building provenance (not currently rendered in the UI): the raw
   // indicator values actually fed to the model, and which of the 3 tiers
   // (real archived data / live API / synthetic placeholder) produced them.
-  rawIndicators: Record<string, number>;
+  rawIndicators: Record<string, number | null>;
   dataTier: 'tier1_real' | 'tier2_live' | 'tier3_synthetic';
   forecastSnapshotId?: string | null;
   forecastSource?: string | null;

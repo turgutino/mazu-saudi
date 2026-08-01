@@ -31,7 +31,7 @@ export const models: ModelInfo[] = [
     version: 'trained-2025-06-30',
     type: 'tree',
     icon: 'ri-sun-line',
-    description: 'Scikit-learn HistGradientBoostingClassifier，基于 ERA5 归档数据训练的高温预测模型（含邻域特征）。',
+    description: '基于前一日ERA5归档指标预测目标日高温（T+1日/24小时）的HistGradientBoostingClassifier，含邻域特征。',
     supportedHazards: ['extreme-heat'],
     lastTrained: '2025-06-30',
     metrics: {
@@ -44,7 +44,7 @@ export const models: ModelInfo[] = [
     version: 'trained-2025-06-30',
     type: 'tree',
     icon: 'ri-flood-line',
-    description: 'Scikit-learn HistGradientBoostingClassifier，基于 ERA5 归档数据训练的山洪预测模型。',
+    description: '基于前一日ERA5归档指标预测目标日山洪风险（T+1日/24小时）的HistGradientBoostingClassifier。',
     supportedHazards: ['flash-flood'],
     lastTrained: '2025-06-30',
     metrics: {
@@ -57,7 +57,7 @@ export const models: ModelInfo[] = [
     version: 'trained-2025-06-30',
     type: 'tree',
     icon: 'ri-windy-line',
-    description: 'Scikit-learn HistGradientBoostingClassifier，基于 ERA5 归档数据训练的沙尘暴预测模型。',
+    description: '基于前一日ERA5归档指标预测目标日沙尘暴代理事件（T+1日/24小时）的HistGradientBoostingClassifier。',
     supportedHazards: ['dust-storm'],
     lastTrained: '2025-06-30',
     metrics: {
