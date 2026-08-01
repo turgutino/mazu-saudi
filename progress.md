@@ -78,3 +78,5 @@
 - Phase 38完成：历史回放与归因聚焦测试33项通过，后端完整pytest 135项通过；前端type-check、ESLint和production build通过。现有历史HGB的产品契约固定为T+1日/24小时，不再把同一制品冒充其他时效模型。
 - Phase 39完成：图谱在预测数据和容器实测尺寸都就绪后自动适配SVG视口；手动“重置视图”复用同一计算函数。
 - Phase 40完成：新增2项视口计算测试，前端测试、type-check、ESLint和production build全部通过。
+- Phase 41完成：节点画布标签限制为每行18字符、最多3行，超出显示省略号；悬停提示和点击后的节点详情保留完整名称。
+- Phase 42完成：4项图谱视口与标签聚焦测试通过，前端type-check、ESLint和production build全部通过。

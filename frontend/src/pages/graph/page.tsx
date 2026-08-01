@@ -4,7 +4,7 @@ import Navbar from '@/components/feature/Navbar';
 import Button from '@/components/base/Button';
 import Badge from '@/components/base/Badge';
 import { fetchKnowledgeGraph, type KnowledgeGraph, type GraphNode, type GraphEdge } from '@/services/knowledgeGraphApi';
-import { createFittedGraphViewBox } from './viewBox';
+import { createFittedGraphViewBox, createNodeLabelPreview } from './viewBox';
 
 interface NodeGroup { key: string; label: string; icon: string; color: string }
 
@@ -581,7 +581,7 @@ export default function KnowledgeGraphPage() {
                 const isHovered = hoveredNode === node.id;
                 const dimmed = isNodeDimmed(node.id);
 
-                const lines = node.label.split('\n');
+                const lines = createNodeLabelPreview(node.label);
                 const boxWidth = Math.max(...lines.map((l) => l.length * 8)) + 20;
                 const boxHeight = lines.length * 16 + 16;
 
@@ -596,6 +596,7 @@ export default function KnowledgeGraphPage() {
                     className={`cursor-grab ${dimmed ? 'opacity-20' : 'opacity-100'} transition-opacity duration-300`}
                     style={{ cursor: dragNode === node.id ? 'grabbing' : 'pointer' }}
                   >
+                    <title>{node.label}</title>
                     <rect
                       width={boxWidth}
                       height={boxHeight}
@@ -647,6 +648,11 @@ export default function KnowledgeGraphPage() {
                       }}
                     ></span>
                     <Badge variant="secondary" size="sm">{NODE_LABELS[selectedNodeData.type] || selectedNodeData.type}</Badge>
+                  </div>
+
+                  <div>
+                    <span className="text-xs text-foreground-500">名称</span>
+                    <p className="text-xs text-foreground-700 mt-0.5 whitespace-pre-wrap break-words">{selectedNodeData.label}</p>
                   </div>
 
                   <div>
