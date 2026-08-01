@@ -82,15 +82,15 @@ class RuleBasedForecastModel:
             score += contribution
 
         probability = round(_sigmoid(score), 4)
-        # decisive predictions (far from 0.5) carry lower uncertainty.
-        uncertainty = round(min(max(0.35 - 0.4 * abs(probability - 0.5), 0.05), 0.35), 4)
+        # Scores farther from 0.5 receive lower heuristic ambiguity.
+        ambiguity = round(min(max(0.35 - 0.4 * abs(probability - 0.5), 0.05), 0.35), 4)
 
         return RawPrediction(
             model_id=self.model_id,
             model_version=self.model_version,
             model_name=self.model_name,
             probability=probability,
-            uncertainty=uncertainty,
+            ambiguity=ambiguity,
             predicted_class=_classify(probability),
             important_features=contributions,
         )

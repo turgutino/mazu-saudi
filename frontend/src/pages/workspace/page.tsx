@@ -229,7 +229,7 @@ export default function Workspace() {
 
     setIsRunning(true);
     setRunError(null);
-    setProgressMessage('预测服务正在执行数据解析、模型推理、校准、风险政策和知识检索…');
+    setProgressMessage('预测服务正在执行数据解析、模型推理、分数语义标记、风险政策和知识检索…');
     try {
       const result = await createPrediction({
         regionId: selectedRegion.id,
@@ -749,7 +749,7 @@ export default function Workspace() {
                       <span className="text-sm text-foreground-700 font-medium">智能体正在编排预测流程...</span>
                     </div>
                     <div className="space-y-2">
-                      {['数据准备', '模型预测', '概率校准', '风险决策', '解释生成', '图谱构建', '报告生成'].map((label, idx) => {
+                      {['数据准备', '模型预测', '分数语义', '风险决策', '解释生成', '图谱构建', '报告生成'].map((label, idx) => {
                         const isActive = idx <= Math.floor(progressMessage.length / 30);
                         return (
                           <div key={label} className="flex items-center gap-2">
@@ -777,14 +777,14 @@ export default function Workspace() {
                         <ol className="list-decimal list-inside space-y-1">
                           <li>加载预测案例数据 (ForecastCase)</li>
                           <li>根据运行模式选择全特征历史模型或API兼容轻量模型</li>
-                          <li>{predictionMode === 'historical' ? '执行模型概率校准' : '生成未经观测频率校准的代理事件概率'}</li>
+                          <li>{predictionMode === 'historical' ? '标记未校准模型事件或代理事件分数' : '标记未校准事件或代理事件分数'}</li>
                           <li>运行 {selectedRegion?.name} 区域风险规则</li>
                           <li>调用解释引擎生成特征贡献和物理机制</li>
                           <li>查询相似历史事件</li>
                           <li>构建解释证据图谱</li>
                           <li>生成预测报告</li>
                         </ol>
-                        <p className="mt-2 text-foreground-400">历史模式输出全特征模型概率；实时模式输出轻量模型代理事件概率，二者都会记录实际输入和计算结果。</p>
+                        <p className="mt-2 text-foreground-400">历史模式输出全特征模型事件分数；实时模式输出轻量模型事件或代理事件分数。当前均未做独立频率校准，并记录实际输入与语义元数据。</p>
                       </div>
                     </div>
                   </div>

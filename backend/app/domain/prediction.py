@@ -2,9 +2,9 @@
 
 Deliberately separate from ``app.schemas.prediction.PredictionResult`` (the
 API DTO). RawPrediction only carries what a model is allowed to produce:
-probability, uncertainty and per-feature contributions. Calibration and risk
-decisions are layered on top of it by other components (see risk/*.py), never
-inside the model itself.
+an uncalibrated score, a heuristic ambiguity value and per-feature
+contributions. Calibration and risk decisions are layered on top of it by
+other components (see risk/*.py), never inside the model itself.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ class RawPrediction:
     model_version: str
     model_name: str
     probability: float
-    uncertainty: float
+    ambiguity: float
     predicted_class: str
     important_features: dict[str, float] = field(default_factory=dict)
     attribution_method: str | None = None

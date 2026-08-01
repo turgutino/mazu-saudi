@@ -34,9 +34,13 @@ def _make_result(
         lead_time_hours=24,
         initial_time="2025-06-01T00:00:00+00:00",
         probability=0.5,
-        calibrated_probability=0.5,
+        decision_score=0.5,
+        score_semantics="uncalibrated_event_score",
+        calibration_method="none",
+        is_calibrated=False,
         predicted_class="medium",
-        uncertainty=0.1,
+        ambiguity=0.1,
+        ambiguity_method="heuristic_probability_margin",
         features=[],
         rule_hits=[],
         mechanisms=[],
@@ -105,3 +109,29 @@ def test_clear_removes_all_rows(tmp_path, monkeypatch):
     store.save(_make_result("pred-1", "case-1", "jazan", "flash-flood"))
     store.clear()
     assert store.list() == []
+
+
+def test_legacy_score_fields_are_mapped_without_changing_values():
+    result = _make_result("pred-legacy", "case-legacy", "jazan", "flash-flood")
+    payload = result.model_dump(by_alias=True)
+    payload.pop("decisionScore")
+    payload.pop("scoreSemantics")
+    payload.pop("calibrationMethod")
+    payload.pop("isCalibrated")
+    payload.pop("ambiguity")
+    payload.pop("ambiguityMethod")
+    payload["calibratedProbability"] = 0.42
+    payload["uncertainty"] = 0.19
+    payload["modelId"] = "live-api-hgb-flash_flood"
+
+    migrated = PredictionResult.model_validate(payload)
+
+    assert migrated.decision_score == 0.42
+    assert migrated.ambiguity == 0.19
+    assert migrated.score_semantics == "uncalibrated_proxy_event_score"
+    assert migrated.calibration_method == "none"
+    assert migrated.is_calibrated is False
+
+    payload["modelId"] = "joblib-flash_flood"
+    historical_proxy = PredictionResult.model_validate(payload)
+    assert historical_proxy.score_semantics == "uncalibrated_proxy_event_score"

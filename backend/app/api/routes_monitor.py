@@ -2,22 +2,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import get_monitor_snapshot_store
-from app.data.monitor import get_monitor_regions
+from app.api.deps import get_monitor_acquisition_service, get_monitor_snapshot_store
 from app.repositories.monitor_snapshot_store import MonitorSnapshotStore
 from app.schemas.monitor import (
     MonitorDataSnapshot,
-    MonitorRegionData,
-    MonitorSnapshotCreate,
     MonitorSource,
+    MonitorSourceStatus,
 )
+from app.services.monitor_acquisition import MonitorAcquisitionError, MonitorAcquisitionService
 
 router = APIRouter(tags=["monitor"])
-
-
-@router.get("/monitor/regions", response_model=list[MonitorRegionData])
-def list_monitor_regions() -> list[MonitorRegionData]:
-    return get_monitor_regions()
 
 
 @router.get("/monitor/snapshots/{source}", response_model=MonitorDataSnapshot)
@@ -31,9 +25,19 @@ def get_monitor_snapshot(
     return snapshot
 
 
-@router.post("/monitor/snapshots", response_model=MonitorDataSnapshot)
-def save_monitor_snapshot(
-    request: MonitorSnapshotCreate,
-    store: MonitorSnapshotStore = Depends(get_monitor_snapshot_store),
+@router.get("/monitor/sources", response_model=list[MonitorSourceStatus])
+def list_monitor_sources(
+    service: MonitorAcquisitionService = Depends(get_monitor_acquisition_service),
+) -> list[MonitorSourceStatus]:
+    return service.source_status()
+
+
+@router.post("/monitor/snapshots/{source}/refresh", response_model=MonitorDataSnapshot)
+def refresh_monitor_snapshot(
+    source: MonitorSource,
+    service: MonitorAcquisitionService = Depends(get_monitor_acquisition_service),
 ) -> MonitorDataSnapshot:
-    return store.save(request.source, request.data)
+    try:
+        return service.get_or_refresh(source, force_refresh=True)
+    except MonitorAcquisitionError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

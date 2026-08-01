@@ -9,6 +9,7 @@ import { type PredictionResult, type RuleHit, type MechanismPath, type Historica
 import { fetchPrediction } from '@/services/predictionApi';
 import { buildChatContext } from '@/mocks/chatResponses';
 import { useSetChatContext } from '@/hooks/useChatContext';
+import { ambiguityLabel, calibrationLabel, scoreLabel } from '@/services/predictionSemantics';
 
 type Tab = 'overview' | 'features' | 'rules' | 'mechanisms' | 'history';
 
@@ -157,36 +158,34 @@ export default function PredictionDetail() {
 }
 
 function OverviewTab({ prediction }: { prediction: PredictionResult }) {
-  const isLiveProxyProbability = prediction.modelId.startsWith('live-api-hgb-');
   return (
     <div className="space-y-6">
       {/* Key metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="text-center py-6">
-          <p className="text-xs text-foreground-500 mb-2">{isLiveProxyProbability ? '代理事件概率' : '校准后概率'}</p>
+          <p className="text-xs text-foreground-500 mb-2">{scoreLabel(prediction)}</p>
           <p className="text-3xl font-heading text-primary-600">
-            {(prediction.calibratedProbability * 100).toFixed(0)}%
+            {(prediction.decisionScore * 100).toFixed(0)}/100
           </p>
           <div className="mt-2 w-full bg-background-200 rounded-full h-1.5">
             <div
               className="h-full rounded-full bg-primary-500 transition-all duration-700"
-              style={{ width: `${prediction.calibratedProbability * 100}%` }}
+              style={{ width: `${prediction.decisionScore * 100}%` }}
             ></div>
           </div>
         </Card>
         <Card className="text-center py-6">
-          <p className="text-xs text-foreground-500 mb-2">{isLiveProxyProbability ? '模型原始代理概率' : '原始概率'}</p>
-          <p className="text-3xl font-heading text-foreground-900">
-            {(prediction.probability * 100).toFixed(0)}%
-          </p>
+          <p className="text-xs text-foreground-500 mb-2">校准状态</p>
+          <p className="text-2xl font-heading text-foreground-900">{calibrationLabel(prediction)}</p>
+          <p className="text-xs text-foreground-400 mt-1">原始模型分数 {(prediction.probability * 100).toFixed(0)}/100</p>
         </Card>
         <Card className="text-center py-6">
-          <p className="text-xs text-foreground-500 mb-2">模型不确定性</p>
+          <p className="text-xs text-foreground-500 mb-2">启发式判别模糊度</p>
           <p className="text-3xl font-heading text-foreground-900">
-            ±{(prediction.uncertainty * 100).toFixed(0)}%
+            {(prediction.ambiguity * 100).toFixed(0)}/100
           </p>
           <p className="text-xs text-foreground-400 mt-1">
-            {prediction.uncertainty < 0.15 ? '低不确定性' : prediction.uncertainty < 0.25 ? '中等不确定性' : '高不确定性'}
+            {ambiguityLabel(prediction.ambiguity)} · 非置信区间
           </p>
         </Card>
         <Card className="text-center py-6">

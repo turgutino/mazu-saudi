@@ -242,7 +242,7 @@ export default function Dashboard() {
                       <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">区域</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">灾种</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">模型</th>
-                      <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">概率 / 风险评分</th>
+                      <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">事件分数</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">风险等级</th>
                       <th className="text-left px-5 py-3 text-xs font-medium text-foreground-500 uppercase tracking-wider">操作</th>
                     </tr>
@@ -268,8 +268,8 @@ export default function Dashboard() {
                         </td>
                         <td className="px-5 py-3.5 text-sm text-foreground-900">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{(pred.calibratedProbability * 100).toFixed(0)}%</span>
-                            <span className="text-xs text-foreground-400">±{(pred.uncertainty * 100).toFixed(0)}%</span>
+                            <span className="font-medium">{(pred.decisionScore * 100).toFixed(0)}/100</span>
+                            <span className="text-xs text-foreground-400">未校准 · 模糊度 {(pred.ambiguity * 100).toFixed(0)}/100</span>
                           </div>
                         </td>
                         <td className="px-5 py-3.5">

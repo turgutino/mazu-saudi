@@ -52,9 +52,9 @@ class MonitorRegionData(CamelModel):
     forecast: list[ForecastPoint] | None = None
 
 
-class MonitorSnapshotCreate(CamelModel):
+class MonitorSourceStatus(CamelModel):
     source: MonitorSource
-    data: dict[str, Any] | list[Any]
+    configured: bool
 
 
 class MonitorDataSnapshot(CamelModel):

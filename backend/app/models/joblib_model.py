@@ -38,6 +38,11 @@ MODEL_NAMES: dict[str, str] = {
 }
 
 MODEL_VERSION = "trained-2025-06-30"
+LABEL_TYPES = {
+    "heatwave": "provided",
+    "flash_flood": "provided_proxy",
+    "dust_storm": "proxy",
+}
 
 
 def _classify(probability: float) -> str:
@@ -75,6 +80,10 @@ class JoblibForecastModel:
     def features(self) -> list[str]:
         return self._meta()[self.artifact_key]["features"]
 
+    @property
+    def label_type(self) -> str:
+        return LABEL_TYPES[self.artifact_key]
+
     def _estimator_(self):
         if self._estimator is None:
             path = ARTIFACTS_DIR / f"{self.artifact_key}_model.joblib"
@@ -100,14 +109,14 @@ class JoblibForecastModel:
 
         attribution = self._attributor_().explain(row)
 
-        uncertainty = round(min(max(0.35 - 0.4 * abs(probability - 0.5), 0.05), 0.35), 4)
+        ambiguity = round(min(max(0.35 - 0.4 * abs(probability - 0.5), 0.05), 0.35), 4)
 
         return RawPrediction(
             model_id=self.model_id,
             model_version=self.model_version,
             model_name=self.model_name,
             probability=probability,
-            uncertainty=uncertainty,
+            ambiguity=ambiguity,
             predicted_class=_classify(probability),
             important_features=attribution.values,
             attribution_method=attribution.method,

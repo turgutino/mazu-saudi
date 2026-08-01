@@ -101,7 +101,7 @@ class LiveApiForecastModel:
         )
         probability = round(float(self._estimator_().predict_proba(row)[0, 1]), 4)
         attribution = self._attributor_().explain(row)
-        uncertainty = round(
+        ambiguity = round(
             min(max(0.35 - 0.4 * abs(probability - 0.5), 0.05), 0.35), 4
         )
         return RawPrediction(
@@ -109,7 +109,7 @@ class LiveApiForecastModel:
             model_version=self.model_version,
             model_name=self.model_name,
             probability=probability,
-            uncertainty=uncertainty,
+            ambiguity=ambiguity,
             predicted_class=_classify(probability),
             important_features=attribution.values,
             attribution_method=attribution.method,

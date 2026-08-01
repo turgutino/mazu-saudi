@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { MonitorRegionData } from '@/mocks/monitor';
 import {
-  fetchAllRegions,
   transformWeatherData,
-  getOpenMeteoFallbackData,
+  type OpenMeteoResponse,
 } from '@/services/weatherApi';
 import { loadMonitorData } from '@/services/monitorSnapshotApi';
 
@@ -37,12 +36,11 @@ export function useWeatherData(): UseWeatherDataResult {
     setError(null);
 
     try {
-      const result = await loadMonitorData(
+      const result = await loadMonitorData<OpenMeteoResponse[]>(
         'open-meteo',
-        async () => transformWeatherData(await fetchAllRegions()),
         forceRefresh,
       );
-      const { regions: data, summary } = result.data;
+      const { regions: data, summary } = transformWeatherData(result.data);
       setRegions(data);
       setLastRefresh(summary.lastRefresh);
       setNextRefresh(summary.nextRefresh);
@@ -52,10 +50,9 @@ export function useWeatherData(): UseWeatherDataResult {
     } catch (err) {
       const msg = err instanceof Error ? err.message : '请求失败';
       setError(msg);
-      const fallback = getOpenMeteoFallbackData();
-      setRegions(fallback.regions);
-      setLastRefresh(fallback.summary.lastRefresh);
-      setNextRefresh(fallback.summary.nextRefresh);
+      setRegions([]);
+      setLastRefresh('');
+      setNextRefresh('');
       setIsRealData(false);
       setCacheHit(false);
     } finally {

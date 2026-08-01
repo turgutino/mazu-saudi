@@ -21,11 +21,11 @@ const NODE_GROUPS: NodeGroup[] = [
 
 const TIMELINE_STEPS = [
   { step: 0, label: '预测案例', desc: '确定起报、有效时间和空间范围' },
-  { step: 1, label: '输入与模型', desc: '冻结数据快照并生成灾害概率' },
+  { step: 1, label: '输入与模型', desc: '冻结数据快照并生成带语义的模型分数' },
   { step: 2, label: '指标与归因', desc: '区分指标值与模型特征贡献' },
   { step: 3, label: '政策规则', desc: '执行版本化风险政策' },
   { step: 4, label: '知识解释', desc: '检查机制相容性并回溯文献/本体' },
-  { step: 5, label: '风险评估', desc: '区分概率、敏感性与风险等级' },
+  { step: 5, label: '风险评估', desc: '区分模型分数、敏感性与风险等级' },
   { step: 6, label: '历史类比', desc: '检索起报前的多维相似案例' },
 ];
 

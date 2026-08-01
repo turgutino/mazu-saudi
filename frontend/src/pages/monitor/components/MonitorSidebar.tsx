@@ -271,7 +271,7 @@ export default function MonitorSidebar({
                   </div>
                   <div className="mt-1.5">
                     <div className="flex items-center justify-between text-[10px] text-foreground-500 mb-1">
-                      <span>预测概率</span>
+                      <span>监测风险指数</span>
                       <span className="font-medium text-foreground-700">
                         {(topHazard.probability * 100).toFixed(0)}%
                       </span>

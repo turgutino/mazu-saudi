@@ -4,7 +4,6 @@ import {
   mapReading,
   transformHourlyToForecast,
   buildRegionData,
-  getFallbackData,
 } from './weatherUtils';
 
 // --- Open-Meteo API types ---
@@ -19,7 +18,7 @@ interface OpenMeteoHourly {
   precipitation: number[];
 }
 
-interface OpenMeteoResponse {
+export interface OpenMeteoResponse {
   latitude: number;
   longitude: number;
   current: OpenMeteoCurrent;
@@ -49,35 +48,7 @@ export const weatherRegions: WeatherRegionConfig[] = [
   { regionId: 'tabuk', regionName: '塔布克', nameEn: 'Tabuk', lat: 28.3835, lon: 36.5771, mapX: 11.7, mapY: 22.6 },
 ];
 
-// --- Fetch from Open-Meteo ---
-
-const CURRENT_VARS = [
-  'temperature_2m',
-  'relative_humidity_2m',
-  'wind_speed_10m',
-  'wind_direction_10m',
-  'surface_pressure',
-  'cape',
-  'precipitation',
-  'cloud_cover',
-  'visibility',
-].join(',');
-
-const HOURLY_VARS = 'temperature_2m,precipitation';
 const FORECAST_HOURS = 48;
-
-async function fetchSingleRegion(cfg: WeatherRegionConfig): Promise<OpenMeteoResponse> {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.lat}&longitude=${cfg.lon}&current=${CURRENT_VARS}&hourly=${HOURLY_VARS}&forecast_hours=${FORECAST_HOURS}&timezone=UTC`;
-  const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
-  if (!res.ok) {
-    throw new Error(`Open-Meteo error for ${cfg.regionName}: ${res.status}`);
-  }
-  return res.json() as Promise<OpenMeteoResponse>;
-}
-
-export async function fetchAllRegions(): Promise<OpenMeteoResponse[]> {
-  return Promise.all(weatherRegions.map((cfg) => fetchSingleRegion(cfg)));
-}
 
 // --- Main transformer ---
 
@@ -126,10 +97,4 @@ export function transformWeatherData(
       nextRefresh,
     },
   };
-}
-
-// --- Fallback ---
-
-export function getOpenMeteoFallbackData(): ReturnType<typeof getFallbackData> {
-  return getFallbackData(FORECAST_HOURS);
 }

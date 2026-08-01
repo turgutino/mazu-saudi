@@ -10,6 +10,11 @@ interface MonitorSnapshot<T> {
   data: T;
 }
 
+interface MonitorSourceStatus {
+  source: MonitorSource;
+  configured: boolean;
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
 
 async function getCurrentSnapshot<T>(source: MonitorSource): Promise<MonitorSnapshot<T> | null> {
@@ -21,37 +26,36 @@ async function getCurrentSnapshot<T>(source: MonitorSource): Promise<MonitorSnap
   return response.json() as Promise<MonitorSnapshot<T>>;
 }
 
-async function saveSnapshot<T>(source: MonitorSource, data: T): Promise<MonitorSnapshot<T>> {
-  const response = await fetch(`${API_BASE}/monitor/snapshots`, {
+async function refreshSnapshot<T>(source: MonitorSource): Promise<MonitorSnapshot<T>> {
+  const response = await fetch(`${API_BASE}/monitor/snapshots/${encodeURIComponent(source)}/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ source, data }),
+    headers: { Accept: 'application/json' },
   });
-  if (!response.ok) throw new Error(`监测缓存保存失败 (${response.status})`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`后端监测采集失败 (${response.status}): ${detail}`);
+  }
   return response.json() as Promise<MonitorSnapshot<T>>;
+}
+
+export async function getMonitorSourceStatus(source: MonitorSource): Promise<boolean> {
+  const response = await fetch(`${API_BASE}/monitor/sources`, { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`监测数据源状态读取失败 (${response.status})`);
+  const statuses = await response.json() as MonitorSourceStatus[];
+  return statuses.find((status) => status.source === source)?.configured ?? false;
 }
 
 export async function loadMonitorData<T>(
   source: MonitorSource,
-  fetchFromSource: () => Promise<T>,
   forceRefresh = false,
 ): Promise<{ data: T; cacheHit: boolean; fetchedAt: string }> {
   if (!forceRefresh) {
-    try {
-      const cached = await getCurrentSnapshot<T>(source);
-      if (cached) {
-        return { data: cached.data, cacheHit: true, fetchedAt: cached.fetchedAt };
-      }
-    } catch {
-      // The monitoring page remains usable if the cache service is temporarily down.
+    const cached = await getCurrentSnapshot<T>(source);
+    if (cached) {
+      return { data: cached.data, cacheHit: true, fetchedAt: cached.fetchedAt };
     }
   }
 
-  const data = await fetchFromSource();
-  try {
-    const saved = await saveSnapshot(source, data);
-    return { data, cacheHit: false, fetchedAt: saved.fetchedAt };
-  } catch {
-    return { data, cacheHit: false, fetchedAt: new Date().toISOString() };
-  }
+  const refreshed = await refreshSnapshot<T>(source);
+  return { data: refreshed.data, cacheHit: false, fetchedAt: refreshed.fetchedAt };
 }

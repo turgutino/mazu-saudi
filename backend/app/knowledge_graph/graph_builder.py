@@ -33,7 +33,7 @@ _RISK_TO_WARNING_LABEL = {
 
 def _indicator_key_from_condition(condition: str) -> str | None:
     token = condition.split(" ", 1)[0]
-    return None if token in ("calibrated_probability", "region_sensitivity") else token
+    return None if token in ("calibrated_probability", "decision_score", "region_sensitivity") else token
 
 
 def build_graph(
@@ -78,8 +78,8 @@ def build_graph(
 
     add_node(id=case_id, label=f"ForecastCase\n{prediction.region_name}", type="case", group="anchor", step=0,
              evidence_kind="run", status="materialized", details={"initialTime": prediction.initial_time, "targetTime": prediction.target_time, "leadTimeHours": prediction.lead_time_hours})
-    add_node(id=pred_id, label=f"Prediction\n{prediction.hazard_label}概率 {prediction.calibrated_probability:g}", type="prediction", group="anchor", step=1,
-             evidence_kind="model", status="computed", details={"rawProbability": prediction.probability, "calibratedProbability": prediction.calibrated_probability, "uncertainty": prediction.uncertainty, "inputHash": prediction.input_hash, "attributionMethod": prediction.attribution_method, "attributionOutput": prediction.attribution_output, "attributionBaseValue": prediction.attribution_base_value, "attributionModelOutput": prediction.attribution_model_output})
+    add_node(id=pred_id, label=f"Prediction\n{prediction.hazard_label}分数 {prediction.decision_score:g}", type="prediction", group="anchor", step=1,
+             evidence_kind="model", status="computed", details={"rawModelScore": prediction.probability, "decisionScore": prediction.decision_score, "scoreSemantics": prediction.score_semantics, "calibrationMethod": prediction.calibration_method, "isCalibrated": prediction.is_calibrated, "ambiguity": prediction.ambiguity, "ambiguityMethod": prediction.ambiguity_method, "inputHash": prediction.input_hash, "attributionMethod": prediction.attribution_method, "attributionOutput": prediction.attribution_output, "attributionBaseValue": prediction.attribution_base_value, "attributionModelOutput": prediction.attribution_model_output})
     add_node(id=model_id, label=f"ModelVersion\n{prediction.model_name} {prediction.model_version}", type="model", group="input", step=1,
              evidence_kind="model", status="declared", details={"modelId": prediction.model_id, "version": prediction.model_version})
     add_node(id=hazard_id, label=f"HazardType\n{prediction.hazard_label}", type="hazard", group="input", step=1,
@@ -270,7 +270,7 @@ def build_graph(
 
     add_node(id=risk_id, label=f"RiskAssessment\n{prediction.risk_label}", type="risk", group="anchor", step=5,
              evidence_kind="decision", status="computed", details={"level": prediction.risk_level, "description": prediction.risk_description})
-    add_edge(pred_id, risk_id, "ASSESSED_AS", "ASSESSED_AS", 5, "derived", "风险评估由概率、区域敏感性和政策规则组合得到；不等同于模型概率。")
+    add_edge(pred_id, risk_id, "ASSESSED_AS", "ASSESSED_AS", 5, "derived", "风险评估由声明语义的决策分数、区域敏感性和政策规则组合得到；未校准分数不等同于灾害概率。")
 
     for event in prediction.similar_events:
         eid = f"event-{event.event_id}"

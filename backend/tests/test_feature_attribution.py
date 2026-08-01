@@ -12,7 +12,7 @@ def test_preserves_all_model_features_and_does_not_invent_normal_values():
         model_version="1",
         model_name="test",
         probability=0.5,
-        uncertainty=0.1,
+        ambiguity=0.1,
         predicted_class="moderate",
         important_features={"daily_precip_total": 0.2, "neigh_ivt": -0.1, "lat": 0.01},
     )
@@ -37,7 +37,7 @@ def test_represents_non_finite_model_input_as_missing_json_value():
         model_version="1",
         model_name="test",
         probability=0.5,
-        uncertainty=0.1,
+        ambiguity=0.1,
         predicted_class="moderate",
         important_features={"sst_celsius": -0.2},
     )

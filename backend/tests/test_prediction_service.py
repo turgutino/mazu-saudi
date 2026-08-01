@@ -60,7 +60,17 @@ def test_run_prediction_produces_complete_result(service: PredictionService, haz
     assert result.hazard == hazard
     assert result.region_id == "jazan"
     assert 0.0 <= result.probability <= 1.0
-    assert 0.0 <= result.calibrated_probability <= 1.0
+    assert 0.0 <= result.decision_score <= 1.0
+    assert result.calibration_method == "none"
+    assert result.is_calibrated is False
+    assert result.ambiguity_method == "heuristic_probability_margin"
+    assert 0.0 <= result.ambiguity <= 1.0
+    expected_semantics = (
+        "uncalibrated_event_score"
+        if hazard == "extreme-heat"
+        else "uncalibrated_proxy_event_score"
+    )
+    assert result.score_semantics == expected_semantics
     assert result.risk_level in {"green", "yellow", "orange", "red"}
     assert result.features, "expected at least one feature contribution"
     assert result.rule_hits, "expected at least one rule hit record"
@@ -146,7 +156,7 @@ def test_heavy_rain_uses_live_trained_model(service: PredictionService, monkeypa
     assert result.raw_indicators["daily_precip"] == 8.0
     assert result.forecast_snapshot_id
     assert result.forecast_source == "open-meteo"
-    assert "代理事件概率" in result.risk_description
+    assert "未校准代理事件分数" in result.risk_description
 
 
 def test_historical_mode_rejects_hazard_without_trained_model(service: PredictionService):

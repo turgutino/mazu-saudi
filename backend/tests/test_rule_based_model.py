@@ -40,7 +40,7 @@ def test_prediction_is_deterministic_for_same_input():
     raw1 = rule_based_model.predict(case1, indicators1)
     raw2 = rule_based_model.predict(case2, indicators2)
     assert raw1.probability == raw2.probability
-    assert raw1.uncertainty == raw2.uncertainty
+    assert raw1.ambiguity == raw2.ambiguity
     assert raw1.important_features == raw2.important_features
 
 
@@ -51,7 +51,7 @@ def test_all_four_hazards_supported():
         assert indicators, f"no indicators generated for {hazard}"
         raw = rule_based_model.predict(case, indicators)
         assert 0.0 <= raw.probability <= 1.0
-        assert 0.0 <= raw.uncertainty <= 1.0
+        assert 0.0 <= raw.ambiguity <= 1.0
         assert raw.predicted_class in {"low", "moderate", "high"}
         assert raw.important_features
         assert raw.model_id == "rule-based-v1"

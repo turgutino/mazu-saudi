@@ -71,8 +71,8 @@ def get_recent_activities(limit: int = 10) -> list[RecentActivity]:
                 type="prediction",
                 title=f"{p.hazard_label}{p.risk_label} — {p.region_name}",
                 description=(
-                    f"{p.model_name}预测{p.hazard_label}概率"
-                    f"{p.calibrated_probability:.2f}，{status}"
+                    f"{p.model_name}输出{p.hazard_label}决策分数"
+                    f"{p.decision_score:.2f}，{status}"
                 ),
                 time=p.created_at.replace("T", " ")[:16],
                 risk_level=p.risk_level,

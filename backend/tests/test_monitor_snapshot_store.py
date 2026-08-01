@@ -4,12 +4,13 @@ from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_monitor_snapshot_store
+from app.api.deps import get_monitor_acquisition_service, get_monitor_snapshot_store
 from app.main import create_app
 from app.repositories.monitor_snapshot_store import (
     MonitorSnapshotStore,
     monitor_bucket_start,
 )
+from app.services.monitor_acquisition import MonitorAcquisitionService
 
 
 def test_monitor_snapshots_use_fixed_six_hour_utc_buckets(tmp_path, monkeypatch):
@@ -37,17 +38,22 @@ def test_monitor_snapshot_api_returns_current_cache_before_refetch(
 ):
     monkeypatch.setenv("MAZU_DB_PATH", str(tmp_path / "monitor-api.db"))
     store = MonitorSnapshotStore()
-    app = create_app()
+    app = create_app(monitor_scheduler_enabled=False)
     app.dependency_overrides[get_monitor_snapshot_store] = lambda: store
     client = TestClient(app)
 
     missing = client.get("/api/v1/monitor/snapshots/open-meteo")
     assert missing.status_code == 404
 
-    created = client.post(
-        "/api/v1/monitor/snapshots",
-        json={"source": "open-meteo", "data": {"regions": [{"regionId": "jazan"}]}},
-    )
+    payload = [{"regionId": f"region-{index}"} for index in range(8)]
+    service = MonitorAcquisitionService(store, collectors={
+        "open-meteo": lambda: payload,
+        "mirror-earth-cma": lambda: payload,
+        "tomorrow-io": lambda: payload,
+    })
+    app.dependency_overrides[get_monitor_acquisition_service] = lambda: service
+
+    created = client.post("/api/v1/monitor/snapshots/open-meteo/refresh")
     assert created.status_code == 200
     assert created.json()["cacheHit"] is False
 
@@ -55,4 +61,10 @@ def test_monitor_snapshot_api_returns_current_cache_before_refetch(
     assert cached.status_code == 200
     assert cached.json()["cacheHit"] is True
     assert cached.json()["snapshotId"] == created.json()["snapshotId"]
-    assert cached.json()["data"]["regions"][0]["regionId"] == "jazan"
+    assert cached.json()["data"][0]["regionId"] == "region-0"
+
+    removed_public_write = client.post(
+        "/api/v1/monitor/snapshots",
+        json={"source": "open-meteo", "data": {"arbitrary": True}},
+    )
+    assert removed_public_write.status_code == 404

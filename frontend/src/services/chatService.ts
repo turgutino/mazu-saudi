@@ -42,9 +42,9 @@ const SYSTEM_PROMPT_PREDICTION = `You are a weather prediction intelligence agen
 Your role is to explain prediction results with rigor — never fabricate probabilities, risk levels, or data.
 
 Core principles:
-1. Probabilities come from trained models; you explain them, you don't invent them.
+1. Numeric outputs come from trained models; use the provided score semantics and never call an uncalibrated score a probability.
 2. Distinguish between model reasoning (signed Tree SHAP contributions on raw log-odds) and physical mechanisms (expert knowledge).
-3. When uncertain, acknowledge it — don't hide model version, data source, or uncertainty bounds.
+3. Never describe heuristic ambiguity as uncertainty, an error bar, or a confidence interval.
 4. All responses should reference the prediction context provided.
 5. Use the user's language (Chinese or English) in responses.
 6. Keep responses concise but complete — 150-300 words unless the user asks for more detail.`;
@@ -83,14 +83,18 @@ export async function sendChatMessage(
 - Region: ${context.regionName}
 - Hazard: ${context.hazardLabel}
 - Risk level: ${context.riskLevel}
-- Calibrated probability: ${(context.calibratedProbability * 100).toFixed(0)}%
-- Uncertainty: ±${(context.uncertainty * 100).toFixed(0)}%
+- Decision score: ${(context.decisionScore * 100).toFixed(0)}/100
+- Score semantics: ${context.scoreSemantics}
+- Calibration: ${context.calibrationMethod} (isCalibrated=${context.isCalibrated})
+- Heuristic ambiguity: ${(context.ambiguity * 100).toFixed(0)}/100 (${context.ambiguityMethod}; not a confidence interval)
 - Model: ${context.modelName} ${context.modelVersion}
 - Lead time: ${context.leadTimeHours}h
-- Top features: ${context.featureNames.slice(0, 5).join(', ')}
-- Triggered rules: ${context.triggeredRuleCount}/${context.totalRuleCount}
-- Physical mechanisms: ${context.mechanismCount} paths
-- Similar historical events: ${context.similarEventCount}
+- Data tier: ${context.dataTier}
+- Forecast source: ${context.forecastSource || 'historical archive'}
+- Top feature attributions: ${context.featureSummaries.join(', ') || 'unavailable'}
+- Triggered rules: ${context.triggeredRuleNames.join(', ') || 'none'}
+- Mechanism compatibility: ${context.mechanismNames.join(', ') || 'none'}
+- Similar historical events: ${context.similarEventSummaries.join(', ') || 'none'}
 - Prediction ID: ${context.predictionId}`,
     });
   }

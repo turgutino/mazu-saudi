@@ -7,7 +7,15 @@ server).
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True)
@@ -21,6 +29,9 @@ class AppSettings:
         ]
     )
     api_prefix: str = "/api/v1"
+    monitor_scheduler_enabled: bool = field(
+        default_factory=lambda: _env_flag("MAZU_MONITOR_SCHEDULER_ENABLED", True)
+    )
 
 
 settings = AppSettings()

@@ -4,6 +4,7 @@ import type { ChatMessage } from '@/mocks/chatResponses';
 import { SUGGESTED_QUESTIONS, GENERAL_QUESTIONS, generateResponse, generateGeneralResponse } from '@/mocks/chatResponses';
 import { sendChatMessage } from '@/services/chatService';
 import { useChatContext } from '@/hooks/useChatContext';
+import { splitChatText } from '@/services/chatFormatting';
 
 export default function ChatAssistant() {
   const context = useChatContext();
@@ -40,6 +41,7 @@ export default function ChatAssistant() {
         role: 'agent',
         content: welcomeMsg,
         timestamp: Date.now(),
+        source: 'system',
       }]);
     }
   }, [isOpen, context]);
@@ -68,6 +70,7 @@ export default function ChatAssistant() {
         role: 'agent',
         content: result.content,
         timestamp: Date.now(),
+        source: result.source,
       };
       setMessages((prev) => [...prev, agentMsg]);
     } catch {
@@ -79,6 +82,7 @@ export default function ChatAssistant() {
         role: 'agent',
         content: fallbackContent,
         timestamp: Date.now(),
+        source: 'keyword-fallback',
       };
       setMessages((prev) => [...prev, agentMsg]);
     } finally {
@@ -95,16 +99,17 @@ export default function ChatAssistant() {
 
   const formatContent = (content: string) => {
     return content.split('\n').map((line, i) => {
-      let formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-foreground-900">$1</strong>');
-      if (formatted.trim() === '') {
+      if (line.trim() === '') {
         return <div key={i} className="h-2"></div>;
       }
       return (
-        <p
-          key={i}
-          className="text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: formatted }}
-        ></p>
+        <p key={i} className="text-sm leading-relaxed">
+          {splitChatText(line).map((part, partIndex) => (
+            part.strong
+              ? <strong key={partIndex} className="font-semibold text-foreground-900">{part.text}</strong>
+              : <span key={partIndex}>{part.text}</span>
+          ))}
+        </p>
       );
     });
   };
@@ -120,7 +125,7 @@ export default function ChatAssistant() {
     const welcomeMsg = context
       ? generateResponse('你好', context)
       : generateGeneralResponse('你好');
-    setMessages([{ role: 'agent', content: welcomeMsg, timestamp: Date.now() }]);
+    setMessages([{ role: 'agent', content: welcomeMsg, timestamp: Date.now(), source: 'system' }]);
   };
 
   const goToWorkspace = () => {
@@ -201,6 +206,7 @@ export default function ChatAssistant() {
                   )}
                   <p className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-white/60' : 'text-foreground-400'}`}>
                     {new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                    {msg.role === 'agent' && msg.source && ` · ${msg.source === 'llm' ? 'LLM解释' : msg.source === 'keyword-fallback' ? '本地模板' : '系统提示'}`}
                   </p>
                 </div>
                 {msg.role === 'user' && (

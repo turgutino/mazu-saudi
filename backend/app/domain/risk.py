@@ -1,6 +1,6 @@
 """RiskAssessment: the output of RiskPolicy, strictly separate from RawPrediction.
 
-见 初步设计.md 第3节: Prediction 只是模型算出的概率；RiskAssessment 是结合阈值、
+见 初步设计.md 第3节: Prediction 是带明确语义的模型分数；RiskAssessment 是结合阈值、
 区域敏感度和业务规则之后的风险判断，两者不能互相绕过。
 """
 

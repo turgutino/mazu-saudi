@@ -1,13 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { MonitorRegionData } from '@/mocks/monitor';
 import {
-  fetchAllRegionsCma,
   transformMirrorEarthData,
-  isMirrorEarthConfigured,
+  type MirrorEarthResponse,
 } from '@/services/mirrorEarthApi';
-import { generateFallbackForecast } from '@/services/weatherUtils';
-import { monitorRegions as fallbackRegions } from '@/mocks/monitor';
-import { loadMonitorData } from '@/services/monitorSnapshotApi';
+import { getMonitorSourceStatus, loadMonitorData } from '@/services/monitorSnapshotApi';
 
 interface UseMirrorEarthDataResult {
   regions: MonitorRegionData[] | null;
@@ -18,15 +15,8 @@ interface UseMirrorEarthDataResult {
   refresh: () => void;
 }
 
-function getFallbackCmaData(): MonitorRegionData[] {
-  return fallbackRegions.map((r) => ({
-    ...r,
-    forecast: generateFallbackForecast(r.readings.temperature + 1.5, r.regionId, 48),
-  }));
-}
-
 export function useMirrorEarthData(): UseMirrorEarthDataResult {
-  const enabled = isMirrorEarthConfigured();
+  const [enabled, setEnabled] = useState(false);
   const [regions, setRegions] = useState<MonitorRegionData[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,12 +31,11 @@ export function useMirrorEarthData(): UseMirrorEarthDataResult {
     setError(null);
 
     try {
-      const result = await loadMonitorData(
+      const result = await loadMonitorData<MirrorEarthResponse[]>(
         'mirror-earth-cma',
-        async () => transformMirrorEarthData(await fetchAllRegionsCma()),
         forceRefresh,
       );
-      const { regions: data, summary } = result.data;
+      const { regions: data, summary } = transformMirrorEarthData(result.data);
       setRegions(data);
       setLastRefresh(summary.lastRefresh);
       setError(null);
@@ -61,10 +50,12 @@ export function useMirrorEarthData(): UseMirrorEarthDataResult {
   }, [enabled]);
 
   useEffect(() => {
-    if (enabled) {
-      loadData(false);
-    }
-  }, [enabled, loadData]);
+    getMonitorSourceStatus('mirror-earth-cma')
+      .then(setEnabled)
+      .catch(() => setEnabled(false));
+  }, []);
+
+  useEffect(() => { if (enabled) loadData(false); }, [enabled, loadData]);
 
   const refresh = useCallback(() => {
     loadData(true);

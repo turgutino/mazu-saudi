@@ -2,6 +2,15 @@
 
 ## 2026-08-01
 
+- 启动P0可信度优化：Phase 51。范围为概率/不确定性语义、后端持续监测采集边界、助手真实语义与安全渲染；保持现有模型数值不变。
+- Phase 51完成：确认identity校准、概率间隔启发式、浏览器回源、助手静态幻觉和HTML注入五类P0问题；领域词汇新增未校准模型事件分数、未校准代理事件分数和启发式判别模糊度。
+- Phase 52后端契约已实现：新API输出decisionScore、scoreSemantics、calibrationMethod、isCalibrated、ambiguity和ambiguityMethod；旧SQLite载荷读取时无损迁移。87项后端聚焦测试通过。
+- Phase 52前端同步完成：预测详情与Dashboard改为0—100事件分数、显式未校准状态和启发式模糊度，不再显示百分号概率或±区间；3项语义测试加入后前端共10项测试通过。
+- Phase 53完成：第三方请求全部迁到后端采集服务；新增来源状态、后端刷新接口和默认启用的六小时调度器；移除浏览器第三方URL/密钥、任意快照写入API和静态监测区域接口。监测聚焦测试6项、相关路由20项通过。
+- Phase 54完成：助手模板只引用当前预测实际上下文，回答显示LLM/本地模板/系统来源，HTML作为普通文本安全渲染；3项助手真实性与注入测试通过。
+- Phase 55完成：旧SQLite预测在读取时兼容迁移到decisionScore/scoreSemantics/calibrationMethod/isCalibrated/ambiguity契约，原数值不变且响应不再发出旧概率字段。后端完整pytest 146项通过；前端13项测试、type-check、ESLint和production build全部通过。
+- 真实SQLite兼容复核通过：12条既有预测均可读取；`pred-17e061b45d30` 返回未校准事件分数0.1126、无校准方法及启发式模糊度0.195。监测来源状态接口正常，已删除的静态区域接口返回404。
+- Phase 56完成：领域词汇和P0可信度架构说明已更新；`git diff --check`通过，production build产物已清理，提交范围排除用户新增的无关PDF。
 - 启动前端图谱投影优化：Phase 48。后端完整证据图保持不变，前端默认展示规则/机制引用指标与其余模型输入中绝对SHAP贡献前8项，并允许切换完整图。
 - Phase 48/49完成：新增纯函数关键证据投影和3项测试；图谱默认显示关键投影，工具栏可切换完整证据，指标侧栏显示当前/总数，原“显示全部”改名“全部步骤”以避免语义冲突。7项图谱聚焦测试通过。
 - Phase 50验证完成：前端完整7项测试、TypeScript类型检查、ESLint和production build全部通过；`git diff --check`通过。构建生成目录已清理，不纳入提交。

@@ -94,3 +94,12 @@
 - 真实历史复核发现 `RealIndicatorProvider` 仍通过旧 `with_overrides` 为归档不存在的T850/H500/地表湿度生成伪随机占位值；新证据链不能把这些值标成ERA5事实，正式历史链必须只保留归档实值及其等值别名。
 - 修正后真实Riyadh历史高温仍返回概率0.1126；运行图包含27个归档输入指标、27条PROVIDES/USED_BY/HAS_ATTRIBUTION和1条有真实输入支撑的机制相容边。旧历史记录的机制节点保留一般知识，但个例得分、置信度和相容边全部隐藏。
 - 前端关键投影不需要改变后端图谱合同：规则 `USES` 与机制 `CONSISTENT_WITH` 引用的指标必须保留，其余模型输入按 `HAS_ATTRIBUTION.details.contribution` 的绝对值排序取前8；无贡献值排在有效Tree SHAP之后。完整节点和边仍保存在页面内存中，可随时切回完整证据图。
+
+## P0 credibility findings
+
+- 当前所有预测都调用identity `calibrate()`，`calibratedProbability`与原始模型输出相同；历史页仍称其为“校准后概率”，与领域词汇中“校准必须从独立验证资料拟合”的定义冲突。
+- 历史HGB和实时API兼容HGB的 `uncertainty` 都由 `0.35 - 0.4 * abs(p-0.5)` 手工生成，只反映分数离0.5多远，不是误差、置信区间或模型方差；必须改名为启发式判别度并保留方法元数据。
+- 监测快照目前是数据库优先，但缓存未命中时由浏览器直接请求Open-Meteo/CMA/Tomorrow.io，再通过无鉴权POST把任意JSON写回后端；这不是后端监测采集，页面未打开时也不会产生新快照。
+- 助手在Supabase不可用时走关键词模板；模板仍声称概率经过校准、模型是多模型集成、使用ECMWF/GFS，并包含固定吉赞山洪案例与阈值，均可能与当前预测不符。
+- 助手把LLM/模板文本经简单粗体正则后交给 `dangerouslySetInnerHTML`，非粗体HTML不会被清理，真实LLM接入后存在内容注入风险。
+- 监测后端化采用“后端保存第三方原始响应快照、前端只做既有展示转换”的最小迁移：既避免浏览器持有API密钥和任意写快照，又不在本轮重复实现一套前后端指标映射。Open-Meteo始终可用；CMA/Tomorrow.io配置状态由后端返回。

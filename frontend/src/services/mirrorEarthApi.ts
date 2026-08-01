@@ -17,7 +17,7 @@ interface MirrorEarthHourly {
   precipitation: number[];
 }
 
-interface MirrorEarthResponse {
+export interface MirrorEarthResponse {
   latitude: number;
   longitude: number;
   current: MirrorEarthCurrent;
@@ -28,36 +28,6 @@ interface MirrorEarthResponse {
 
 const FORECAST_HOURS = 48;
 
-const HOURLY_VARS = 'temperature_2m,precipitation,cape,wind_speed_10m,wind_direction_10m,relative_humidity_2m,surface_pressure,visibility';
-
-function getApiKey(): string {
-  const key = import.meta.env.VITE_PUBLIC_MIRROR_EARTH_KEY;
-  if (!key) {
-    throw new Error('VITE_PUBLIC_MIRROR_EARTH_KEY is not configured');
-  }
-  return key;
-}
-
-// --- Fetch from Mirror Earth ---
-
-async function fetchSingleRegion(cfg: {
-  regionId: string;
-  regionName: string;
-  lat: number;
-  lon: number;
-}): Promise<MirrorEarthResponse> {
-  const apikey = getApiKey();
-  const url = `https://api.mirror-earth.com/v1/forecast?latitude=${cfg.lat}&longitude=${cfg.lon}&models=cma&hourly=${HOURLY_VARS}&forecast_days=2&temporal_resolution=hourly_1&timezone=UTC&apikey=${apikey}`;
-  const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
-  if (!res.ok) {
-    throw new Error(`Mirror Earth error for ${cfg.regionName}: ${res.status}`);
-  }
-  return res.json() as Promise<MirrorEarthResponse>;
-}
-
-export async function fetchAllRegionsCma(): Promise<MirrorEarthResponse[]> {
-  return Promise.all(weatherRegions.map((cfg) => fetchSingleRegion(cfg)));
-}
 
 // --- Main transformer ---
 
@@ -102,10 +72,4 @@ export function transformMirrorEarthData(
       lastRefresh,
     },
   };
-}
-
-// --- Check if key is configured ---
-
-export function isMirrorEarthConfigured(): boolean {
-  return !!import.meta.env.VITE_PUBLIC_MIRROR_EARTH_KEY;
 }

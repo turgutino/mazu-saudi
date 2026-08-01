@@ -182,15 +182,23 @@ class PredictionService:
                 f"{request.prediction_mode} route; expected {active_model.model_id}"
             )
         raw = active_model.predict(case, indicators)
-        calibrated_probability = calibrate(raw.probability, case.hazard, raw.model_id)
+        calibration = calibrate(raw.probability, case.hazard, raw.model_id)
 
-        score_kind = (
-            "proxy_probability"
-            if raw.model_id.startswith("live-api-hgb-")
-            else "probability"
+        label_type = getattr(active_model, "label_type", "provided")
+        is_proxy_label = label_type in {"proxy", "provided_proxy"}
+        score_semantics = (
+            "calibrated_hazard_probability"
+            if calibration.is_calibrated
+            else "uncalibrated_proxy_event_score"
+            if is_proxy_label
+            else "uncalibrated_event_score"
         )
         risk = risk_policy.assess(
-            case, calibrated_probability, indicators, region, score_kind=score_kind
+            case,
+            calibration.score,
+            indicators,
+            region,
+            score_kind="proxy_score" if is_proxy_label else "model_score",
         )
 
         features = build_feature_contributions(raw, indicators)
@@ -217,9 +225,13 @@ class PredictionService:
             lead_time_hours=case.lead_time_hours,
             initial_time=case.initial_time.isoformat(),
             probability=raw.probability,
-            calibrated_probability=calibrated_probability,
+            decision_score=calibration.score,
+            score_semantics=score_semantics,
+            calibration_method=calibration.method,
+            is_calibrated=calibration.is_calibrated,
             predicted_class=raw.predicted_class,
-            uncertainty=raw.uncertainty,
+            ambiguity=raw.ambiguity,
+            ambiguity_method="heuristic_probability_margin",
             attribution_method=raw.attribution_method,
             attribution_output=raw.attribution_output,
             attribution_base_value=raw.attribution_base_value,

@@ -56,8 +56,7 @@ def test_list_models(client: TestClient):
 
 def test_monitor_regions(client: TestClient):
     r = client.get("/api/v1/monitor/regions")
-    assert r.status_code == 200
-    assert len(r.json()) == 8
+    assert r.status_code == 404
 
 
 def test_dashboard_stats_and_activities(client: TestClient):
@@ -111,8 +110,9 @@ def test_prediction_end_to_end_per_hazard(client: TestClient, hazard: str):
     required_fields = {
         "predictionId", "caseId", "modelId", "modelVersion", "modelName",
         "hazard", "hazardLabel", "regionId", "regionName", "targetTime",
-        "leadTimeHours", "initialTime", "probability", "calibratedProbability",
-        "predictedClass", "uncertainty", "features", "ruleHits", "mechanisms",
+        "leadTimeHours", "initialTime", "probability", "decisionScore",
+        "scoreSemantics", "calibrationMethod", "isCalibrated",
+        "predictedClass", "ambiguity", "ambiguityMethod", "features", "ruleHits", "mechanisms",
         "similarEvents", "riskLevel", "riskLabel", "riskDescription",
         "inputHash", "createdAt", "attributionMethod", "attributionOutput",
         "attributionBaseValue", "attributionModelOutput",
@@ -122,6 +122,10 @@ def test_prediction_end_to_end_per_hazard(client: TestClient, hazard: str):
     assert body["riskLevel"] in {"green", "yellow", "orange", "red"}
     assert body["attributionMethod"] == "tree_shap"
     assert body["attributionOutput"] == "raw_log_odds"
+    assert body["calibrationMethod"] == "none"
+    assert body["isCalibrated"] is False
+    assert "calibratedProbability" not in body
+    assert "uncertainty" not in body
 
     # GET by id round-trips the same prediction
     get_r = client.get(f"/api/v1/predictions/{body['predictionId']}")

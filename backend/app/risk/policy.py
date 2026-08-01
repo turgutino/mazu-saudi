@@ -1,8 +1,8 @@
-"""RiskPolicy: combines calibrated probability + region sensitivity + indicator
+"""RiskPolicy: combines a declared model decision score + region sensitivity + indicator
 rules into a RiskAssessment (初步设计.md 第3节).
 
-Strictly downstream of RawPrediction/calibration: this module never looks at
-raw model internals beyond the already-calibrated probability and the
+Strictly downstream of RawPrediction/calibration metadata: this module never
+looks at raw model internals beyond the declared decision score and the
 indicators used to compute it. Changing warning standards only means editing
 ``backend/data/risk_thresholds.py`` — this file is policy-agnostic.
 """
@@ -51,12 +51,12 @@ def _indicator_hit(rule: IndicatorRule, indicators: dict[str, float]) -> RuleHit
 
 
 class RiskPolicy:
-    """Turns a calibrated probability + context into a RiskAssessment."""
+    """Turns a declared decision score + context into a RiskAssessment."""
 
     def assess(
         self,
         case: ForecastCase,
-        calibrated_probability: float,
+        decision_score: float,
         indicators: dict[str, float],
         region: Region,
         score_kind: str = "probability",
@@ -67,24 +67,24 @@ class RiskPolicy:
         if score_kind == "risk_score":
             score_label = "风险评分"
             score_field = "risk_score"
-        elif score_kind == "proxy_probability":
-            score_label = "代理事件概率"
-            score_field = "proxy_probability"
+        elif score_kind == "proxy_score":
+            score_label = "未校准代理事件分数"
+            score_field = "decision_score"
         else:
-            score_label = "概率"
-            score_field = "calibrated_probability"
+            score_label = "未校准模型事件分数"
+            score_field = "decision_score"
 
         prob_hits: list[RuleHitRecord] = []
         level = "green"
         for pt in config.probability_thresholds:
             effective_threshold = max(0.0, round(pt.threshold + offset, 4))
-            met = calibrated_probability >= effective_threshold
+            met = decision_score >= effective_threshold
             prob_hits.append(
                 RuleHitRecord(
                     rule_id=f"{case.hazard}-prob-{pt.level}",
                     rule_name=f"{config.hazard_label}{score_label}{_LEVEL_LABELS_SHORT[pt.level]}阈值",
                     condition=f"{score_field} >= {effective_threshold:g}",
-                    actual_value=f"{calibrated_probability:g}",
+                    actual_value=f"{decision_score:g}",
                     threshold=f"{effective_threshold:g}",
                     met=met,
                     weight=pt.weight if met else 0,
@@ -116,7 +116,7 @@ class RiskPolicy:
         ]
         if level == "green":
             risk_description = (
-                f"{config.hazard_label}{score_label}{calibrated_probability:g}未超过黄色阈值；"
+                f"{config.hazard_label}{score_label}{decision_score:g}未超过黄色阈值；"
                 + ("；".join(met_descriptions) + "；" if met_descriptions else "")
                 + "综合判断为低风险，建议持续监测。"
             )

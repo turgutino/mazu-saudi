@@ -88,16 +88,16 @@ class LiveFusionForecastModel:
             score += contribution
 
         probability = round(_sigmoid(score), 4)
-        # wider uncertainty band than the full rule-based/joblib models,
+        # wider heuristic ambiguity band than the full rule-based/joblib models,
         # reflecting the smaller, live-only feature set backing this score.
-        uncertainty = round(min(max(0.45 - 0.3 * abs(probability - 0.5), 0.15), 0.45), 4)
+        ambiguity = round(min(max(0.45 - 0.3 * abs(probability - 0.5), 0.15), 0.45), 4)
 
         return RawPrediction(
             model_id=self.model_id,
             model_version=self.model_version,
             model_name=self.model_name,
             probability=probability,
-            uncertainty=uncertainty,
+            ambiguity=ambiguity,
             predicted_class=_classify(probability),
             important_features=contributions,
         )

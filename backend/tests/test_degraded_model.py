@@ -27,7 +27,7 @@ def test_predict_produces_valid_raw_prediction(hazard: str):
     raw = live_fusion_model.predict(case, indicators)
 
     assert 0.0 <= raw.probability <= 1.0
-    assert 0.0 <= raw.uncertainty <= 1.0
+    assert 0.0 <= raw.ambiguity <= 1.0
     assert raw.predicted_class in {"low", "moderate", "high"}
     assert raw.model_id == "live-fusion-v1"
 

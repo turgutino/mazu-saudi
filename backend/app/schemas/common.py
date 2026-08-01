@@ -34,6 +34,13 @@ TrendLevel = Literal["rising", "stable", "falling"]
 ModelType = Literal["tree", "deep", "physical", "ensemble", "rule"]
 ActivityType = Literal["prediction", "warning", "report"]
 PredictionMode = Literal["auto", "live", "historical"]
+ScoreSemantics = Literal[
+    "uncalibrated_event_score",
+    "uncalibrated_proxy_event_score",
+    "calibrated_hazard_probability",
+]
+CalibrationMethod = Literal["none", "platt", "isotonic"]
+AmbiguityMethod = Literal["heuristic_probability_margin"]
 # Which input/model path produced a prediction. ``tier3_synthetic`` remains
 # only so legacy and test records can still be read; PredictionService no
 # longer emits it.

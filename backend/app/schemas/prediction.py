@@ -1,6 +1,19 @@
 from __future__ import annotations
 
-from .common import CamelModel, ConfidenceLevel, DataTier, PredictionMode, RiskLevel
+from typing import Any
+
+from pydantic import model_validator
+
+from .common import (
+    AmbiguityMethod,
+    CalibrationMethod,
+    CamelModel,
+    ConfidenceLevel,
+    DataTier,
+    PredictionMode,
+    RiskLevel,
+    ScoreSemantics,
+)
 
 
 class FeatureContribution(CamelModel):
@@ -79,9 +92,13 @@ class PredictionResult(CamelModel):
     lead_time_hours: int
     initial_time: str
     probability: float
-    calibrated_probability: float
+    decision_score: float
+    score_semantics: ScoreSemantics
+    calibration_method: CalibrationMethod
+    is_calibrated: bool
     predicted_class: str
-    uncertainty: float
+    ambiguity: float
+    ambiguity_method: AmbiguityMethod
     attribution_method: str | None = None
     attribution_output: str | None = None
     attribution_base_value: float | None = None
@@ -104,6 +121,49 @@ class PredictionResult(CamelModel):
     forecast_snapshot_id: str | None = None
     forecast_source: str | None = None
     indicator_provenance_version: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_score_fields(cls, value: Any) -> Any:
+        """Read stored v1 payloads without re-labelling their numeric output.
+
+        Older rows called an identity-transformed score ``calibratedProbability``
+        and a probability-margin heuristic ``uncertainty``. They are mapped to
+        the explicit v2 semantics on read; the persisted numeric values do not
+        change.
+        """
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        model_id = str(data.get("model_id", data.get("modelId", "")))
+        if "decision_score" not in data and "decisionScore" not in data:
+            legacy_score = data.get(
+                "calibrated_probability", data.get("calibratedProbability", data.get("probability"))
+            )
+            data["decision_score"] = legacy_score
+        if "ambiguity" not in data:
+            data["ambiguity"] = data.get("uncertainty", 0.0)
+        data.setdefault("calibration_method", data.get("calibrationMethod", "none"))
+        data.setdefault("is_calibrated", data.get("isCalibrated", False))
+        data.setdefault("ambiguity_method", data.get("ambiguityMethod", "heuristic_probability_margin"))
+        if "score_semantics" not in data and "scoreSemantics" not in data:
+            is_proxy = (
+                model_id.startswith("live-api-hgb-") and not model_id.endswith("heatwave")
+            ) or model_id in {"joblib-flash_flood", "joblib-dust_storm"}
+            data["score_semantics"] = (
+                "uncalibrated_proxy_event_score" if is_proxy else "uncalibrated_event_score"
+            )
+        return data
+
+    @property
+    def calibrated_probability(self) -> float:
+        """Deprecated Python compatibility alias; not emitted in API JSON."""
+        return self.decision_score
+
+    @property
+    def uncertainty(self) -> float:
+        """Deprecated Python compatibility alias; not emitted in API JSON."""
+        return self.ambiguity
 
 
 class PredictionRequest(CamelModel):

@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { TomorrowIoEnhanced } from '@/services/tomorrowIoApi';
 import {
-  fetchAllRegionsTomorrowIo,
   extractEnhancedData,
-  isTomorrowIoConfigured,
+  type TomorrowIoRealtimeResponse,
 } from '@/services/tomorrowIoApi';
-import { loadMonitorData } from '@/services/monitorSnapshotApi';
+import { getMonitorSourceStatus, loadMonitorData } from '@/services/monitorSnapshotApi';
 
 interface UseTomorrowIoDataResult {
   enhancedList: TomorrowIoEnhanced[] | null;
@@ -16,7 +15,7 @@ interface UseTomorrowIoDataResult {
 }
 
 export function useTomorrowIoData(): UseTomorrowIoDataResult {
-  const enabled = isTomorrowIoConfigured();
+  const [enabled, setEnabled] = useState(false);
   const [enhancedList, setEnhancedList] = useState<TomorrowIoEnhanced[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,12 +29,11 @@ export function useTomorrowIoData(): UseTomorrowIoDataResult {
     setError(null);
 
     try {
-      const result = await loadMonitorData(
+      const result = await loadMonitorData<TomorrowIoRealtimeResponse[]>(
         'tomorrow-io',
-        async () => extractEnhancedData(await fetchAllRegionsTomorrowIo()),
         forceRefresh,
       );
-      const enhanced = result.data;
+      const enhanced = extractEnhancedData(result.data);
       setEnhancedList(enhanced);
       setError(null);
     } catch (err) {
@@ -49,10 +47,12 @@ export function useTomorrowIoData(): UseTomorrowIoDataResult {
   }, [enabled]);
 
   useEffect(() => {
-    if (enabled) {
-      loadData(false);
-    }
-  }, [enabled, loadData]);
+    getMonitorSourceStatus('tomorrow-io')
+      .then(setEnabled)
+      .catch(() => setEnabled(false));
+  }, []);
+
+  useEffect(() => { if (enabled) loadData(false); }, [enabled, loadData]);
 
   const refresh = useCallback(() => {
     loadData(true);
