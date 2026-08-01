@@ -55,7 +55,7 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-2 text-xs text-foreground-500 bg-background-100 px-3 py-1.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-accent-500"></span>
-              系统运行中 · 4 个模型在线
+              系统运行中
             </div>
 
             <button

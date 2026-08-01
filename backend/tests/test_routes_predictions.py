@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.domain.forecast_data import ForecastIndicatorBundle
 from app.repositories.prediction_store import prediction_store
 
 HAZARDS = ["heavy-rain", "extreme-heat", "flash-flood", "dust-storm"]
@@ -20,9 +21,15 @@ def client() -> TestClient:
 @pytest.fixture(autouse=True)
 def live_forecast(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
-        "app.services.prediction_service.openmeteo_provider.generate",
-        lambda case: {"cape": 900.0, "daily_precip": 8.0, "t2m": 42.0,
-                      "rh_surface": 30.0, "wind_10m": 15.0, "visibility": 8.0},
+        "app.services.prediction_service.openmeteo_provider.generate_bundle",
+        lambda case: ForecastIndicatorBundle(
+            indicators={"daily_precip_total": 8.0, "t2m_c": 42.0,
+                        "tmax_c": 46.0, "tmin_c": 35.0, "wind10_speed": 15.0,
+                        "lat": 16.8892, "lon": 42.5511, "day_of_year": 214.0,
+                        "cape": 900.0, "daily_precip": 8.0, "t2m": 42.0,
+                        "rh_surface": 30.0, "wind_10m": 15.0, "visibility": 8.0},
+            snapshot_id="forecast-test", source="open-meteo", cache_hit=False,
+        ),
     )
 
 

@@ -20,8 +20,8 @@ export interface ModelInfo {
 }
 
 // Mirrors backend/app/data/models.py -- the real HistGradientBoostingClassifier
-// models trained in reference_code/mazu-saudi-warning, plus the live fusion
-// baseline used when the archived feature contract is unavailable.
+// models trained in reference_code/mazu-saudi-warning, plus four lightweight
+// API-compatible HGB models used for live forecasts.
 // This array is a type-safety/fallback aid only; the app always fetches the
 // live list via GET /api/v1/models (see services/predictionApi.ts).
 export const models: ModelInfo[] = [
@@ -65,15 +65,32 @@ export const models: ModelInfo[] = [
     },
   },
   {
-    id: 'live-fusion-v1',
-    name: '实时预报风险评分（规则基线）',
-    version: 'v1.1.0',
-    type: 'rule',
-    icon: 'ri-node-tree',
-    description: '使用 CMA 或 Open-Meteo 目标时刻预报与前24小时累计降水计算的透明风险评分；四灾种共用，未经观测频率校准。',
-    supportedHazards: ['heavy-rain', 'extreme-heat', 'flash-flood', 'dust-storm'],
-    lastTrained: 'N/A',
-    metrics: {},
+    id: 'live-api-hgb-heavy_rain', name: 'API兼容HGB-强降雨', version: 'live-api-daily-v1',
+    type: 'tree', icon: 'ri-rainy-line',
+    description: '第三方逐小时预报聚合后运行；标签为日降水≥25 mm代理事件，测试分数不代表独立预报技巧。',
+    supportedHazards: ['heavy-rain'], lastTrained: '2025-12-31',
+    metrics: { 'heavy-rain': { auc: 1, pod: 1, far: 0, csi: 1, f1: 1, brier: 0 } },
+  },
+  {
+    id: 'live-api-hgb-heatwave', name: 'API兼容HGB-高温', version: 'live-api-daily-v1',
+    type: 'tree', icon: 'ri-sun-line',
+    description: '第三方逐小时预报聚合后运行；使用2025归档高温标签训练，概率尚未校准。',
+    supportedHazards: ['extreme-heat'], lastTrained: '2025-12-31',
+    metrics: { 'extreme-heat': { auc: 0.9846, pod: 0.9258, far: 0.5161, csi: 0.4658, f1: 0.6356, brier: 0.0387 } },
+  },
+  {
+    id: 'live-api-hgb-flash_flood', name: 'API兼容HGB-山洪', version: 'live-api-daily-v1',
+    type: 'tree', icon: 'ri-flood-line',
+    description: '第三方逐小时预报聚合后运行；使用2025归档教师代理标签训练，概率尚未校准。',
+    supportedHazards: ['flash-flood'], lastTrained: '2025-12-31',
+    metrics: { 'flash-flood': { auc: 0.8421, pod: 0.3406, far: 0.8166, csi: 0.1354, f1: 0.2384, brier: 0.0074 } },
+  },
+  {
+    id: 'live-api-hgb-dust_storm', name: 'API兼容HGB-沙尘暴', version: 'live-api-daily-v1',
+    type: 'tree', icon: 'ri-windy-line',
+    description: '第三方逐小时预报聚合后运行；使用2025归档指标构造的版本化代理标签训练，概率尚未校准。',
+    supportedHazards: ['dust-storm'], lastTrained: '2025-12-31',
+    metrics: { 'dust-storm': { auc: 0.9901, pod: 0.9202, far: 0.6236, csi: 0.3645, f1: 0.5343, brier: 0.0241 } },
   },
 ];
 

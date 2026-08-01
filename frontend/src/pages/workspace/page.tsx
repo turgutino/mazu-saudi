@@ -164,7 +164,7 @@ export default function Workspace() {
   const availableModels = selectedHazard && predictionMode
     ? models.filter((model) =>
         model.supportedHazards.includes(selectedHazard.id)
-        && (predictionMode === 'historical' ? isHistoricalModel(model) : model.id === 'live-fusion-v1'))
+        && (predictionMode === 'historical' ? isHistoricalModel(model) : model.id.startsWith('live-api-hgb-')))
     : [];
 
   const availableLeadTimes = selectedHazard ? selectedHazard.leadTimes : [];
@@ -327,7 +327,7 @@ export default function Workspace() {
                       <span className="font-medium text-foreground-900">实时预测</span>
                       <Badge variant="success">当前与未来</Badge>
                     </div>
-                    <p className="text-xs text-foreground-500">使用CMA或Open-Meteo目标时刻预报，计算透明的实时风险评分。</p>
+                    <p className="text-xs text-foreground-500">使用CMA或Open-Meteo逐小时预报，聚合关键指标并运行API兼容轻量HGB模型。</p>
                   </button>
                   <button
                     onClick={() => {
@@ -526,7 +526,7 @@ export default function Workspace() {
                 {selectedHazard?.id === 'heavy-rain' && (
                   <div className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-800">
                     <i className="ri-information-line mr-1.5"></i>
-                    暴雨暂无2025历史训练模型，因此仅提供实时预报风险评分。
+                    强降雨暂无全特征历史模型；实时模式使用2025数据训练的API兼容轻量HGB模型。
                   </div>
                 )}
 
@@ -658,7 +658,7 @@ export default function Workspace() {
                       <p className="text-[10px] text-foreground-400">
                         <i className="ri-information-line mr-1"></i>
                         指标基于 {selectedHazard?.name} 灾种的验证集评估（2025-2026 数据）。
-                        “—”表示实时融合基线暂无独立验证集指标。
+                        “—”表示该模型未提供独立验证集指标。
                         标 <i className="ri-star-fill text-accent-500 text-[9px]"></i> 为该指标当前最优模型。
                         点击模型行选择，指标说明悬停表头查看。
                       </p>
@@ -772,15 +772,15 @@ export default function Workspace() {
                         <p className="mb-2">智能体将按以下流程执行：</p>
                         <ol className="list-decimal list-inside space-y-1">
                           <li>加载预测案例数据 (ForecastCase)</li>
-                          <li>根据运行模式选择历史训练模型或实时风险评分规则</li>
-                          <li>{predictionMode === 'historical' ? '执行模型概率校准' : '生成未经观测频率校准的风险评分'}</li>
+                          <li>根据运行模式选择全特征历史模型或API兼容轻量模型</li>
+                          <li>{predictionMode === 'historical' ? '执行模型概率校准' : '生成未经观测频率校准的代理事件概率'}</li>
                           <li>运行 {selectedRegion?.name} 区域风险规则</li>
                           <li>调用解释引擎生成特征贡献和物理机制</li>
                           <li>查询相似历史事件</li>
                           <li>构建解释证据图谱</li>
                           <li>生成预测报告</li>
                         </ol>
-                        <p className="mt-2 text-foreground-400">历史模式输出模型概率；实时模式输出规则风险评分，二者都会记录实际输入和计算结果。</p>
+                        <p className="mt-2 text-foreground-400">历史模式输出全特征模型概率；实时模式输出轻量模型代理事件概率，二者都会记录实际输入和计算结果。</p>
                       </div>
                     </div>
                   </div>

@@ -9,10 +9,35 @@ import pytest
 import requests
 
 from app.data.real_indicator_provider import INDICATORS_DIR_ENV
+from app.domain.forecast_data import ForecastIndicatorBundle
 from app.schemas.prediction import PredictionRequest
 from app.services.prediction_service import PredictionService, PredictionServiceError
 
 HAZARDS = ["heavy-rain", "extreme-heat", "flash-flood", "dust-storm"]
+
+
+def _live_bundle(source: str = "open-meteo") -> ForecastIndicatorBundle:
+    return ForecastIndicatorBundle(
+        indicators={
+            "daily_precip_total": 8.0,
+            "t2m_c": 42.0,
+            "tmax_c": 46.0,
+            "tmin_c": 35.0,
+            "wind10_speed": 15.0,
+            "lat": 16.8892,
+            "lon": 42.5511,
+            "day_of_year": 214.0,
+            "cape": 900.0,
+            "daily_precip": 8.0,
+            "t2m": 42.0,
+            "rh_surface": 30.0,
+            "wind_10m": 15.0,
+            "visibility": 8.0,
+        },
+        snapshot_id="forecast-test",
+        source=source,
+        cache_hit=False,
+    )
 
 
 @pytest.fixture()
@@ -24,9 +49,8 @@ def service() -> PredictionService:
 def test_run_prediction_produces_complete_result(service: PredictionService, hazard: str):
     request = PredictionRequest(region_id="jazan", hazard=hazard, lead_time_hours=24)
     with patch(
-        "app.services.prediction_service.openmeteo_provider.generate",
-        return_value={"cape": 900.0, "daily_precip": 8.0, "t2m": 42.0,
-                      "rh_surface": 30.0, "wind_10m": 15.0, "visibility": 8.0},
+        "app.services.prediction_service.openmeteo_provider.generate_bundle",
+        return_value=_live_bundle(),
     ):
         result = service.run_prediction(request)
 
@@ -44,18 +68,18 @@ def test_run_prediction_produces_complete_result(service: PredictionService, haz
 
 def test_run_prediction_uses_default_model_when_not_specified(service: PredictionService):
     request = PredictionRequest(region_id="jazan", hazard="heavy-rain", lead_time_hours=24)
-    with patch("app.services.prediction_service.openmeteo_provider.generate", return_value={"daily_precip": 8.0}):
+    with patch("app.services.prediction_service.openmeteo_provider.generate_bundle", return_value=_live_bundle()):
         result = service.run_prediction(request)
-    assert result.model_id == "live-fusion-v1"
+    assert result.model_id == "live-api-hgb-heavy_rain"
 
 
-def test_run_prediction_respects_explicit_model_id(service: PredictionService):
+def test_run_prediction_rejects_incompatible_explicit_model_id(service: PredictionService):
     request = PredictionRequest(
         region_id="jazan", hazard="heavy-rain", lead_time_hours=24, model_id="joblib-heatwave"
     )
-    with patch("app.services.prediction_service.openmeteo_provider.generate", return_value={"daily_precip": 8.0}):
-        result = service.run_prediction(request)
-    assert result.model_id == "live-fusion-v1"
+    with patch("app.services.prediction_service.openmeteo_provider.generate_bundle", return_value=_live_bundle()):
+        with pytest.raises(PredictionServiceError, match="incompatible"):
+            service.run_prediction(request)
 
 
 def test_run_prediction_rejects_unknown_region(service: PredictionService):
@@ -74,7 +98,7 @@ def test_run_prediction_saves_to_store(service: PredictionService):
     from app.repositories.prediction_store import prediction_store
 
     request = PredictionRequest(region_id="riyadh", hazard="extreme-heat", lead_time_hours=48)
-    with patch("app.services.prediction_service.openmeteo_provider.generate", return_value={"t2m": 42.0}):
+    with patch("app.services.prediction_service.openmeteo_provider.generate_bundle", return_value=_live_bundle()):
         result = service.run_prediction(request)
     # Persisted via SQLite now, so this round-trips through JSON rather than
     # returning the same object -- assert value equality, not identity.
@@ -103,19 +127,23 @@ class _FakeOpenMeteoResponse:
         }
 
 
-def test_heavy_rain_uses_live_fusion_model(service: PredictionService, monkeypatch: pytest.MonkeyPatch):
+def test_heavy_rain_uses_live_trained_model(service: PredictionService, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
     request = PredictionRequest(
         region_id="jazan", hazard="heavy-rain", lead_time_hours=24,
         initial_time="2026-08-01T00:00:00Z",
     )
-    with patch("app.data.openmeteo_provider.requests.get", return_value=_FakeOpenMeteoResponse()):
+    with patch(
+        "app.data.openmeteo_provider.forecast_snapshot_store.get_fresh",
+        return_value=None,
+    ), patch("app.data.openmeteo_provider.requests.get", return_value=_FakeOpenMeteoResponse()):
         result = service.run_prediction(request)
-    assert result.model_id == "live-fusion-v1"
+    assert result.model_id == "live-api-hgb-heavy_rain"
     assert result.data_tier == "tier2_live"
     assert result.raw_indicators["daily_precip"] == 8.0
-    assert "风险评分" in result.risk_description
-    assert "概率" not in result.risk_description
+    assert result.forecast_snapshot_id
+    assert result.forecast_source == "open-meteo"
+    assert "代理事件概率" in result.risk_description
 
 
 def test_historical_mode_rejects_hazard_without_trained_model(service: PredictionService):
@@ -143,19 +171,19 @@ def test_live_mode_does_not_use_archive_even_when_it_is_available(
     with patch(
         "app.services.prediction_service.real_data_available", return_value=True
     ), patch(
-        "app.services.prediction_service.openmeteo_provider.generate",
-        return_value={"t2m": 42.0},
+        "app.services.prediction_service.openmeteo_provider.generate_bundle",
+        return_value=_live_bundle(),
     ), patch(
         "app.services.prediction_service.real_indicator_provider.generate"
     ) as archived_generate:
         result = service.run_prediction(request)
 
     archived_generate.assert_not_called()
-    assert result.model_id == "live-fusion-v1"
+    assert result.model_id == "live-api-hgb-heatwave"
     assert result.data_tier == "tier2_live"
 
 
-def test_hazard_with_real_model_falls_back_to_degraded_when_no_archive(
+def test_hazard_with_real_model_uses_live_api_model_when_no_archive(
     service: PredictionService, monkeypatch: pytest.MonkeyPatch
 ):
     monkeypatch.delenv(INDICATORS_DIR_ENV, raising=False)
@@ -165,7 +193,7 @@ def test_hazard_with_real_model_falls_back_to_degraded_when_no_archive(
             initial_time="2026-08-01T00:00:00Z",
         )
         result = service.run_prediction(request)
-    assert result.model_id == "live-fusion-v1"
+    assert result.model_id == "live-api-hgb-heatwave"
     assert 0.0 <= result.probability <= 1.0
 
 
@@ -178,7 +206,7 @@ def test_prediction_fails_when_all_live_forecast_sources_fail(
         side_effect=requests.ConnectionError("boom"),
     ):
         request = PredictionRequest(region_id="jazan", hazard="dust-storm", lead_time_hours=24)
-        with pytest.raises(PredictionServiceError, match="No live forecast indicators"):
+        with pytest.raises(PredictionServiceError, match="No complete live forecast"):
             service.run_prediction(request)
 
 
@@ -195,16 +223,21 @@ def test_mirrorearth_is_tried_before_openmeteo_when_configured(
         def json(self) -> dict:
             return {
                 "hourly": {
-                    "time": ["2026-08-02T00:00"],
-                    "temperature_2m": [45.0],
-                    "relative_humidity_2m": [20.0],
+                    "time": [
+                        (datetime(2026, 8, 1, 1) + timedelta(hours=offset)).strftime("%Y-%m-%dT%H:%M")
+                        for offset in range(24)
+                    ],
+                    "temperature_2m": [45.0] * 24,
+                    "relative_humidity_2m": [20.0] * 24,
+                    "precipitation": [0.0] * 24,
+                    "wind_speed_10m": [15.0] * 24,
                 }
             }
 
     with patch(
         "app.data.mirrorearth_provider.requests.get", return_value=_FakeMirrorEarthResponse()
     ) as mirrorearth_get, patch(
-        "app.services.prediction_service.openmeteo_provider.generate"
+        "app.services.prediction_service.openmeteo_provider.generate_bundle"
     ) as openmeteo_generate:
         request = PredictionRequest(
             region_id="jazan", hazard="extreme-heat", lead_time_hours=24,
@@ -297,7 +330,7 @@ def test_real_archive_takes_priority_over_degraded_model(
     ds.to_netcdf(tmp_path / f"saudi_indicators_{feature_date}.nc")
     monkeypatch.setenv(INDICATORS_DIR_ENV, str(tmp_path))
 
-    with patch("app.services.prediction_service.openmeteo_provider.generate") as mocked:
+    with patch("app.services.prediction_service.openmeteo_provider.generate_bundle") as mocked:
         request = PredictionRequest(
             region_id="jazan", hazard="flash-flood", lead_time_hours=24,
             initial_time=initial_time.isoformat(),

@@ -91,6 +91,8 @@ export interface PredictionResult {
   // (real archived data / live API / synthetic placeholder) produced them.
   rawIndicators: Record<string, number>;
   dataTier: 'tier1_real' | 'tier2_live' | 'tier3_synthetic';
+  forecastSnapshotId?: string | null;
+  forecastSource?: string | null;
 }
 
 export const predictions: PredictionResult[] = [

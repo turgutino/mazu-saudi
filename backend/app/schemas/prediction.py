@@ -97,6 +97,8 @@ class PredictionResult(CamelModel):
     # produced it. See app.schemas.common.DataTier.
     raw_indicators: dict[str, float] = {}
     data_tier: DataTier
+    forecast_snapshot_id: str | None = None
+    forecast_source: str | None = None
 
 
 class PredictionRequest(CamelModel):

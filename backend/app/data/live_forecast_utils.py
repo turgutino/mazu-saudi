@@ -81,3 +81,31 @@ def trailing_hourly_sum(
     ):
         return None
     return round(sum(window_values), 3)
+
+
+def trailing_hourly_window(
+    time_strings: list[str], values: list[float | None] | None, end_index: int, hours: int
+) -> list[float] | None:
+    """Return a complete contiguous hourly window, or ``None`` when incomplete."""
+    if values is None or hours <= 0:
+        return None
+    start_index = end_index - hours + 1
+    if start_index < 0 or end_index >= len(values) or end_index >= len(time_strings):
+        return None
+    parsed_times: list[datetime] = []
+    window: list[float] = []
+    for index in range(start_index, end_index + 1):
+        value = values[index]
+        if value is None:
+            return None
+        try:
+            parsed_times.append(datetime.fromisoformat(time_strings[index]))
+            window.append(float(value))
+        except (ValueError, TypeError):
+            return None
+    if any(
+        (current - previous).total_seconds() != 3600
+        for previous, current in zip(parsed_times, parsed_times[1:])
+    ):
+        return None
+    return window

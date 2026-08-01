@@ -57,7 +57,7 @@ def test_is_configured_reflects_env_var(monkeypatch: pytest.MonkeyPatch):
 def test_generate_raises_when_not_configured(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv(API_KEY_ENV, raising=False)
     with pytest.raises(MirrorEarthUnavailableError):
-        mirrorearth_provider.generate(_make_case())
+        mirrorearth_provider.generate(_make_case(), use_cache=False)
 
 
 def test_generate_maps_cma_fields_to_placeholder_keys(monkeypatch: pytest.MonkeyPatch):
@@ -73,7 +73,7 @@ def test_generate_maps_cma_fields_to_placeholder_keys(monkeypatch: pytest.Monkey
         visibility=3000.0,
     )
     with patch("app.data.mirrorearth_provider.requests.get", return_value=_FakeResponse(payload)):
-        indicators = mirrorearth_provider.generate(case)
+        indicators = mirrorearth_provider.generate(case, use_cache=False)
 
     assert indicators["t2m"] == 41.0
     assert indicators["rh_surface"] == 12.0
@@ -90,7 +90,7 @@ def test_generate_raises_on_network_error(monkeypatch: pytest.MonkeyPatch):
         side_effect=requests.ConnectionError("boom"),
     ):
         with pytest.raises(MirrorEarthUnavailableError):
-            mirrorearth_provider.generate(_make_case())
+            mirrorearth_provider.generate(_make_case(), use_cache=False)
 
 
 def test_generate_rejects_unknown_region(monkeypatch: pytest.MonkeyPatch):

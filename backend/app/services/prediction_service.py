@@ -24,8 +24,8 @@ from app.explanation.feature_attribution import build_feature_contributions
 from app.explanation.mechanism_explanation import build_mechanisms
 from app.explanation.rule_explanation import build_rule_hits
 from app.explanation.similar_events import find_similar_events
-from app.models.degraded_model import live_fusion_model
 from app.models.joblib_model import get_joblib_model
+from app.models.live_api_model import get_live_api_model
 from app.repositories.prediction_store import prediction_store
 from app.risk.calibration import calibrate
 from app.risk.policy import risk_policy
@@ -39,23 +39,16 @@ class PredictionServiceError(ValueError):
 
 def _resolve_indicators_and_model(
     case: ForecastCase, prediction_mode: PredictionMode = "auto"
-) -> tuple[dict[str, float], object, DataTier]:
-    """Resolve either the historical ML model or the live fusion model.
+) -> tuple[dict[str, float], object, DataTier, str | None, str]:
+    """Resolve either the historical full-feature or live API-feature ML model.
 
     Tier 1 (best): a real trained joblib model exists for this hazard AND the
     archived 2025 NetCDF indicators cover the feature date -> real data +
     real model.
-    Live fusion: every hazard whose historical ML inputs are unavailable uses
-    a live *forecast-model* indicator source, tried in order
-    of forecast fidelity -- Mirror Earth's CMA numerical model first (a real
-    NWP model, closer in spirit to Tier 1's archive), Open-Meteo's blended
-    forecast second -- plus LiveFusionForecastModel (the joblib models cannot
-    run on either's much smaller feature set). Tomorrow.io's realtime fields
-    are deliberately excluded because they are not valid at a 6--72 hour
-    forecast target time.
-    Returns (indicators, model, data_tier) -- ``data_tier`` is persisted on
-    the resulting PredictionResult for future dataset-building (see
-    app.schemas.common.DataTier).
+    Live mode uses a 2025-trained HGB model whose feature contract can be
+    reproduced from a complete trailing 24-hour third-party hourly forecast.
+    Every external response and its derived indicators are persisted as an
+    immutable forecast snapshot before inference and reused within its TTL.
     """
     joblib_model = get_joblib_model(case.hazard)
     if prediction_mode == "historical":
@@ -67,31 +60,63 @@ def _resolve_indicators_and_model(
             raise PredictionServiceError(
                 f"No archived indicators available for historical replay: {case.target_time.date()}"
             )
-        return real_indicator_provider.generate(case), joblib_model, "tier1_real"
+        return (
+            real_indicator_provider.generate(case),
+            joblib_model,
+            "tier1_real",
+            None,
+            "era5-archive",
+        )
 
     if (
         prediction_mode == "auto"
         and joblib_model is not None
         and real_data_available(case)
     ):
-        return real_indicator_provider.generate(case), joblib_model, "tier1_real"
+        return (
+            real_indicator_provider.generate(case),
+            joblib_model,
+            "tier1_real",
+            None,
+            "era5-archive",
+        )
 
+    live_model = get_live_api_model(case.hazard)
+    if live_model is None:
+        raise PredictionServiceError(f"No live trained model for hazard: {case.hazard}")
+
+    failures: list[str] = []
     if mirrorearth_configured():
         try:
-            indicators = mirrorearth_provider.generate(case)
-            if live_fusion_model.available_features(case, indicators):
-                return indicators, live_fusion_model, "tier2_live"
-        except MirrorEarthUnavailableError:
-            pass
+            bundle = mirrorearth_provider.generate_bundle(case)
+            if not live_model.available_features(case, bundle.indicators):
+                raise MirrorEarthUnavailableError("missing required model features")
+            return (
+                bundle.indicators,
+                live_model,
+                "tier2_live",
+                bundle.snapshot_id,
+                bundle.source,
+            )
+        except MirrorEarthUnavailableError as exc:
+            failures.append(f"Mirror Earth: {exc}")
     try:
-        indicators = openmeteo_provider.generate(case)
-        if live_fusion_model.available_features(case, indicators):
-            return indicators, live_fusion_model, "tier2_live"
-    except OpenMeteoUnavailableError:
-        pass
+        bundle = openmeteo_provider.generate_bundle(case)
+        if not live_model.available_features(case, bundle.indicators):
+            raise OpenMeteoUnavailableError("missing required model features")
+        return (
+            bundle.indicators,
+            live_model,
+            "tier2_live",
+            bundle.snapshot_id,
+            bundle.source,
+        )
+    except OpenMeteoUnavailableError as exc:
+        failures.append(f"Open-Meteo: {exc}")
 
     raise PredictionServiceError(
-        f"No live forecast indicators available for hazard: {case.hazard}"
+        f"No complete live forecast feature set for hazard {case.hazard}. "
+        + "; ".join(failures)
     )
 
 
@@ -125,17 +150,25 @@ class PredictionService:
             initial_time=initial_time,
         )
 
-        # Historical trained model when its archived feature contract is
-        # available, otherwise the live fusion model. The optional request
-        # modelId remains a known-model validation hint for API compatibility;
-        # result metadata always identifies the model that actually ran.
-        indicators, active_model, data_tier = _resolve_indicators_and_model(
+        # Historical full-feature model when its archive is explicitly used;
+        # otherwise the hazard-specific API-compatible trained model. Result
+        # metadata always identifies the model and forecast snapshot that ran.
+        indicators, active_model, data_tier, snapshot_id, forecast_source = _resolve_indicators_and_model(
             case, request.prediction_mode
         )
+        if request.model_id is not None and request.model_id != active_model.model_id:
+            raise PredictionServiceError(
+                f"Model {request.model_id} is incompatible with the resolved "
+                f"{request.prediction_mode} route; expected {active_model.model_id}"
+            )
         raw = active_model.predict(case, indicators)
         calibrated_probability = calibrate(raw.probability, case.hazard, raw.model_id)
 
-        score_kind = "risk_score" if raw.model_id == live_fusion_model.model_id else "probability"
+        score_kind = (
+            "proxy_probability"
+            if raw.model_id.startswith("live-api-hgb-")
+            else "probability"
+        )
         risk = risk_policy.assess(
             case, calibrated_probability, indicators, region, score_kind=score_kind
         )
@@ -178,6 +211,8 @@ class PredictionService:
             created_at=created_at.isoformat(),
             raw_indicators=indicators,
             data_tier=data_tier,
+            forecast_snapshot_id=snapshot_id,
+            forecast_source=forecast_source,
         )
 
         prediction_store.save(result)

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from app.explanation.mechanism_explanation import build_mechanisms
 from app.explanation.similar_events import find_similar_events
+from app.domain.forecast_data import ForecastIndicatorBundle
 from app.knowledge_graph.graph_builder import build_graph
 from app.knowledge_graph.knowledge_base import load_knowledge_base
 from unittest.mock import patch
@@ -65,8 +66,15 @@ def test_mechanism_compatibility_is_grounded_but_not_causal():
 
 def test_explanation_graph_keeps_evidence_layers_and_rationales():
     with patch(
-        "app.services.prediction_service.openmeteo_provider.generate",
-        return_value={"cape": 900.0, "daily_precip": 8.0},
+        "app.services.prediction_service.openmeteo_provider.generate_bundle",
+        return_value=ForecastIndicatorBundle(
+            indicators={"daily_precip_total": 8.0, "t2m_c": 42.0,
+                        "tmax_c": 46.0, "tmin_c": 35.0, "wind10_speed": 15.0,
+                        "lat": 16.8892, "lon": 42.5511, "day_of_year": 214.0,
+                        "cape": 900.0, "daily_precip": 8.0, "t2m": 42.0,
+                        "wind_10m": 15.0},
+            snapshot_id="forecast-test", source="open-meteo", cache_hit=False,
+        ),
     ):
         prediction = PredictionService().run_prediction(
             PredictionRequest(

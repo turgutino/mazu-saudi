@@ -29,3 +29,22 @@ class PredictionRow(Base):
     # high-quality (tier1_real) rows without deserializing every payload.
     data_tier: Mapped[str] = mapped_column(String, index=True)
     payload: Mapped[str] = mapped_column(Text)
+
+
+class ForecastDataSnapshotRow(Base):
+    __tablename__ = "forecast_data_snapshots"
+
+    snapshot_id: Mapped[str] = mapped_column(String, primary_key=True)
+    cache_key: Mapped[str] = mapped_column(String, index=True)
+    source: Mapped[str] = mapped_column(String, index=True)
+    region_id: Mapped[str] = mapped_column(String, index=True)
+    target_time: Mapped[str] = mapped_column(String, index=True)
+    fetched_at: Mapped[str] = mapped_column(String, index=True)
+    expires_at: Mapped[str] = mapped_column(String, index=True)
+    valid_from: Mapped[str] = mapped_column(String)
+    valid_to: Mapped[str] = mapped_column(String)
+    feature_version: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="valid", index=True)
+    validation_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_payload: Mapped[str] = mapped_column(Text)
+    indicators: Mapped[str] = mapped_column(Text)

@@ -1,0 +1,100 @@
+{
+  "feature_version": "live-api-daily-v1",
+  "estimator": "HistGradientBoostingClassifier",
+  "sklearn_version": "1.7.2",
+  "features": [
+    "daily_precip_total",
+    "t2m_c",
+    "tmax_c",
+    "tmin_c",
+    "wind10_speed",
+    "lat",
+    "lon",
+    "day_of_year"
+  ],
+  "train_end": "2025-06-30",
+  "stride": 4,
+  "skipped_days": [
+    "saudi_indicators_20250817.nc: tmax_c, heatwave_day_flag",
+    "saudi_indicators_20250818.nc: daily_precip_total, t2m_c, tmax_c, tmin_c, wind10_speed, heatwave_day_flag",
+    "saudi_indicators_20250820.nc: daily_precip_total, tmin_c"
+  ],
+  "models": {
+    "heavy-rain": {
+      "artifact_key": "heavy_rain",
+      "label": "daily_precip_total >= 25 mm",
+      "label_type": "proxy",
+      "label_source": "2025 archived target-day precipitation",
+      "train_samples": 393800,
+      "test_samples": 398200,
+      "train_positive_rate": 0.0004088369730827831,
+      "test_positive_rate": 0.0019789050728277247,
+      "metrics": {
+        "auc": 1.0,
+        "pr_auc": 1.0,
+        "pod": 1.0,
+        "far": 0.0,
+        "csi": 1.0,
+        "f1": 1.0,
+        "brier": 1.0840823155955679e-09
+      }
+    },
+    "extreme-heat": {
+      "artifact_key": "heatwave",
+      "label": "heatwave_day_flag >= 1",
+      "label_type": "provided",
+      "label_source": "2025 archive heatwave_day_flag",
+      "train_samples": 393800,
+      "test_samples": 398200,
+      "train_positive_rate": 0.050408836973082786,
+      "test_positive_rate": 0.052890507282772475,
+      "metrics": {
+        "auc": 0.9846255680986439,
+        "pr_auc": 0.7893674248846482,
+        "pod": 0.9257869996676321,
+        "far": 0.5161186251395955,
+        "csi": 0.46581298676477617,
+        "f1": 0.6355694634591564,
+        "brier": 0.03872786278372528
+      }
+    },
+    "flash-flood": {
+      "artifact_key": "flash_flood",
+      "label": "flash_flood_risk >= 2",
+      "label_type": "provided_proxy",
+      "label_source": "2025 archive flash_flood_risk teacher composite",
+      "train_samples": 393800,
+      "test_samples": 398200,
+      "train_positive_rate": 0.0007440325038090401,
+      "test_positive_rate": 0.004143646408839779,
+      "metrics": {
+        "auc": 0.8420758473653442,
+        "pr_auc": 0.18197402648988378,
+        "pod": 0.3406060606060606,
+        "far": 0.816579634464752,
+        "csi": 0.13535645472061658,
+        "f1": 0.23843869325413658,
+        "brier": 0.00737911973094582
+      }
+    },
+    "dust-storm": {
+      "artifact_key": "dust_storm",
+      "label": "DetectionEngine dust_storm risk >= 0.55",
+      "label_type": "proxy",
+      "label_source": "2025 archive indicators + versioned detection rule",
+      "train_samples": 393800,
+      "test_samples": 398200,
+      "train_positive_rate": 0.01840782122905028,
+      "test_positive_rate": 0.01979407332998493,
+      "metrics": {
+        "auc": 0.9901444005242557,
+        "pr_auc": 0.7599966416658616,
+        "pod": 0.9201979193098199,
+        "far": 0.623592298510561,
+        "csi": 0.36450899587898283,
+        "f1": 0.5342712975581011,
+        "brier": 0.024070755294234594
+      }
+    }
+  }
+}

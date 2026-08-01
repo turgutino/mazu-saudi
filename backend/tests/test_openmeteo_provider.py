@@ -11,6 +11,7 @@ import requests
 
 from app.data.openmeteo_provider import OpenMeteoUnavailableError, openmeteo_provider
 from app.domain.forecast_case import ForecastCase
+from app.repositories.forecast_snapshot_store import ForecastSnapshotStore
 
 
 def _make_case(hazard: str = "extreme-heat", lead_time_hours: int = 24) -> ForecastCase:
@@ -50,18 +51,19 @@ def test_generate_maps_open_meteo_fields_to_placeholder_keys():
     with patch(
         "app.data.openmeteo_provider.requests.get", return_value=_FakeResponse(payload)
     ) as mocked_get:
-        indicators = openmeteo_provider.generate(_make_case())
+        indicators = openmeteo_provider.generate(_make_case(), use_cache=False)
 
-    assert indicators["t2m"] == 46.5
+    assert indicators["t2m"] == pytest.approx(40.2708)
+    assert indicators["tmax_c"] == 46.5
     assert indicators["rh_surface"] == 18.0
-    assert indicators["wind_10m"] == 22.0
+    assert indicators["wind_10m"] == 10.5
     assert indicators["cape"] == 1500.0
     assert indicators["daily_precip"] == 26.2
     assert indicators["visibility"] == 8.0  # meters -> km
     assert mocked_get.call_args.kwargs["params"]["past_days"] == 1
 
 
-def test_generate_omits_24h_precipitation_when_window_is_incomplete():
+def test_generate_rejects_incomplete_required_24h_window():
     payload = {
         "hourly": {
             "time": ["2026-08-02T00:00"],
@@ -70,16 +72,15 @@ def test_generate_omits_24h_precipitation_when_window_is_incomplete():
         }
     }
     with patch("app.data.openmeteo_provider.requests.get", return_value=_FakeResponse(payload)):
-        indicators = openmeteo_provider.generate(_make_case())
-    assert indicators["t2m"] == 46.5
-    assert "daily_precip" not in indicators
+        with pytest.raises(OpenMeteoUnavailableError, match="Incomplete 24-hour"):
+            openmeteo_provider.generate(_make_case(), use_cache=False)
 
 
-def test_generate_does_not_invent_values_for_missing_fields():
+def test_generate_rejects_missing_required_fields():
     payload = {"hourly": {"time": ["2026-08-02T00:00"]}}
     with patch("app.data.openmeteo_provider.requests.get", return_value=_FakeResponse(payload)):
-        indicators = openmeteo_provider.generate(_make_case())
-    assert indicators == {}
+        with pytest.raises(OpenMeteoUnavailableError, match="Incomplete 24-hour"):
+            openmeteo_provider.generate(_make_case(), use_cache=False)
 
 
 def test_generate_raises_on_network_error():
@@ -88,7 +89,7 @@ def test_generate_raises_on_network_error():
         side_effect=requests.ConnectionError("boom"),
     ):
         with pytest.raises(OpenMeteoUnavailableError):
-            openmeteo_provider.generate(_make_case())
+            openmeteo_provider.generate(_make_case(), use_cache=False)
 
 
 def test_generate_raises_when_no_hourly_time_entries():
@@ -97,7 +98,7 @@ def test_generate_raises_when_no_hourly_time_entries():
         return_value=_FakeResponse({"hourly": {"time": []}}),
     ):
         with pytest.raises(OpenMeteoUnavailableError):
-            openmeteo_provider.generate(_make_case())
+            openmeteo_provider.generate(_make_case(), use_cache=False)
 
 
 def test_generate_rejects_hourly_data_that_does_not_cover_target_time():
@@ -106,7 +107,7 @@ def test_generate_rejects_hourly_data_that_does_not_cover_target_time():
         "app.data.openmeteo_provider.requests.get", return_value=_FakeResponse(payload)
     ):
         with pytest.raises(OpenMeteoUnavailableError):
-            openmeteo_provider.generate(_make_case())
+            openmeteo_provider.generate(_make_case(), use_cache=False)
 
 
 def test_generate_rejects_unknown_region():
@@ -115,3 +116,57 @@ def test_generate_rejects_unknown_region():
     )
     with pytest.raises(ValueError):
         openmeteo_provider.generate(case)
+
+
+def test_generate_persists_and_reuses_complete_api_snapshot(tmp_path, monkeypatch):
+    monkeypatch.setenv("MAZU_DB_PATH", str(tmp_path / "forecast-cache.db"))
+    store = ForecastSnapshotStore()
+    monkeypatch.setattr("app.data.openmeteo_provider.forecast_snapshot_store", store)
+    case = _make_case()
+    times = [
+        (case.target_time - timedelta(hours=23 - offset)).strftime("%Y-%m-%dT%H:%M")
+        for offset in range(24)
+    ]
+    payload = {
+        "hourly": {
+            "time": times,
+            "temperature_2m": [40.0] * 24,
+            "wind_speed_10m": [8.0] * 24,
+            "cape": [500.0] * 24,
+            "precipitation": [1.0] * 24,
+        }
+    }
+    with patch(
+        "app.data.openmeteo_provider.requests.get", return_value=_FakeResponse(payload)
+    ) as mocked_get:
+        first = openmeteo_provider.generate_bundle(case)
+        second = openmeteo_provider.generate_bundle(case)
+
+    assert mocked_get.call_count == 1
+    assert first.cache_hit is False
+    assert second.cache_hit is True
+    assert second.snapshot_id == first.snapshot_id
+    persisted = store.get(first.snapshot_id)
+    assert persisted is not None
+    assert persisted.raw_payload == payload
+    assert persisted.indicators["daily_precip_total"] == 24.0
+
+
+def test_invalid_api_response_is_persisted_and_not_refetched(tmp_path, monkeypatch):
+    monkeypatch.setenv("MAZU_DB_PATH", str(tmp_path / "invalid-cache.db"))
+    store = ForecastSnapshotStore()
+    monkeypatch.setattr("app.data.openmeteo_provider.forecast_snapshot_store", store)
+    payload = {"reason": "hourly data unavailable"}
+    with patch(
+        "app.data.openmeteo_provider.requests.get", return_value=_FakeResponse(payload)
+    ) as mocked_get:
+        with pytest.raises(OpenMeteoUnavailableError, match="no hourly object"):
+            openmeteo_provider.generate_bundle(_make_case())
+        with pytest.raises(OpenMeteoUnavailableError, match="no hourly object"):
+            openmeteo_provider.generate_bundle(_make_case())
+
+    assert mocked_get.call_count == 1
+    snapshots = store.list()
+    assert len(snapshots) == 1
+    assert snapshots[0].status == "invalid"
+    assert snapshots[0].raw_payload == payload

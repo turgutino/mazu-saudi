@@ -64,8 +64,15 @@ class RiskPolicy:
         config: HazardRiskConfig = RISK_CONFIGS[case.hazard]
         sensitivity = getattr(region.sensitivity, config.sensitivity_key)
         offset = SENSITIVITY_OFFSET[sensitivity]
-        score_label = "风险评分" if score_kind == "risk_score" else "概率"
-        score_field = "risk_score" if score_kind == "risk_score" else "calibrated_probability"
+        if score_kind == "risk_score":
+            score_label = "风险评分"
+            score_field = "risk_score"
+        elif score_kind == "proxy_probability":
+            score_label = "代理事件概率"
+            score_field = "proxy_probability"
+        else:
+            score_label = "概率"
+            score_field = "calibrated_probability"
 
         prob_hits: list[RuleHitRecord] = []
         level = "green"
