@@ -4,8 +4,18 @@ import type { HazardType } from '@/mocks/hazards';
 import type { ModelInfo } from '@/mocks/models';
 import type { DashboardStats, RecentActivity, WeeklyStat } from '@/mocks/dashboard';
 import { withCache, ONE_HOUR_MS } from './cache';
+import i18n from '@/i18n';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
+
+function currentLang(): 'zh' | 'en' {
+  return i18n.language?.startsWith('zh') ? 'zh' : 'en';
+}
+
+function withLang(path: string): string {
+  const separator = path.includes('?') ? '&' : '?';
+  return `${API_BASE}${path}${separator}lang=${currentLang()}`;
+}
 
 async function parseJson<T>(response: Response, errorLabel: string): Promise<T> {
   if (!response.ok) {
@@ -16,7 +26,7 @@ async function parseJson<T>(response: Response, errorLabel: string): Promise<T> 
 }
 
 async function parseResponse(response: Response): Promise<PredictionResult> {
-  return parseJson<PredictionResult>(response, '预测服务错误');
+  return parseJson<PredictionResult>(response, i18n.t('errors.predictionService'));
 }
 
 export function createPrediction(request: {
@@ -30,7 +40,7 @@ export function createPrediction(request: {
   return fetch(`${API_BASE}/predictions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(request),
+    body: JSON.stringify({ ...request, lang: currentLang() }),
   }).then(parseResponse);
 }
 
@@ -43,33 +53,35 @@ export function fetchPrediction(predictionId: string): Promise<PredictionResult>
 export function fetchPredictionsList(): Promise<PredictionResult[]> {
   return fetch(`${API_BASE}/predictions`, {
     headers: { Accept: 'application/json' },
-  }).then((response) => parseJson<PredictionResult[]>(response, '预测列表加载失败'));
+  }).then((response) => parseJson<PredictionResult[]>(response, i18n.t('errors.predictionsList')));
 }
 
 // Regions/hazards/models change rarely, so cache them in sessionStorage for
-// an hour instead of re-fetching on every Workspace page visit.
+// an hour instead of re-fetching on every Workspace page visit. The cache
+// key includes the current language so switching EN/ZH doesn't serve a
+// stale-language cached response.
 
 export function fetchRegions(): Promise<Region[]> {
-  return withCache('regions', ONE_HOUR_MS, () =>
-    fetch(`${API_BASE}/regions`, {
+  return withCache(`regions:${currentLang()}`, ONE_HOUR_MS, () =>
+    fetch(withLang('/regions'), {
       headers: { Accept: 'application/json' },
-    }).then((response) => parseJson<Region[]>(response, '区域列表加载失败')),
+    }).then((response) => parseJson<Region[]>(response, i18n.t('errors.regionsList'))),
   );
 }
 
 export function fetchHazards(): Promise<HazardType[]> {
-  return withCache('hazards', ONE_HOUR_MS, () =>
-    fetch(`${API_BASE}/hazards`, {
+  return withCache(`hazards:${currentLang()}`, ONE_HOUR_MS, () =>
+    fetch(withLang('/hazards'), {
       headers: { Accept: 'application/json' },
-    }).then((response) => parseJson<HazardType[]>(response, '灾种列表加载失败')),
+    }).then((response) => parseJson<HazardType[]>(response, i18n.t('errors.hazardsList'))),
   );
 }
 
 export function fetchModels(): Promise<ModelInfo[]> {
-  return withCache('models', ONE_HOUR_MS, () =>
-    fetch(`${API_BASE}/models`, {
+  return withCache(`models:${currentLang()}`, ONE_HOUR_MS, () =>
+    fetch(withLang('/models'), {
       headers: { Accept: 'application/json' },
-    }).then((response) => parseJson<ModelInfo[]>(response, '模型列表加载失败')),
+    }).then((response) => parseJson<ModelInfo[]>(response, i18n.t('errors.modelsList'))),
   );
 }
 
@@ -77,19 +89,19 @@ export function fetchModels(): Promise<ModelInfo[]> {
 // unlike regions/hazards/models these are not cached.
 
 export function fetchDashboardStats(): Promise<DashboardStats> {
-  return fetch(`${API_BASE}/dashboard/stats`, {
+  return fetch(withLang('/dashboard/stats'), {
     headers: { Accept: 'application/json' },
-  }).then((response) => parseJson<DashboardStats>(response, '仪表盘统计加载失败'));
+  }).then((response) => parseJson<DashboardStats>(response, i18n.t('errors.dashboardStats')));
 }
 
 export function fetchRecentActivities(): Promise<RecentActivity[]> {
-  return fetch(`${API_BASE}/dashboard/activities`, {
+  return fetch(withLang('/dashboard/activities'), {
     headers: { Accept: 'application/json' },
-  }).then((response) => parseJson<RecentActivity[]>(response, '近期动态加载失败'));
+  }).then((response) => parseJson<RecentActivity[]>(response, i18n.t('errors.recentActivities')));
 }
 
 export function fetchWeeklyStats(): Promise<WeeklyStat[]> {
-  return fetch(`${API_BASE}/dashboard/weekly-stats`, {
+  return fetch(withLang('/dashboard/weekly-stats'), {
     headers: { Accept: 'application/json' },
-  }).then((response) => parseJson<WeeklyStat[]>(response, '周趋势加载失败'));
+  }).then((response) => parseJson<WeeklyStat[]>(response, i18n.t('errors.weeklyStats')));
 }

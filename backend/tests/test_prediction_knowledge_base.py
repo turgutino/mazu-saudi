@@ -84,7 +84,7 @@ def test_explanation_graph_keeps_evidence_layers_and_rationales():
                 initial_time="2026-08-01T00:00:00Z",
             )
         )
-    graph = build_graph(prediction)
+    graph = build_graph(prediction, lang="en")
 
     assert graph.graph_version == "1.0.0"
     assert any(node.evidence_kind == "literature" for node in graph.nodes)
@@ -92,4 +92,7 @@ def test_explanation_graph_keeps_evidence_layers_and_rationales():
     assert "causation" in graph.disclaimer
     assert all(edge.rationale for edge in graph.edges)
     assert "SUPPORTED_BY" not in {edge.type for edge in graph.edges}
+
+    graph_zh = build_graph(prediction, lang="zh")
+    assert "因果" in graph_zh.disclaimer
     assert "CONSISTENT_WITH" in {edge.type for edge in graph.edges}

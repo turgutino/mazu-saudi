@@ -27,11 +27,12 @@ export function createNodeLabelPreview(
   label: string,
   maxCharsPerLine = 18,
   maxLines = 3,
+  fallbackLabel = '未命名节点',
 ): string[] {
   const lineLimit = Math.max(1, Math.floor(maxCharsPerLine));
   const visibleLineLimit = Math.max(1, Math.floor(maxLines));
   const sourceLines = label.split('\n').map((line) => line.trim()).filter(Boolean);
-  const lines = sourceLines.length > 0 ? sourceLines : ['未命名节点'];
+  const lines = sourceLines.length > 0 ? sourceLines : [fallbackLabel];
   const preview = lines.slice(0, visibleLineLimit).map((line) => {
     const characters = Array.from(line);
     return characters.length > lineLimit

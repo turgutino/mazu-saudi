@@ -38,6 +38,29 @@ class PredictionServiceError(ValueError):
     """Raised when a prediction request references unknown region/hazard/model."""
 
 
+# Model display names are assigned inside each ForecastModel implementation
+# (app/models/*.py) before risk policy / language selection runs. Rather
+# than threading `lang` through the model interface (used identically by
+# every ForecastModel and its tests), the English display name is resolved
+# here as a pure display-layer lookup, keyed by the Chinese name the model
+# layer always produces.
+MODEL_NAME_EN: dict[str, str] = {
+    "API兼容HGB-强降雨": "API-Compatible HGB - Heavy Rain",
+    "API兼容HGB-高温": "API-Compatible HGB - Extreme Heat",
+    "API兼容HGB-山洪": "API-Compatible HGB - Flash Flood",
+    "API兼容HGB-沙尘暴": "API-Compatible HGB - Dust Storm",
+    "HistGradientBoosting-高温": "HistGradientBoosting - Extreme Heat",
+    "HistGradientBoosting-山洪": "HistGradientBoosting - Flash Flood",
+    "HistGradientBoosting-沙尘暴": "HistGradientBoosting - Dust Storm",
+    "确定性规则基线模型": "Deterministic Rule Baseline Model",
+    "实时预报风险评分（规则基线）": "Real-time Forecast Risk Score (Rule Baseline)",
+}
+
+
+def _model_display_name(model_name: str, lang: str) -> str:
+    return MODEL_NAME_EN.get(model_name, model_name) if lang == "en" else model_name
+
+
 HISTORICAL_LEAD_TIME_HOURS = 24
 HISTORICAL_FIRST_INITIAL_DATE = date(2025, 1, 1)
 HISTORICAL_LAST_INITIAL_DATE = date(2025, 12, 30)
@@ -193,19 +216,24 @@ class PredictionService:
             if is_proxy_label
             else "uncalibrated_event_score"
         )
+        lang = request.lang if request.lang in ("zh", "en") else "zh"
         risk = risk_policy.assess(
             case,
             calibration.score,
             indicators,
             region,
             score_kind="proxy_score" if is_proxy_label else "model_score",
+            lang=lang,
         )
 
-        features = build_feature_contributions(raw, indicators)
+        hazard_label = hazard.name_en if lang == "en" else hazard.name
+        region_name = region.name_en if lang == "en" else region.name
+
+        features = build_feature_contributions(raw, indicators, lang=lang)
         rule_hits = build_rule_hits(risk.rule_hits)
-        mechanisms = build_mechanisms(case.hazard, case.region_id, indicators)
+        mechanisms = build_mechanisms(case.hazard, case.region_id, indicators, lang=lang)
         similar_events = find_similar_events(
-            case.hazard, case.region_id, case.initial_time, indicators
+            case.hazard, case.region_id, case.initial_time, indicators, lang=lang
         )
 
         prediction_id = f"pred-{uuid.uuid4().hex[:12]}"
@@ -216,11 +244,11 @@ class PredictionService:
             case_id=case.case_id,
             model_id=raw.model_id,
             model_version=raw.model_version,
-            model_name=raw.model_name,
+            model_name=_model_display_name(raw.model_name, lang),
             hazard=hazard.id,
-            hazard_label=hazard.name,
+            hazard_label=hazard_label,
             region_id=region.id,
-            region_name=region.name,
+            region_name=region_name,
             target_time=case.target_time.isoformat(),
             lead_time_hours=case.lead_time_hours,
             initial_time=case.initial_time.isoformat(),

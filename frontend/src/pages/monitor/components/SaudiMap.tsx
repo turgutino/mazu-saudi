@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { MonitorRegionData } from '@/mocks/monitor';
 
 interface SaudiMapProps {
@@ -39,7 +40,7 @@ const riskSize: Record<string, string> = {
 
 const riskOrder: Record<string, number> = { red: 4, orange: 3, yellow: 2, green: 1 };
 
-// Google Maps embed URL — 沙特全境, zoom 6, 地形图, 无 UI
+// Google Maps embed URL — all of Saudi Arabia, zoom 6, terrain map, no UI chrome
 const MAP_SRC = 'https://www.google.com/maps?q=Saudi+Arabia&z=6&t=m&output=embed';
 
 export default function SaudiMap({
@@ -49,6 +50,8 @@ export default function SaudiMap({
   activeHazardId,
   tioEnabled,
 }: SaudiMapProps) {
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language?.startsWith('zh') === false;
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
@@ -89,11 +92,11 @@ export default function SaudiMap({
         loading="lazy"
         allowFullScreen
         referrerPolicy="no-referrer-when-downgrade"
-        title="沙特阿拉伯气象监测地图"
+        title={t('monitor.map.title')}
         onLoad={() => setMapLoaded(true)}
       />
 
-      {/* Map overlay — 柔焦遮罩让标记点更突出 */}
+      {/* Map overlay — soft-focus gradient so markers stand out */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/30 pointer-events-none z-[5]" />
 
       {/* ---- Markers layer ---- */}
@@ -142,7 +145,7 @@ export default function SaudiMap({
                 className={`absolute top-full left-1/2 -translate-x-1/2 mt-1.5 whitespace-nowrap transition-all duration-300 ${isSelected || isHovered ? 'opacity-100 translate-y-0' : 'opacity-70 translate-y-0.5'}`}
               >
                 <span className="px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-white text-[11px] font-medium tracking-wide">
-                  {region.regionName}
+                  {isEn ? region.nameEn : region.regionName}
                 </span>
                 {region.activeAlertCount > 0 && !activeHazardId && (
                   <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-[9px] font-bold ring-1 ring-white/60">
@@ -158,21 +161,21 @@ export default function SaudiMap({
                     {/* Header */}
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <span className="text-sm font-semibold text-foreground-900">{region.regionName}</span>
-                        <span className="text-[10px] text-foreground-400 ml-2">{region.nameEn}</span>
+                        <span className="text-sm font-semibold text-foreground-900">{isEn ? region.nameEn : region.regionName}</span>
+                        <span className="text-[10px] text-foreground-400 ml-2">{isEn ? region.regionName : region.nameEn}</span>
                       </div>
                       <span className={`w-3 h-3 rounded-full ${riskDotBg[effectiveRisk]} ring-2 ring-white`} />
                     </div>
 
                     {/* Readings grid */}
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-foreground-600 mb-3">
-                      <span className="text-foreground-400">温度</span>
+                      <span className="text-foreground-400">{t('monitor.field.temperature')}</span>
                       <span className="text-right font-semibold text-foreground-800">{region.readings.temperature}°C</span>
-                      <span className="text-foreground-400">湿度</span>
+                      <span className="text-foreground-400">{t('monitor.field.humidity')}</span>
                       <span className="text-right font-semibold text-foreground-800">{region.readings.humidity}%</span>
-                      <span className="text-foreground-400">风速</span>
+                      <span className="text-foreground-400">{t('monitor.field.windSpeed')}</span>
                       <span className="text-right font-semibold text-foreground-800">{region.readings.windSpeed} m/s</span>
-                      <span className="text-foreground-400">CAPE</span>
+                      <span className="text-foreground-400">{t('monitor.field.cape')}</span>
                       <span className="text-right font-semibold text-foreground-800">{region.readings.cape} J/kg</span>
                     </div>
 
@@ -181,21 +184,21 @@ export default function SaudiMap({
                       <div className="border-t border-background-200/50 pt-2 mb-2">
                         <p className="text-[10px] text-foreground-400 mb-1.5 flex items-center gap-1">
                           <i className="ri-flashlight-line text-emerald-500" />
-                          Tomorrow.io 增强
+                          {t('monitor.badge.tioEnhanced')}
                         </p>
                         <div className="grid grid-cols-3 gap-2 text-xs">
                           <div className="text-center bg-background-100 rounded-md py-1">
-                            <p className="text-[9px] text-foreground-400">阵风</p>
+                            <p className="text-[9px] text-foreground-400">{t('monitor.field.gust')}</p>
                             <p className="font-bold text-foreground-700">{region.readings.windGust > 0 ? `${region.readings.windGust}` : '—'} <span className="text-[9px] font-normal">m/s</span></p>
                           </div>
                           <div className="text-center bg-background-100 rounded-md py-1">
-                            <p className="text-[9px] text-foreground-400">火险</p>
+                            <p className="text-[9px] text-foreground-400">{t('monitor.field.fireRisk')}</p>
                             <p className={`font-bold ${region.readings.fireIndex >= 4 ? 'text-red-600' : region.readings.fireIndex >= 2 ? 'text-orange-500' : 'text-foreground-700'}`}>
                               {region.readings.fireIndex > 0 ? region.readings.fireIndex : '—'}
                             </p>
                           </div>
                           <div className="text-center bg-background-100 rounded-md py-1">
-                            <p className="text-[9px] text-foreground-400">雷暴</p>
+                            <p className="text-[9px] text-foreground-400">{t('monitor.field.thunderstorm')}</p>
                             <p className={`font-bold ${region.readings.thunderstormProb >= 50 ? 'text-red-600' : region.readings.thunderstormProb >= 30 ? 'text-orange-500' : 'text-foreground-700'}`}>
                               {region.readings.thunderstormProb > 0 ? `${region.readings.thunderstormProb}%` : '—'}
                             </p>
@@ -209,7 +212,7 @@ export default function SaudiMap({
                       <div className="pt-2 border-t border-background-200/50">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-700 text-[11px] font-medium">
                           <i className="ri-alert-line text-[10px]" />
-                          {region.activeAlertCount} 个活跃预警
+                          {t('monitor.map.alertCount', { count: region.activeAlertCount })}
                         </span>
                       </div>
                     )}
@@ -226,7 +229,7 @@ export default function SaudiMap({
         <div className="absolute inset-0 z-[6] flex items-center justify-center bg-background-100/60 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-2 border-primary-300 border-t-primary-500 rounded-full animate-spin" />
-            <p className="text-sm text-foreground-500">地图加载中...</p>
+            <p className="text-sm text-foreground-500">{t('monitor.map.loading')}</p>
           </div>
         </div>
       )}
@@ -248,14 +251,14 @@ export default function SaudiMap({
         <div className="bg-black/50 backdrop-blur-md rounded-lg px-3 py-2 border border-white/15">
           <div className="flex items-center gap-3">
             {[
-              { level: 'green', label: '低风险' },
-              { level: 'yellow', label: '黄色预警' },
-              { level: 'orange', label: '橙色预警' },
-              { level: 'red', label: '红色预警' },
+              { level: 'green', labelKey: 'risk.green' },
+              { level: 'yellow', labelKey: 'risk.yellow' },
+              { level: 'orange', labelKey: 'risk.orange' },
+              { level: 'red', labelKey: 'risk.red' },
             ].map((item) => (
               <div key={item.level} className="flex items-center gap-1.5">
                 <span className={`w-2.5 h-2.5 rounded-full ${riskDotBg[item.level]} ring-1 ring-white/40`} />
-                <span className="text-[10px] text-white/80 font-medium">{item.label}</span>
+                <span className="text-[10px] text-white/80 font-medium">{t(item.labelKey)}</span>
               </div>
             ))}
           </div>
@@ -265,9 +268,9 @@ export default function SaudiMap({
         <div className="flex items-center gap-3">
           <div className="bg-black/50 backdrop-blur-md rounded-lg px-3 py-2 border border-white/15">
             <span className="text-[11px] text-white/80">
-              <strong className="text-white">{regions.length}</strong> 监测站 · {' '}
-              <strong className="text-red-400">{alertCount}</strong> 预警区域 · {' '}
-              <strong className="text-orange-400">{orangePlusCount}</strong> 橙色+
+              <strong className="text-white">{regions.length}</strong> {t('monitor.map.stations')} · {' '}
+              <strong className="text-red-400">{alertCount}</strong> {t('monitor.map.alertRegions')} · {' '}
+              <strong className="text-orange-400">{orangePlusCount}</strong> {t('monitor.map.orangePlus')}
             </span>
           </div>
 
@@ -275,7 +278,7 @@ export default function SaudiMap({
           <div className="bg-black/50 backdrop-blur-md rounded-lg px-3 py-2 border border-white/15 flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full animate-pulse ${regions.length > 0 && regions[0].readings.temperature > 0 ? 'bg-emerald-400' : 'bg-yellow-400'}`} />
             <span className="text-[10px] text-white/70">
-              {regions.length > 0 && regions[0].readings.temperature > 0 ? '实时数据' : '等待数据...'}
+              {regions.length > 0 && regions[0].readings.temperature > 0 ? t('monitor.map.realtimeData') : t('monitor.map.waitingData')}
             </span>
           </div>
         </div>

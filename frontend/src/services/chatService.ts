@@ -1,5 +1,10 @@
 import type { ChatMessage, ChatContext } from '@/mocks/chatResponses';
 import { generateResponse, generateGeneralResponse } from '@/mocks/chatResponses';
+import i18n from '@/i18n';
+
+function currentLang(): 'zh' | 'en' {
+  return i18n.language?.startsWith('zh') ? 'zh' : 'en';
+}
 
 // ============================================================
 // 当 Supabase 接入 LiteLLM 后，替换下面的 stub 即可。
@@ -123,9 +128,10 @@ export async function sendChatMessage(
   }
 
   // Keyword fallback
+  const lang = currentLang();
   const fallbackContent = context
-    ? generateResponse(userMessage, context)
-    : generateGeneralResponse(userMessage);
+    ? generateResponse(userMessage, context, lang)
+    : generateGeneralResponse(userMessage, lang);
 
   return { content: fallbackContent, source: 'keyword-fallback' };
 }

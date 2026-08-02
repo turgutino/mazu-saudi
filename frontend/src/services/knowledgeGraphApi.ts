@@ -39,13 +39,21 @@ export interface KnowledgeGraph {
   edges: GraphEdge[];
 }
 
+import i18n from '@/i18n';
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
 
+function currentLang(): 'zh' | 'en' {
+  return i18n.language?.startsWith('zh') ? 'zh' : 'en';
+}
+
 export async function fetchKnowledgeGraph(predictionId: string): Promise<KnowledgeGraph> {
-  const response = await fetch(`${API_BASE}/knowledge-graph/${encodeURIComponent(predictionId)}`);
+  const response = await fetch(
+    `${API_BASE}/knowledge-graph/${encodeURIComponent(predictionId)}?lang=${currentLang()}`,
+  );
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`图谱加载失败 (${response.status}): ${detail}`);
+    throw new Error(`${i18n.t('errors.knowledgeGraph')} (${response.status}): ${detail}`);
   }
   return response.json() as Promise<KnowledgeGraph>;
 }

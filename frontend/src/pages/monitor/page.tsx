@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Navbar from '@/components/feature/Navbar';
 import Button from '@/components/base/Button';
 import SaudiMap from './components/SaudiMap';
@@ -11,6 +12,10 @@ import { mergeEnhancedIntoReading } from '@/services/tomorrowIoApi';
 
 export default function MonitorPage() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language?.startsWith('zh') === false;
+  const regionLabel = (r: { regionName: string; nameEn: string } | undefined | null) =>
+    r ? (isEn ? r.nameEn : r.regionName) : '—';
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [activeHazardId, setActiveHazardId] = useState<string | null>(null);
   const [showComparison, setShowComparison] = useState(false);
@@ -92,24 +97,24 @@ export default function MonitorPage() {
   const maxCape = regions.length > 0 ? Math.max(...regions.map((r) => r.readings.cape)) : 0;
   const activeAlerts = regions.reduce((sum, r) => sum + r.activeAlertCount, 0);
   const orangeAlerts = regions.filter((r) => r.highestRiskLevel === 'orange').length;
-  const tempRegion = regions.find((r) => r.readings.temperature === maxTemp)?.regionName ?? '—';
-  const humRegion = regions.find((r) => r.readings.humidity === maxHumidity)?.regionName ?? '—';
-  const windRegion = regions.find((r) => r.readings.windSpeed === maxWind)?.regionName ?? '—';
-  const capeRegion = regions.find((r) => r.readings.cape === maxCape)?.regionName ?? '—';
+  const tempRegion = regionLabel(regions.find((r) => r.readings.temperature === maxTemp));
+  const humRegion = regionLabel(regions.find((r) => r.readings.humidity === maxHumidity));
+  const windRegion = regionLabel(regions.find((r) => r.readings.windSpeed === maxWind));
+  const capeRegion = regionLabel(regions.find((r) => r.readings.cape === maxCape));
 
   // Tomorrow.io enhanced metrics
   const maxWindGust = regions.length > 0 ? Math.max(...regions.map((r) => r.readings.windGust)) : 0;
   const maxFireIndex = regions.length > 0 ? Math.max(...regions.map((r) => r.readings.fireIndex)) : 0;
   const maxTstormProb = regions.length > 0 ? Math.max(...regions.map((r) => r.readings.thunderstormProb)) : 0;
-  const windGustRegion = regions.find((r) => r.readings.windGust === maxWindGust)?.regionName ?? '—';
-  const fireRegion = regions.find((r) => r.readings.fireIndex === maxFireIndex)?.regionName ?? '—';
-  const tstormRegion = regions.find((r) => r.readings.thunderstormProb === maxTstormProb)?.regionName ?? '—';
+  const windGustRegion = regionLabel(regions.find((r) => r.readings.windGust === maxWindGust));
+  const fireRegion = regionLabel(regions.find((r) => r.readings.fireIndex === maxFireIndex));
+  const tstormRegion = regionLabel(regions.find((r) => r.readings.thunderstormProb === maxTstormProb));
 
   // CMA summary (if available)
   const cmaTemp = regionsCma && regionsCma.length > 0
     ? Math.max(...regionsCma.map((r) => r.readings.temperature))
     : null;
-  const cmaTempRegion = regionsCma?.find((r) => r.readings.temperature === cmaTemp)?.regionName ?? null;
+  const cmaTempRegion = regionsCma ? regionLabel(regionsCma.find((r) => r.readings.temperature === cmaTemp)) : null;
 
   const combinedLoading = loading || (showComparison && loadingCma) || loadingTio;
 
@@ -131,37 +136,37 @@ export default function MonitorPage() {
             <div>
               <h1 className="font-heading text-base text-foreground-900 flex items-center gap-2">
                 <i className="ri-radar-line text-primary-500 text-sm" />
-                实时监测 · 沙特地区
+                {t('monitor.header.title')}
               </h1>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <p className="text-xs text-foreground-400">
-                  {regions.length} 个监测区域 · {activeAlerts} 个活跃预警
+                  {t('monitor.header.subtitle', { count: regions.length, alerts: activeAlerts })}
                 </p>
                 {isRealData && (
                   <span className="text-[10px] bg-accent-50 text-accent-700 px-1.5 py-0.5 rounded-full border border-accent-200">
-                    {cacheHit ? 'Open-Meteo · 数据库缓存' : 'Open-Meteo · 新快照'}
+                    {cacheHit ? t('monitor.badge.cacheHit') : t('monitor.badge.freshSnapshot')}
                   </span>
                 )}
                 {!isRealData && !loading && (
                   <span className="text-[10px] bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded-full border border-yellow-200">
-                    模拟数据
+                    {t('monitor.badge.simulated')}
                   </span>
                 )}
                 {cmaEnabled && (
                   <span className="text-[10px] bg-secondary-50 text-secondary-700 px-1.5 py-0.5 rounded-full border border-secondary-200">
-                    CMA 已接入
+                    {t('monitor.badge.cmaConnected')}
                   </span>
                 )}
                 {tioEnabled && !loadingTio && !errorTio && (
                   <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-full border border-emerald-200">
                     <i className="ri-flashlight-line mr-0.5" />
-                    Tomorrow.io 增强
+                    {t('monitor.badge.tioEnhanced')}
                   </span>
                 )}
                 {tioEnabled && loadingTio && (
                   <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full border border-emerald-200 animate-pulse">
                     <div className="w-2 h-2 border border-emerald-400 border-t-emerald-600 rounded-full animate-spin inline-block mr-0.5 align-middle" />
-                    Tomorrow.io 同步中
+                    {t('monitor.badge.tioSyncing')}
                   </span>
                 )}
               </div>
@@ -177,7 +182,7 @@ export default function MonitorPage() {
                   }`}
                 >
                   <i className={`${showComparison ? 'ri-eye-line' : 'ri-eye-off-line'} mr-1`} />
-                  {showComparison ? '双模型对比中' : '双模型对比'}
+                  {showComparison ? t('monitor.toolbar.comparing') : t('monitor.toolbar.compare')}
                 </button>
               )}
               {selectedRegion && (
@@ -189,7 +194,7 @@ export default function MonitorPage() {
                     navigate('/workspace');
                   }}
                 >
-                  为 {selectedRegion.regionName} 发起预测
+                  {t('monitor.toolbar.predictFor', { region: regionLabel(selectedRegion) })}
                 </Button>
               )}
               <button
@@ -198,7 +203,7 @@ export default function MonitorPage() {
                 className="flex items-center gap-1.5 text-xs text-foreground-500 bg-background-100 px-3 py-1.5 rounded-full hover:bg-background-200 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <i className={`ri-refresh-line ${combinedLoading ? 'animate-spin' : ''}`} />
-                {combinedLoading ? '同步中...' : lastRefresh || '等待中'}
+                {combinedLoading ? t('monitor.toolbar.syncing') : lastRefresh || t('monitor.toolbar.waiting')}
               </button>
             </div>
           </div>
@@ -208,20 +213,20 @@ export default function MonitorPage() {
             {loading && regions.length === 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
                 <div className="w-10 h-10 border-2 border-primary-200 border-t-primary-500 rounded-full animate-spin" />
-                <p className="text-sm text-foreground-500 mt-3">正在读取监测快照...</p>
-                <p className="text-xs text-foreground-400 mt-1">当前6小时时段无缓存时才会同步 8 个区域</p>
+                <p className="text-sm text-foreground-500 mt-3">{t('monitor.map.loadingSnapshot')}</p>
+                <p className="text-xs text-foreground-400 mt-1">{t('monitor.map.loadingHint')}</p>
               </div>
             )}
             {error && regions.length === 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
                 <i className="ri-error-warning-line text-3xl text-yellow-500" />
-                <p className="text-sm text-foreground-600 mt-2">实时数据获取失败</p>
+                <p className="text-sm text-foreground-600 mt-2">{t('monitor.map.fetchError')}</p>
                 <p className="text-xs text-foreground-400 mt-1 max-w-xs text-center">{error}</p>
                 <button
                   onClick={handleRefreshAll}
                   className="mt-3 text-xs text-primary-600 hover:text-primary-700 cursor-pointer"
                 >
-                  重试
+                  {t('monitor.map.retry')}
                 </button>
               </div>
             )}
@@ -239,58 +244,58 @@ export default function MonitorPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-3">
               <SummaryItem
                 icon="ri-temp-hot-line"
-                label="最高温度"
+                label={t('monitor.summary.maxTemp')}
                 value={`${maxTemp}°C`}
                 sub={tempRegion}
               />
               <SummaryItem
                 icon="ri-drop-line"
-                label="最大湿度"
+                label={t('monitor.summary.maxHumidity')}
                 value={`${maxHumidity}%`}
                 sub={humRegion}
               />
               <SummaryItem
                 icon="ri-windy-line"
-                label="最大风速"
+                label={t('monitor.summary.maxWind')}
                 value={`${maxWind} m/s`}
                 sub={windRegion}
               />
               <SummaryItem
                 icon="ri-flashlight-line"
-                label="最高 CAPE"
+                label={t('monitor.summary.maxCape')}
                 value={`${maxCape} J/kg`}
                 sub={capeRegion}
               />
               <SummaryItem
                 icon="ri-alert-line"
-                label="活跃预警"
+                label={t('monitor.summary.activeAlerts')}
                 value={`${activeAlerts}`}
-                sub={`${orangeAlerts} 橙色`}
+                sub={t('monitor.summary.orangeCount', { count: orangeAlerts })}
                 highlight
               />
               <SummaryItem
                 icon="ri-database-2-line"
-                label="数据来源"
-                value={isRealData ? 'Open-Meteo' : '模拟'}
-                sub={tioEnabled ? 'Tomorrow.io 增强' : cmaEnabled ? 'CMA 已接入' : '单源'}
+                label={t('monitor.summary.dataSource')}
+                value={isRealData ? 'Open-Meteo' : t('monitor.summary.simulated')}
+                sub={tioEnabled ? t('monitor.badge.tioEnhanced') : cmaEnabled ? t('monitor.badge.cmaConnected') : t('monitor.summary.singleSource')}
               />
               {tioEnabled && (
                 <>
                   <SummaryItem
                     icon="ri-windy-line"
-                    label="最大阵风"
+                    label={t('monitor.summary.maxGust')}
                     value={`${maxWindGust} m/s`}
                     sub={windGustRegion}
                   />
                   <SummaryItem
                     icon="ri-fire-line"
-                    label="最高火险指数"
+                    label={t('monitor.summary.maxFireIndex')}
                     value={`${maxFireIndex}`}
                     sub={fireRegion}
                   />
                   <SummaryItem
                     icon="ri-thunderstorms-line"
-                    label="最高雷暴概率"
+                    label={t('monitor.summary.maxTstormProb')}
                     value={`${maxTstormProb}%`}
                     sub={tstormRegion}
                   />
@@ -303,7 +308,7 @@ export default function MonitorPage() {
               <div className="mt-2 pt-2 border-t border-background-200/40">
                 <p className="text-[10px] text-foreground-400 mb-1.5 flex items-center gap-1">
                   <i className="ri-line-chart-line" />
-                  CMA 模型对比摘要
+                  {t('monitor.summary.cmaCompareTitle')}
                   {errorCma && (
                     <span className="text-yellow-600 ml-1">· {errorCma}</span>
                   )}
@@ -311,25 +316,25 @@ export default function MonitorPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <SummaryItem
                     icon="ri-temp-hot-line"
-                    label="CMA 最高温度"
+                    label={t('monitor.summary.cmaMaxTemp')}
                     value={`${cmaTemp}°C`}
                     sub={cmaTempRegion ?? '—'}
                   />
                   <SummaryItem
                     icon="ri-arrow-up-down-line"
-                    label="温差"
+                    label={t('monitor.summary.tempDiff')}
                     value={`${cmaTemp != null ? (cmaTemp - maxTemp).toFixed(1) : '—'}°C`}
-                    sub={cmaTemp != null && cmaTemp > maxTemp ? 'CMA 偏高' : 'CMA 偏低'}
+                    sub={cmaTemp != null && cmaTemp > maxTemp ? t('monitor.summary.cmaHigher') : t('monitor.summary.cmaLower')}
                   />
                   <SummaryItem
                     icon="ri-time-line"
-                    label="CMA 更新"
+                    label={t('monitor.summary.cmaUpdate')}
                     value={lastRefreshCma || '—'}
-                    sub="镜地球"
+                    sub={t('monitor.summary.mirrorEarth')}
                   />
                   <SummaryItem
                     icon="ri-global-line"
-                    label="CMA 分辨率"
+                    label={t('monitor.summary.cmaResolution')}
                     value="12.5km"
                     sub="vs Open-Meteo 27km"
                   />

@@ -15,10 +15,12 @@ class ModelMetrics(CamelModel):
 class ModelInfo(CamelModel):
     id: str
     name: str
+    name_en: str
     version: str
     type: ModelType
     icon: str
     description: str
+    description_en: str
     supported_hazards: list[str]
     last_trained: str
     metrics: dict[str, ModelMetrics]

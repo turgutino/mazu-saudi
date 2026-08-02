@@ -16,7 +16,10 @@ from app.repositories.prediction_store import prediction_store
 from app.schemas.dashboard import DashboardStats, RecentActivity, RegionRiskSummary, WeeklyStat
 from app.schemas.prediction import PredictionResult
 
-_WEEKDAY_LABELS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+_WEEKDAY_LABELS = {
+    "zh": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+}
 
 
 def _parse_created_at(created_at: str) -> datetime | None:
@@ -26,7 +29,8 @@ def _parse_created_at(created_at: str) -> datetime | None:
         return None
 
 
-def get_dashboard_stats() -> DashboardStats:
+def get_dashboard_stats(lang: str = "zh") -> DashboardStats:
+    en = lang == "en"
     predictions = prediction_store.list()
 
     latest_by_region_hazard: dict[tuple[str, str], PredictionResult] = {}
@@ -43,7 +47,7 @@ def get_dashboard_stats() -> DashboardStats:
     region_risk = [
         RegionRiskSummary(
             region_id=region.id,
-            region_name=region.name,
+            region_name=region.name_en if en else region.name,
             risk_level=latest_by_region[region.id].risk_level,
         )
         for region in REGIONS
@@ -60,20 +64,26 @@ def get_dashboard_stats() -> DashboardStats:
     )
 
 
-def get_recent_activities(limit: int = 10) -> list[RecentActivity]:
+def get_recent_activities(limit: int = 10, lang: str = "zh") -> list[RecentActivity]:
+    en = lang == "en"
     predictions = prediction_store.list()[:limit]
     activities: list[RecentActivity] = []
     for p in predictions:
-        status = p.risk_label if p.risk_level != "green" else "风险等级为绿色"
+        green_status = "Risk level: Green" if en else "风险等级为绿色"
+        status = p.risk_label if p.risk_level != "green" else green_status
+        description = (
+            f"{p.model_name} output {p.hazard_label} decision score "
+            f"{p.decision_score:.2f}, {status}"
+            if en
+            else f"{p.model_name}输出{p.hazard_label}决策分数"
+            f"{p.decision_score:.2f}，{status}"
+        )
         activities.append(
             RecentActivity(
                 id=p.prediction_id,
                 type="prediction",
-                title=f"{p.hazard_label}{p.risk_label} — {p.region_name}",
-                description=(
-                    f"{p.model_name}输出{p.hazard_label}决策分数"
-                    f"{p.decision_score:.2f}，{status}"
-                ),
+                title=f"{p.hazard_label} {p.risk_label} — {p.region_name}" if en else f"{p.hazard_label}{p.risk_label} — {p.region_name}",
+                description=description,
                 time=p.created_at.replace("T", " ")[:16],
                 risk_level=p.risk_level,
             )
@@ -81,8 +91,9 @@ def get_recent_activities(limit: int = 10) -> list[RecentActivity]:
     return activities
 
 
-def get_weekly_stats() -> list[WeeklyStat]:
+def get_weekly_stats(lang: str = "zh") -> list[WeeklyStat]:
     """Predictions-per-day for the last 7 calendar days (UTC), oldest first."""
+    labels = _WEEKDAY_LABELS[lang] if lang in _WEEKDAY_LABELS else _WEEKDAY_LABELS["zh"]
     today = datetime.now(timezone.utc).date()
     days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
     counts = {day: {"predictions": 0, "warnings": 0} for day in days}
@@ -98,7 +109,7 @@ def get_weekly_stats() -> list[WeeklyStat]:
 
     return [
         WeeklyStat(
-            day=_WEEKDAY_LABELS[day.weekday()],
+            day=labels[day.weekday()],
             predictions=counts[day]["predictions"],
             warnings=counts[day]["warnings"],
         )

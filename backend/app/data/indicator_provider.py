@@ -22,6 +22,7 @@ from app.domain.forecast_case import ForecastCase
 class IndicatorSpec:
     key: str
     label: str
+    label_en: str
     unit: str
     min_value: float
     max_value: float
@@ -30,19 +31,19 @@ class IndicatorSpec:
 
 
 INDICATOR_SPECS: dict[str, IndicatorSpec] = {
-    "cape": IndicatorSpec("cape", "CAPE", "J/kg", 50, 3200, 800, +1),
-    "pw": IndicatorSpec("pw", "可降水量", "mm", 8, 65, 32, +1),
-    "daily_precip": IndicatorSpec("daily_precip", "日降水预测", "mm", 0, 75, 6, +1),
-    "vapor_850": IndicatorSpec("vapor_850", "850hPa水汽输送", "g/kg", 3, 26, 9, +1),
-    "shear_500": IndicatorSpec("shear_500", "500hPa风切变", "m/s", 4, 32, 13, +1),
-    "rh_700": IndicatorSpec("rh_700", "700hPa相对湿度", "%", 30, 96, 58, +1),
-    "t850": IndicatorSpec("t850", "850hPa温度", "°C", 18, 38, 27, +1),
-    "t2m": IndicatorSpec("t2m", "2m气温预测", "°C", 30, 52, 41, +1),
-    "rh_surface": IndicatorSpec("rh_surface", "地表相对湿度", "%", 3, 80, 25, -1),
-    "h500": IndicatorSpec("h500", "500hPa位势高度", "gpm", 5850, 6000, 5900, +1),
-    "wind_10m": IndicatorSpec("wind_10m", "10m风速", "m/s", 2, 32, 11, +1),
-    "soil_moisture": IndicatorSpec("soil_moisture", "土壤湿度", "m³/m³", 0.02, 0.35, 0.15, -1),
-    "visibility": IndicatorSpec("visibility", "能见度预测", "km", 0.5, 20, 10, -1),
+    "cape": IndicatorSpec("cape", "CAPE", "CAPE", "J/kg", 50, 3200, 800, +1),
+    "pw": IndicatorSpec("pw", "可降水量", "Precipitable Water", "mm", 8, 65, 32, +1),
+    "daily_precip": IndicatorSpec("daily_precip", "日降水预测", "Daily Precip Forecast", "mm", 0, 75, 6, +1),
+    "vapor_850": IndicatorSpec("vapor_850", "850hPa水汽输送", "850hPa Moisture Transport", "g/kg", 3, 26, 9, +1),
+    "shear_500": IndicatorSpec("shear_500", "500hPa风切变", "500hPa Wind Shear", "m/s", 4, 32, 13, +1),
+    "rh_700": IndicatorSpec("rh_700", "700hPa相对湿度", "700hPa Relative Humidity", "%", 30, 96, 58, +1),
+    "t850": IndicatorSpec("t850", "850hPa温度", "850hPa Temperature", "°C", 18, 38, 27, +1),
+    "t2m": IndicatorSpec("t2m", "2m气温预测", "2m Temp Forecast", "°C", 30, 52, 41, +1),
+    "rh_surface": IndicatorSpec("rh_surface", "地表相对湿度", "Surface Relative Humidity", "%", 3, 80, 25, -1),
+    "h500": IndicatorSpec("h500", "500hPa位势高度", "500hPa Geopotential Height", "gpm", 5850, 6000, 5900, +1),
+    "wind_10m": IndicatorSpec("wind_10m", "10m风速", "10m Wind Speed", "m/s", 2, 32, 11, +1),
+    "soil_moisture": IndicatorSpec("soil_moisture", "土壤湿度", "Soil Moisture", "m³/m³", 0.02, 0.35, 0.15, -1),
+    "visibility": IndicatorSpec("visibility", "能见度预测", "Visibility Forecast", "km", 0.5, 20, 10, -1),
     # Tier 2 enrichment-only indicators, sourced from Tomorrow.io
     # (frontend/src/services/tomorrowIoApi.ts fetches the same 3 fields
     # client-side). No synthetic Tier 3 baseline exists for these -- they
@@ -50,9 +51,9 @@ INDICATOR_SPECS: dict[str, IndicatorSpec] = {
     # succeeds (see app/data/tomorrowio_provider.py), so DegradedForecastModel
     # skips them gracefully via its "key not in indicators" guard whenever
     # they're absent.
-    "wind_gust": IndicatorSpec("wind_gust", "阵风风速", "m/s", 2, 40, 14, +1),
-    "fire_index": IndicatorSpec("fire_index", "火险指数", "", 0, 100, 30, +1),
-    "thunderstorm_prob": IndicatorSpec("thunderstorm_prob", "雷暴概率", "%", 0, 100, 20, +1),
+    "wind_gust": IndicatorSpec("wind_gust", "阵风风速", "Wind Gust Speed", "m/s", 2, 40, 14, +1),
+    "fire_index": IndicatorSpec("fire_index", "火险指数", "Fire Risk Index", "", 0, 100, 30, +1),
+    "thunderstorm_prob": IndicatorSpec("thunderstorm_prob", "雷暴概率", "Thunderstorm Probability", "%", 0, 100, 20, +1),
 }
 
 HAZARD_INDICATORS: dict[str, list[str]] = {

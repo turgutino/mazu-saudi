@@ -2,8 +2,19 @@
 
 from __future__ import annotations
 
+import json
+import re
+
 import pytest
 from fastapi.testclient import TestClient
+
+_CJK_RE = re.compile(r"[一-鿿]")
+
+
+def _assert_no_cjk(payload: object) -> None:
+    text = json.dumps(payload, ensure_ascii=False)
+    match = _CJK_RE.search(text)
+    assert match is None, f"Found CJK character {match.group()!r} in EN-lang payload: {text[:2000]}"
 
 from app.main import app
 from app.domain.forecast_data import ForecastIndicatorBundle
@@ -191,3 +202,40 @@ def test_get_prediction_404_when_missing(client: TestClient):
 def test_knowledge_graph_404_when_prediction_missing(client: TestClient):
     r = client.get("/api/v1/knowledge-graph/does-not-exist")
     assert r.status_code == 404
+
+
+def test_regions_hazards_models_have_no_cjk_in_english(client: TestClient):
+    for path in ("/api/v1/regions", "/api/v1/hazards", "/api/v1/models"):
+        r = client.get(path, params={"lang": "en"})
+        assert r.status_code == 200, path
+        _assert_no_cjk(r.json())
+
+    # Chinese remains the default when lang is omitted.
+    r = client.get("/api/v1/regions")
+    assert any(_CJK_RE.search(region["name"]) for region in r.json())
+
+
+@pytest.mark.parametrize("hazard", HAZARDS)
+def test_prediction_and_graph_have_no_cjk_in_english(client: TestClient, hazard: str):
+    r = client.post(
+        "/api/v1/predictions",
+        json={"regionId": "jazan", "hazard": hazard, "leadTimeHours": 24, "lang": "en"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    _assert_no_cjk(body)
+
+    graph_r = client.get(f"/api/v1/knowledge-graph/{body['predictionId']}", params={"lang": "en"})
+    assert graph_r.status_code == 200
+    _assert_no_cjk(graph_r.json())
+
+
+def test_dashboard_activities_have_no_cjk_in_english(client: TestClient):
+    client.post(
+        "/api/v1/predictions",
+        json={"regionId": "dammam", "hazard": "dust-storm", "leadTimeHours": 24, "lang": "en"},
+    )
+    for path in ("/api/v1/dashboard/stats", "/api/v1/dashboard/activities", "/api/v1/dashboard/weekly-stats"):
+        r = client.get(path, params={"lang": "en"})
+        assert r.status_code == 200, path
+        _assert_no_cjk(r.json())

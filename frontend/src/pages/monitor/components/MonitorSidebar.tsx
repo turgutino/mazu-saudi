@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { MonitorRegionData } from '@/mocks/monitor';
 import { hazardTypes } from '@/mocks/monitor';
 import RiskBadge from '@/components/base/RiskBadge';
@@ -37,6 +38,8 @@ export default function MonitorSidebar({
   tioLoading,
   tioError,
 }: MonitorSidebarProps) {
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language?.startsWith('zh') === false;
   const sortedRegions = [...regions].sort(
     (a, b) => riskOrder[b.highestRiskLevel] - riskOrder[a.highestRiskLevel],
   );
@@ -55,15 +58,15 @@ export default function MonitorSidebar({
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="px-4 py-3 border-b border-background-200/70">
-        <h2 className="font-heading text-sm text-foreground-900">监测区域概览</h2>
+        <h2 className="font-heading text-sm text-foreground-900">{t('monitor.sidebar.title')}</h2>
         <p className="text-xs text-foreground-400 mt-0.5">
-          {regions.length} 个区域 · {totalAlerts} 个活跃预警
+          {t('monitor.sidebar.subtitle', { count: regions.length, alerts: totalAlerts })}
         </p>
       </div>
 
       {/* Hazard filter */}
       <div className="px-4 py-3 border-b border-background-200/70">
-        <p className="text-xs text-foreground-500 mb-2">灾种图层筛选</p>
+        <p className="text-xs text-foreground-500 mb-2">{t('monitor.sidebar.hazardFilter')}</p>
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => onSetHazard(null)}
@@ -73,7 +76,7 @@ export default function MonitorSidebar({
                 : 'bg-background-100 text-foreground-600 hover:bg-background-200'
             }`}
           >
-            全部
+            {t('monitor.sidebar.all')}
           </button>
           {hazardCounts.map((h) => (
             <button
@@ -86,7 +89,7 @@ export default function MonitorSidebar({
               }`}
             >
               <i className={`${h.icon} text-[10px]`} />
-              {h.name}
+              {t(h.name)}
               {h.count > 0 && (
                 <span
                   className={`ml-0.5 inline-flex items-center justify-center min-w-[14px] h-[14px] rounded-full text-[9px] font-bold ${
@@ -125,9 +128,9 @@ export default function MonitorSidebar({
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-foreground-900">
-                    {region.regionName}
+                    {isEn ? region.nameEn : region.regionName}
                   </span>
-                  <span className="text-[10px] text-foreground-400">{region.nameEn}</span>
+                  <span className="text-[10px] text-foreground-400">{isEn ? region.regionName : region.nameEn}</span>
                 </div>
                 <RiskBadge level={region.highestRiskLevel} size="sm" showLabel={false} />
               </div>
@@ -151,7 +154,7 @@ export default function MonitorSidebar({
                         <i
                           className={`${hazardTypes.find((ht) => ht.id === h.hazardId)?.icon || ''} text-[9px]`}
                         />
-                        {h.hazardName} {(h.probability * 100).toFixed(0)}%
+                        {t(h.hazardName)} {(h.probability * 100).toFixed(0)}%
                         <i
                           className={`text-[9px] ${
                             h.trend === 'rising'
@@ -169,19 +172,19 @@ export default function MonitorSidebar({
               {/* Mini readings row */}
               <div className="grid grid-cols-4 gap-1 text-[10px]">
                 <div className="text-center">
-                  <p className="text-foreground-400">温度</p>
+                  <p className="text-foreground-400">{t('monitor.field.temperature')}</p>
                   <p className="font-medium text-foreground-700">{region.readings.temperature}°</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-foreground-400">湿度</p>
+                  <p className="text-foreground-400">{t('monitor.field.humidity')}</p>
                   <p className="font-medium text-foreground-700">{region.readings.humidity}%</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-foreground-400">风速</p>
+                  <p className="text-foreground-400">{t('monitor.field.windSpeed')}</p>
                   <p className="font-medium text-foreground-700">{region.readings.windSpeed}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-foreground-400">CAPE</p>
+                  <p className="text-foreground-400">{t('monitor.field.cape')}</p>
                   <p className="font-medium text-foreground-700">{region.readings.cape}</p>
                 </div>
               </div>
@@ -191,7 +194,7 @@ export default function MonitorSidebar({
                 <div className="mt-2 pt-2 border-t border-dashed border-background-200/50">
                   <div className="flex items-center gap-1 mb-1.5">
                     <i className="ri-flashlight-line text-[9px] text-emerald-500" />
-                    <span className="text-[9px] text-foreground-400">Tomorrow.io 增强指标</span>
+                    <span className="text-[9px] text-foreground-400">{t('monitor.sidebar.tioEnhanced')}</span>
                     {tioLoading && (
                       <div className="w-2 h-2 border border-emerald-300 border-t-emerald-500 rounded-full animate-spin ml-0.5" />
                     )}
@@ -200,7 +203,7 @@ export default function MonitorSidebar({
                     <div className="text-center">
                       <p className="text-foreground-400 flex items-center justify-center gap-0.5">
                         <i className="ri-windy-line text-[8px]" />
-                        阵风
+                        {t('monitor.field.gust')}
                       </p>
                       <p className="font-medium text-foreground-700">
                         {region.readings.windGust > 0 ? `${region.readings.windGust}` : '—'}
@@ -209,7 +212,7 @@ export default function MonitorSidebar({
                     <div className="text-center">
                       <p className="text-foreground-400 flex items-center justify-center gap-0.5">
                         <i className="ri-fire-line text-[8px]" />
-                        火险
+                        {t('monitor.field.fireRisk')}
                       </p>
                       <p className={`font-medium ${region.readings.fireIndex >= 4 ? 'text-red-600' : region.readings.fireIndex >= 2 ? 'text-orange-500' : 'text-foreground-700'}`}>
                         {region.readings.fireIndex > 0 ? `${region.readings.fireIndex}` : '—'}
@@ -218,7 +221,7 @@ export default function MonitorSidebar({
                     <div className="text-center">
                       <p className="text-foreground-400 flex items-center justify-center gap-0.5">
                         <i className="ri-thunderstorms-line text-[8px]" />
-                        雷暴
+                        {t('monitor.field.thunderstorm')}
                       </p>
                       <p className={`font-medium ${region.readings.thunderstormProb >= 50 ? 'text-red-600' : region.readings.thunderstormProb >= 30 ? 'text-orange-500' : 'text-foreground-700'}`}>
                         {region.readings.thunderstormProb > 0 ? `${region.readings.thunderstormProb}%` : '—'}
@@ -250,7 +253,7 @@ export default function MonitorSidebar({
               {showCmaLoading && (
                 <div className="mt-2 flex items-center gap-1.5 text-[10px] text-foreground-400">
                   <div className="w-3 h-3 border border-foreground-300 border-t-primary-500 rounded-full animate-spin" />
-                  CMA 数据同步中...
+                  {t('monitor.sidebar.cmaSyncing')}
                 </div>
               )}
 
@@ -258,7 +261,7 @@ export default function MonitorSidebar({
               {showComparison && cmaEnabled && cmaError && (
                 <div className="mt-2 flex items-center gap-1.5 text-[10px] text-yellow-600">
                   <i className="ri-error-warning-line" />
-                  CMA 数据异常
+                  {t('monitor.sidebar.cmaError')}
                 </div>
               )}
 
@@ -266,12 +269,12 @@ export default function MonitorSidebar({
               {isSelected && topHazard.riskLevel !== 'green' && (
                 <div className="mt-2 pt-2 border-t border-background-200/50">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-foreground-500">最高风险灾种</span>
-                    <span className="font-medium text-foreground-700">{topHazard.hazardName}</span>
+                    <span className="text-foreground-500">{t('monitor.sidebar.topHazard')}</span>
+                    <span className="font-medium text-foreground-700">{t(topHazard.hazardName)}</span>
                   </div>
                   <div className="mt-1.5">
                     <div className="flex items-center justify-between text-[10px] text-foreground-500 mb-1">
-                      <span>监测风险指数</span>
+                      <span>{t('monitor.sidebar.riskIndex')}</span>
                       <span className="font-medium text-foreground-700">
                         {(topHazard.probability * 100).toFixed(0)}%
                       </span>
@@ -299,10 +302,10 @@ export default function MonitorSidebar({
       {/* Footer */}
       <div className="px-4 py-3 border-t border-background-200/70 bg-background-50">
         <div className="flex items-center justify-between text-[10px] text-foreground-400">
-          <span>更新于 2026-07-31 06:30</span>
+          <span>{t('monitor.sidebar.updatedAt', { time: '2026-07-31 06:30' })}</span>
           <span className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-accent-500 animate-pulse" />
-            实时同步中
+            {t('monitor.sidebar.liveSyncing')}
           </span>
         </div>
       </div>

@@ -6,6 +6,11 @@ import type {
 } from '@/mocks/monitor';
 import { monitorRegions as fallbackRegions } from '@/mocks/monitor';
 
+// Note: `hazardName` below stores an i18n translation key (e.g. "hazard.heavyRain"),
+// not display text. Consumers must call t(hazardName) when rendering, so the
+// label stays reactive to language switches instead of being baked in at
+// computation time.
+
 // --- Thresholds for hazard assessment ---
 
 export const THRESHOLDS = {
@@ -73,7 +78,7 @@ export function assessHazards(r: MonitorReading, regionId: string): HazardMonito
     heatProb = 0.45;
     heatTrend = 'rising';
   }
-  hazards.push({ hazardId: 'extreme-heat', hazardName: '极端高温', riskLevel: heatRisk, probability: heatProb, trend: heatTrend });
+  hazards.push({ hazardId: 'extreme-heat', hazardName: 'hazard.extremeHeat', riskLevel: heatRisk, probability: heatProb, trend: heatTrend });
 
   // 2. 暴雨
   let rainRisk: HazardMonitorStatus['riskLevel'] = 'green';
@@ -93,7 +98,7 @@ export function assessHazards(r: MonitorReading, regionId: string): HazardMonito
     rainProb = 0.42;
     rainTrend = r.precipitation > 2 ? 'rising' : 'stable';
   }
-  hazards.push({ hazardId: 'heavy-rain', hazardName: '暴雨', riskLevel: rainRisk, probability: rainProb, trend: rainTrend });
+  hazards.push({ hazardId: 'heavy-rain', hazardName: 'hazard.heavyRain', riskLevel: rainRisk, probability: rainProb, trend: rainTrend });
 
   // 3. 山洪 (flash flood)
   const floodSensitive = ['jazan', 'jeddah', 'makkah', 'abha'];
@@ -115,7 +120,7 @@ export function assessHazards(r: MonitorReading, regionId: string): HazardMonito
     floodProb = 0.38;
     floodTrend = r.precipitation > 1 ? 'rising' : 'stable';
   }
-  hazards.push({ hazardId: 'flash-flood', hazardName: '山洪', riskLevel: floodRisk, probability: floodProb, trend: floodTrend });
+  hazards.push({ hazardId: 'flash-flood', hazardName: 'hazard.flashFlood', riskLevel: floodRisk, probability: floodProb, trend: floodTrend });
 
   // 4. 强对流
   let convRisk: HazardMonitorStatus['riskLevel'] = 'green';
@@ -135,7 +140,7 @@ export function assessHazards(r: MonitorReading, regionId: string): HazardMonito
     convProb = 0.35;
     convTrend = 'rising';
   }
-  hazards.push({ hazardId: 'severe-convection', hazardName: '强对流', riskLevel: convRisk, probability: convProb, trend: convTrend });
+  hazards.push({ hazardId: 'severe-convection', hazardName: 'hazard.severeConvection', riskLevel: convRisk, probability: convProb, trend: convTrend });
 
   // 5. 沙尘暴
   let dustRisk: HazardMonitorStatus['riskLevel'] = 'green';
@@ -156,7 +161,7 @@ export function assessHazards(r: MonitorReading, regionId: string): HazardMonito
     dustProb = 0.32;
     dustTrend = r.windSpeed > 10 ? 'rising' : 'stable';
   }
-  hazards.push({ hazardId: 'dust-storm', hazardName: '沙尘暴', riskLevel: dustRisk, probability: dustProb, trend: dustTrend });
+  hazards.push({ hazardId: 'dust-storm', hazardName: 'hazard.dustStorm', riskLevel: dustRisk, probability: dustProb, trend: dustTrend });
 
   return hazards;
 }

@@ -1,20 +1,27 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-
-const navItems = [
-  { path: '/', label: '仪表盘', icon: 'ri-dashboard-line' },
-  { path: '/monitor', label: '监测地图', icon: 'ri-map-2-line' },
-  { path: '/workspace', label: '预测工作台', icon: 'ri-tools-line' },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, i18n } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const navItems = [
+    { path: '/', label: t('nav.dashboard'), icon: 'ri-dashboard-line' },
+    { path: '/monitor', label: t('nav.monitor'), icon: 'ri-map-2-line' },
+    { path: '/workspace', label: t('nav.workspace'), icon: 'ri-tools-line' },
+  ];
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
+  };
+
+  const currentLang = i18n.language?.startsWith('zh') ? 'zh' : 'en';
+  const toggleLanguage = (lang: 'zh' | 'en') => {
+    i18n.changeLanguage(lang);
   };
 
   return (
@@ -30,7 +37,7 @@ export default function Navbar() {
                 <i className="ri-thunderstorms-line text-background-50 text-sm"></i>
               </div>
               <span className="font-heading text-lg text-foreground-900 whitespace-nowrap">
-                极端天气预测
+                {t('nav.title')}
               </span>
             </div>
 
@@ -55,7 +62,30 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-2 text-xs text-foreground-500 bg-background-100 px-3 py-1.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-accent-500"></span>
-              系统运行中
+              {t('nav.systemRunning')}
+            </div>
+
+            <div className="flex items-center gap-0.5 bg-background-100 rounded-full p-0.5 text-xs font-medium">
+              <button
+                onClick={() => toggleLanguage('zh')}
+                className={`px-2.5 py-1 rounded-full cursor-pointer transition-colors duration-150 ${
+                  currentLang === 'zh'
+                    ? 'bg-primary-500 text-background-50'
+                    : 'text-foreground-600 hover:text-foreground-900'
+                }`}
+              >
+                {t('lang.zh')}
+              </button>
+              <button
+                onClick={() => toggleLanguage('en')}
+                className={`px-2.5 py-1 rounded-full cursor-pointer transition-colors duration-150 ${
+                  currentLang === 'en'
+                    ? 'bg-primary-500 text-background-50'
+                    : 'text-foreground-600 hover:text-foreground-900'
+                }`}
+              >
+                {t('lang.en')}
+              </button>
             </div>
 
             <button

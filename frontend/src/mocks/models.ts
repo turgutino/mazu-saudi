@@ -94,11 +94,14 @@ export const models: ModelInfo[] = [
   },
 ];
 
-export const METRIC_LABELS: Record<string, { name: string; description: string; higherIsBetter: boolean }> = {
-  auc: { name: 'AUC', description: '模型区分正负样本的整体能力，越接近 1 越好', higherIsBetter: true },
-  pod: { name: '命中率 POD', description: '实际发生且被正确预测的比例（召回率）', higherIsBetter: true },
-  far: { name: '空报率 FAR', description: '预测发生但实际未发生的比例，越低越好', higherIsBetter: false },
-  csi: { name: '关键成功指数 CSI', description: '命中次数 / (命中 + 漏报 + 空报)，综合衡量预报水平', higherIsBetter: true },
-  f1: { name: 'F1 分数', description: '命中率与精准率的调和平均', higherIsBetter: true },
-  brier: { name: 'Brier 分数', description: '概率预测的校准误差，越接近 0 越好', higherIsBetter: false },
+// `nameKey`/`descriptionKey` are i18n translation keys (see src/i18n/local/{lang}/workspace.ts,
+// `workspace.metrics.*`) — consumers must call t() on them when rendering, so
+// labels stay reactive to language switches.
+export const METRIC_LABELS: Record<string, { nameKey: string; descriptionKey: string; higherIsBetter: boolean }> = {
+  auc: { nameKey: 'workspace.metrics.auc.name', descriptionKey: 'workspace.metrics.auc.description', higherIsBetter: true },
+  pod: { nameKey: 'workspace.metrics.pod.name', descriptionKey: 'workspace.metrics.pod.description', higherIsBetter: true },
+  far: { nameKey: 'workspace.metrics.far.name', descriptionKey: 'workspace.metrics.far.description', higherIsBetter: false },
+  csi: { nameKey: 'workspace.metrics.csi.name', descriptionKey: 'workspace.metrics.csi.description', higherIsBetter: true },
+  f1: { nameKey: 'workspace.metrics.f1.name', descriptionKey: 'workspace.metrics.f1.description', higherIsBetter: true },
+  brier: { nameKey: 'workspace.metrics.brier.name', descriptionKey: 'workspace.metrics.brier.description', higherIsBetter: false },
 };

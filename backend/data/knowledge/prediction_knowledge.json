@@ -5,45 +5,50 @@
   "semantics": {
     "mechanismRelation": "CONSISTENT_WITH",
     "hazardRelation": "FAVOURS",
-    "disclaimer": "Mechanism compatibility and historical analogy do not prove causation or event occurrence."
+    "disclaimer": "Mechanism compatibility and historical analogy do not prove causation or event occurrence.",
+    "disclaimerZh": "机制相容性和历史类比不能证明因果关系或事件必然发生。"
   },
   "hazards": {
     "heavy-rain": {
       "label": "暴雨",
+      "labelEn": "Heavy Rain",
       "similarityWeights": {"weather": 0.65, "spatial": 0.15, "seasonal": 0.20},
       "comparisons": [
-        {"current": "daily_precip", "case": "daily_precip", "label": "日降水", "range": 75.0, "weight": 0.40, "comparability": "exact"},
-        {"current": "cape", "case": "cape", "label": "CAPE", "range": 3150.0, "weight": 0.25, "comparability": "exact"},
-        {"current": "pw", "case": "pw", "label": "可降水量", "range": 57.0, "weight": 0.20, "comparability": "exact"},
-        {"current": "rh_700", "case": "rh_700", "label": "700hPa相对湿度", "range": 66.0, "weight": 0.15, "comparability": "exact"}
+        {"current": "daily_precip", "case": "daily_precip", "label": "日降水", "labelEn": "Daily Precip", "range": 75.0, "weight": 0.40, "comparability": "exact"},
+        {"current": "cape", "case": "cape", "label": "CAPE", "labelEn": "CAPE", "range": 3150.0, "weight": 0.25, "comparability": "exact"},
+        {"current": "pw", "case": "pw", "label": "可降水量", "labelEn": "Precipitable Water", "range": 57.0, "weight": 0.20, "comparability": "exact"},
+        {"current": "rh_700", "case": "rh_700", "label": "700hPa相对湿度", "labelEn": "700hPa Relative Humidity", "range": 66.0, "weight": 0.15, "comparability": "exact"}
       ]
     },
     "flash-flood": {
       "label": "山洪",
+      "labelEn": "Flash Flood",
       "similarityWeights": {"weather": 0.60, "spatial": 0.25, "seasonal": 0.15},
       "comparisons": [
-        {"current": "daily_precip", "case": "daily_precip", "label": "日降水", "range": 75.0, "weight": 0.40, "comparability": "exact"},
-        {"current": "cape", "case": "cape", "label": "CAPE", "range": 3150.0, "weight": 0.25, "comparability": "exact"},
-        {"current": "pw", "case": "pw", "label": "可降水量", "range": 57.0, "weight": 0.20, "comparability": "exact"},
-        {"current": "rh_700", "case": "rh_700", "label": "700hPa相对湿度", "range": 66.0, "weight": 0.15, "comparability": "exact"}
+        {"current": "daily_precip", "case": "daily_precip", "label": "日降水", "labelEn": "Daily Precip", "range": 75.0, "weight": 0.40, "comparability": "exact"},
+        {"current": "cape", "case": "cape", "label": "CAPE", "labelEn": "CAPE", "range": 3150.0, "weight": 0.25, "comparability": "exact"},
+        {"current": "pw", "case": "pw", "label": "可降水量", "labelEn": "Precipitable Water", "range": 57.0, "weight": 0.20, "comparability": "exact"},
+        {"current": "rh_700", "case": "rh_700", "label": "700hPa相对湿度", "labelEn": "700hPa Relative Humidity", "range": 66.0, "weight": 0.15, "comparability": "exact"}
       ]
     },
     "extreme-heat": {
       "label": "极端高温",
+      "labelEn": "Extreme Heat",
       "similarityWeights": {"weather": 0.60, "spatial": 0.20, "seasonal": 0.20},
       "comparisons": [
-        {"current": "t2m", "case": "tmax_c", "label": "近地面温度/日最高温", "range": 22.0, "weight": 0.55, "comparability": "approximate"},
-        {"current": "rh_surface", "case": "rh_surface", "label": "地表相对湿度", "range": 77.0, "weight": 0.20, "comparability": "exact"},
-        {"current": "t850", "case": "t850", "label": "850hPa温度", "range": 20.0, "weight": 0.25, "comparability": "exact"}
+        {"current": "t2m", "case": "tmax_c", "label": "近地面温度/日最高温", "labelEn": "Near-Surface Temp / Daily Max Temp", "range": 22.0, "weight": 0.55, "comparability": "approximate"},
+        {"current": "rh_surface", "case": "rh_surface", "label": "地表相对湿度", "labelEn": "Surface Relative Humidity", "range": 77.0, "weight": 0.20, "comparability": "exact"},
+        {"current": "t850", "case": "t850", "label": "850hPa温度", "labelEn": "850hPa Temperature", "range": 20.0, "weight": 0.25, "comparability": "exact"}
       ]
     },
     "dust-storm": {
       "label": "沙尘暴",
+      "labelEn": "Dust Storm",
       "similarityWeights": {"weather": 0.60, "spatial": 0.25, "seasonal": 0.15},
       "comparisons": [
-        {"current": "wind_10m", "case": "wind_10m", "label": "10m风速", "range": 30.0, "weight": 0.45, "comparability": "exact"},
-        {"current": "visibility", "case": "visibility", "label": "能见度", "range": 19.5, "weight": 0.30, "comparability": "exact"},
-        {"current": "rh_surface", "case": "rh_surface", "label": "地表相对湿度", "range": 77.0, "weight": 0.25, "comparability": "exact"}
+        {"current": "wind_10m", "case": "wind_10m", "label": "10m风速", "labelEn": "10m Wind Speed", "range": 30.0, "weight": 0.45, "comparability": "exact"},
+        {"current": "visibility", "case": "visibility", "label": "能见度", "labelEn": "Visibility", "range": 19.5, "weight": 0.30, "comparability": "exact"},
+        {"current": "rh_surface", "case": "rh_surface", "label": "地表相对湿度", "labelEn": "Surface Relative Humidity", "range": 77.0, "weight": 0.25, "comparability": "exact"}
       ]
     }
   },
@@ -51,13 +56,15 @@
     {
       "id": "moisture-convection",
       "label": "水汽输送—深对流协同",
+      "labelEn": "Moisture Transport - Deep Convection Synergy",
       "hazards": ["heavy-rain", "flash-flood"],
       "summary": "充足水汽、对流不稳定与降水信号同时出现时，与强降水环境相容。",
+      "summaryEn": "Compatible with a heavy-precipitation environment when abundant moisture, convective instability, and a precipitation signal appear together.",
       "signals": [
-        {"indicator": "vapor_850", "label": "低层水汽输送增强", "weight": 0.20},
-        {"indicator": "pw", "label": "整层可降水量偏高", "weight": 0.20},
-        {"indicator": "cape", "label": "对流有效位能偏高", "weight": 0.25},
-        {"indicator": "daily_precip", "label": "目标期降水信号增强", "weight": 0.35}
+        {"indicator": "vapor_850", "label": "低层水汽输送增强", "labelEn": "Enhanced low-level moisture transport", "weight": 0.20},
+        {"indicator": "pw", "label": "整层可降水量偏高", "labelEn": "Above-normal column precipitable water", "weight": 0.20},
+        {"indicator": "cape", "label": "对流有效位能偏高", "labelEn": "Above-normal convective available potential energy", "weight": 0.25},
+        {"indicator": "daily_precip", "label": "目标期降水信号增强", "labelEn": "Enhanced precipitation signal in the target window", "weight": 0.35}
       ],
       "evidenceIds": ["devries2013_arst", "devries2018_ivt", "saudi_rainfall_extremes2020"],
       "sweetConcepts": ["MoistureAdvection", "LocalConvection"]
@@ -65,13 +72,15 @@
     {
       "id": "orographic-enhancement",
       "label": "地形抬升与汇流放大",
+      "labelEn": "Orographic Lift and Confluence Amplification",
       "hazards": ["heavy-rain", "flash-flood"],
       "summary": "湿润气流遇西南部山地抬升并在敏感流域汇流，可放大强降水向山洪风险的转化。",
+      "summaryEn": "Moist flow lifted by the south-western mountains and converging in sensitive catchments can amplify the conversion of heavy rain into flash-flood risk.",
       "regions": ["jazan", "abha", "makkah", "jeddah"],
       "signals": [
-        {"indicator": "pw", "label": "环境水汽可用", "weight": 0.30},
-        {"indicator": "daily_precip", "label": "强降水输入", "weight": 0.45},
-        {"indicator": "rh_700", "label": "中层湿度支持", "weight": 0.25}
+        {"indicator": "pw", "label": "环境水汽可用", "labelEn": "Available ambient moisture", "weight": 0.30},
+        {"indicator": "daily_precip", "label": "强降水输入", "labelEn": "Heavy precipitation input", "weight": 0.45},
+        {"indicator": "rh_700", "label": "中层湿度支持", "labelEn": "Mid-level humidity support", "weight": 0.25}
       ],
       "evidenceIds": ["redsea_topography2019", "francis2024_ar_rapids"],
       "sweetConcepts": ["OrographicLift"]
@@ -79,13 +88,15 @@
     {
       "id": "thermal-persistence",
       "label": "大尺度下沉增温与热量持续",
+      "labelEn": "Large-Scale Subsidence Warming and Heat Persistence",
       "hazards": ["extreme-heat"],
       "summary": "低层暖异常、较高位势场和近地面升温共同出现时，与持续高温环境相容。",
+      "summaryEn": "Compatible with a persistent-heat environment when a low-level warm anomaly, an elevated geopotential field, and near-surface warming appear together.",
       "signals": [
-        {"indicator": "t850", "label": "低层暖空气增强", "weight": 0.30},
-        {"indicator": "h500", "label": "中层高压/下沉背景", "weight": 0.25},
-        {"indicator": "t2m", "label": "近地面高温", "weight": 0.35},
-        {"indicator": "rh_surface", "label": "干热背景", "weight": 0.10}
+        {"indicator": "t850", "label": "低层暖空气增强", "labelEn": "Enhanced low-level warm air", "weight": 0.30},
+        {"indicator": "h500", "label": "中层高压/下沉背景", "labelEn": "Mid-level high pressure / subsidence background", "weight": 0.25},
+        {"indicator": "t2m", "label": "近地面高温", "labelEn": "Near-surface high temperature", "weight": 0.35},
+        {"indicator": "rh_surface", "label": "干热背景", "labelEn": "Hot-dry background", "weight": 0.10}
       ],
       "evidenceIds": ["saudi_extreme_temperature2020", "saudi_summer_temperature2020"],
       "sweetConcepts": []
@@ -93,13 +104,15 @@
     {
       "id": "dry-wind-dust-mobilization",
       "label": "干燥强风起沙",
+      "labelEn": "Dry Strong-Wind Dust Mobilization",
       "hazards": ["dust-storm"],
       "summary": "强近地面风、干燥地表与低湿度同时出现时，与扬沙和能见度下降环境相容。",
+      "summaryEn": "Compatible with a dust-raising, low-visibility environment when strong near-surface wind, dry ground, and low humidity appear together.",
       "signals": [
-        {"indicator": "wind_10m", "label": "近地面风增强", "weight": 0.40},
-        {"indicator": "soil_moisture", "label": "表层土壤偏干", "weight": 0.25},
-        {"indicator": "rh_surface", "label": "近地面空气干燥", "weight": 0.15},
-        {"indicator": "visibility", "label": "能见度下降", "weight": 0.20}
+        {"indicator": "wind_10m", "label": "近地面风增强", "labelEn": "Enhanced near-surface wind", "weight": 0.40},
+        {"indicator": "soil_moisture", "label": "表层土壤偏干", "labelEn": "Below-normal surface soil moisture", "weight": 0.25},
+        {"indicator": "rh_surface", "label": "近地面空气干燥", "labelEn": "Dry near-surface air", "weight": 0.15},
+        {"indicator": "visibility", "label": "能见度下降", "labelEn": "Reduced visibility", "weight": 0.20}
       ],
       "evidenceIds": ["yu2016_shamal", "mofidi2022_shamal"],
       "sweetConcepts": ["DustStormFavourableState"]
@@ -111,12 +124,16 @@
       "date": "2025-08-23",
       "regionId": "jazan",
       "regionLabel": "吉赞",
+      "regionLabelEn": "Jazan",
       "lat": 17.5,
       "lon": 42.9,
       "hazards": ["heavy-rain", "flash-flood"],
       "title": "吉赞极端降水过程",
+      "titleEn": "Jazan Extreme Precipitation Episode",
       "description": "资料中识别到的年度极端降水过程；它是气象过程代理案例，不等同于独立核验的山洪灾情。",
+      "descriptionEn": "An annual extreme-precipitation episode identified in the source data; a proxy weather-process case, not an independently verified flash-flood disaster.",
       "impact": "未提供独立灾情记录",
+      "impactEn": "No independent disaster record provided",
       "verificationStatus": "proxy-weather-episode",
       "reliability": 0.65,
       "indicators": {"cape": 2360.0, "daily_precip": 254.9, "pw": 47.1},
@@ -127,12 +144,16 @@
       "date": "2025-08-26",
       "regionId": "abha",
       "regionLabel": "艾卜哈/吉赞",
+      "regionLabelEn": "Abha / Jazan",
       "lat": 18.2,
       "lon": 42.5,
       "hazards": ["flash-flood", "heavy-rain"],
       "title": "阿西尔—吉赞强降水与山洪过程",
+      "titleEn": "Asir-Jazan Heavy Rain and Flash Flood Episode",
       "description": "参考系统标记为混合命中，保留模型与规则在持续性和空间上的分歧。",
+      "descriptionEn": "Flagged by the reference system as a mixed hit, preserving the model/rule disagreement in persistence and spatial extent.",
       "impact": "参考资料未给出独立影响统计",
+      "impactEn": "The reference material provides no independent impact statistics",
       "verificationStatus": "reference-reviewed",
       "reliability": 0.80,
       "indicators": {"cape": 1648.0, "daily_precip": 40.2, "pw": 26.6},
@@ -143,12 +164,16 @@
       "date": "2025-06-16",
       "regionId": "dammam",
       "regionLabel": "达曼",
+      "regionLabelEn": "Dammam",
       "lat": 26.4,
       "lon": 50.1,
       "hazards": ["extreme-heat"],
       "title": "达曼高温过程",
+      "titleEn": "Dammam Heatwave Episode",
       "description": "参考资料记录最高温约44.2°C，同时披露事件窗口与峰值日期存在偏差。",
+      "descriptionEn": "The reference material records a peak temperature of about 44.2°C, and discloses a discrepancy between the event window and the peak date.",
       "impact": "未提供独立影响统计",
+      "impactEn": "No independent impact statistics provided",
       "verificationStatus": "reference-reviewed",
       "reliability": 0.72,
       "indicators": {"tmax_c": 44.2},
@@ -159,12 +184,16 @@
       "date": "2025-07-22",
       "regionId": "makkah",
       "regionLabel": "麦加",
+      "regionLabelEn": "Makkah",
       "lat": 21.4,
       "lon": 39.8,
       "hazards": ["extreme-heat"],
       "title": "麦加第三轮高温过程",
+      "titleEn": "Makkah Third-Round Heatwave Episode",
       "description": "参考资料标记为部分命中；命中位置与原事件叙述中的东部城市不同。",
+      "descriptionEn": "Flagged by the reference material as a partial hit; the hit location differs from the eastern city named in the original event narrative.",
       "impact": "未提供独立影响统计",
+      "impactEn": "No independent impact statistics provided",
       "verificationStatus": "reference-reviewed",
       "reliability": 0.70,
       "indicators": {"tmax_c": 45.4},
@@ -175,12 +204,16 @@
       "date": "2025-05-17",
       "regionId": "dammam",
       "regionLabel": "达曼",
+      "regionLabelEn": "Dammam",
       "lat": 26.4,
       "lon": 50.1,
       "hazards": ["dust-storm"],
       "title": "达曼沙尘过程",
+      "titleEn": "Dammam Dust Episode",
       "description": "参考资料显示海湾沿岸沙尘带，并从数据中定位该窗口内风速峰值。",
+      "descriptionEn": "The reference material shows a dust band along the Gulf coast, with the peak wind speed within this window located from the data.",
       "impact": "未提供独立影响统计",
+      "impactEn": "No independent impact statistics provided",
       "verificationStatus": "reference-reviewed",
       "reliability": 0.75,
       "indicators": {"wind_10m": 8.5},
@@ -191,12 +224,16 @@
       "date": "2025-07-26",
       "regionId": null,
       "regionLabel": "阿拉伯海北部",
+      "regionLabelEn": "Northern Arabian Sea",
       "lat": 17.4,
       "lon": 55.8,
       "hazards": ["dust-storm"],
       "title": "区域极端风过程",
+      "titleEn": "Regional Extreme Wind Episode",
       "description": "资料中识别到的年度极端近地面风；只作为起沙环境代理案例。",
+      "descriptionEn": "An annual extreme near-surface wind episode identified in the source data; used only as a proxy dust-mobilization environment case.",
       "impact": "不是独立核验的沙尘灾情",
+      "impactEn": "Not an independently verified dust-storm disaster",
       "verificationStatus": "proxy-weather-episode",
       "reliability": 0.55,
       "indicators": {"wind_10m": 20.7},

@@ -32,8 +32,9 @@ def _month_similarity(origin: datetime, case_date: datetime) -> float:
 
 
 def _weather_similarity(
-    indicators: dict[str, float], case: dict[str, Any], comparisons: list[dict[str, Any]]
+    indicators: dict[str, float], case: dict[str, Any], comparisons: list[dict[str, Any]], lang: str
 ) -> tuple[float, float, str]:
+    en = lang == "en"
     available_weight = 0.0
     weighted_score = 0.0
     matched: list[str] = []
@@ -50,11 +51,15 @@ def _weather_similarity(
             score *= 0.9
         weighted_score += score * weight
         available_weight += weight
-        matched.append(f"{item['label']} {score:.0%}")
+        label = item["labelEn"] if en else item["label"]
+        matched.append(f"{label} {score:.0%}")
 
     coverage = available_weight / total_weight if total_weight else 0.0
     score = weighted_score / available_weight if available_weight else 0.0
-    explanation = "、".join(matched) if matched else "无可比较的同名气象指标"
+    if matched:
+        explanation = ", ".join(matched) if en else "、".join(matched)
+    else:
+        explanation = "No comparable matching weather indicators" if en else "无可比较的同名气象指标"
     return score, coverage, explanation
 
 
@@ -64,7 +69,9 @@ def find_similar_events(
     initial_time: datetime,
     indicators: dict[str, float],
     limit: int = 3,
+    lang: str = "zh",
 ) -> list[HistoricalEvent]:
+    en = lang == "en"
     region = get_region(region_id)
     if region is None:
         return []
@@ -79,23 +86,26 @@ def find_similar_events(
             continue
 
         weather, coverage, weather_explanation = _weather_similarity(
-            indicators, case, hazard_config["comparisons"]
+            indicators, case, hazard_config["comparisons"], lang
         )
         distance = _haversine_km(region.lat, region.lon, float(case["lat"]), float(case["lon"]))
         spatial = math.exp(-distance / 600.0)
         seasonal = _month_similarity(origin_naive, case_date)
+        month_gap = min(abs(origin_naive.month - case_date.month), 12 - abs(origin_naive.month - case_date.month))
         dimensions = [
             SimilarityDimension(
-                key="weather", label="天气形态", score=round(weather, 3),
+                key="weather", label="Weather Pattern" if en else "天气形态", score=round(weather, 3),
                 weight=weights["weather"], explanation=weather_explanation,
             ),
             SimilarityDimension(
-                key="spatial", label="空间背景", score=round(spatial, 3),
-                weight=weights["spatial"], explanation=f"中心点距离约 {distance:.0f} km",
+                key="spatial", label="Spatial Context" if en else "空间背景", score=round(spatial, 3),
+                weight=weights["spatial"],
+                explanation=(f"Centroid distance approx. {distance:.0f} km" if en else f"中心点距离约 {distance:.0f} km"),
             ),
             SimilarityDimension(
-                key="seasonal", label="季节窗口", score=round(seasonal, 3),
-                weight=weights["seasonal"], explanation=f"月份相差 {min(abs(origin_naive.month-case_date.month), 12-abs(origin_naive.month-case_date.month))} 个月",
+                key="seasonal", label="Seasonal Window" if en else "季节窗口", score=round(seasonal, 3),
+                weight=weights["seasonal"],
+                explanation=(f"{month_gap} month(s) apart" if en else f"月份相差 {month_gap} 个月"),
             ),
         ]
         base_score = sum(item.score * item.weight for item in dimensions)
@@ -105,9 +115,9 @@ def find_similar_events(
         event = HistoricalEvent(
             event_id=case["id"],
             date=case["date"],
-            region=case["regionLabel"],
-            hazard=hazard_config["label"],
-            description=case["description"],
+            region=case["regionLabelEn"] if en else case["regionLabel"],
+            hazard=hazard_config["labelEn"] if en else hazard_config["label"],
+            description=case["descriptionEn"] if en else case["description"],
             similarity=round(final_score, 3),
             similarity_dimensions=dimensions,
             data_coverage=round(coverage, 3),
@@ -116,7 +126,7 @@ def find_similar_events(
             source_url=source.get("url"),
             max_rainfall=case.get("indicators", {}).get("daily_precip"),
             max_temp=case.get("indicators", {}).get("tmax_c"),
-            impact=case["impact"],
+            impact=case["impactEn"] if en else case["impact"],
         )
         scored.append((final_score, event))
 

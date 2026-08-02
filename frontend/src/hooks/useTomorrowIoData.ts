@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { TomorrowIoEnhanced } from '@/services/tomorrowIoApi';
 import {
   extractEnhancedData,
@@ -15,6 +16,7 @@ interface UseTomorrowIoDataResult {
 }
 
 export function useTomorrowIoData(): UseTomorrowIoDataResult {
+  const { t } = useTranslation();
   const [enabled, setEnabled] = useState(false);
   const [enhancedList, setEnhancedList] = useState<TomorrowIoEnhanced[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -37,14 +39,14 @@ export function useTomorrowIoData(): UseTomorrowIoDataResult {
       setEnhancedList(enhanced);
       setError(null);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Tomorrow.io 请求失败';
+      const msg = err instanceof Error ? err.message : t('common.tioRequestFailed');
       setError(msg);
       setEnhancedList(null);
     } finally {
       setLoading(false);
       inFlightRef.current = false;
     }
-  }, [enabled]);
+  }, [enabled, t]);
 
   useEffect(() => {
     getMonitorSourceStatus('tomorrow-io')

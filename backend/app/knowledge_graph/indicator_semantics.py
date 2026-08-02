@@ -36,22 +36,23 @@ def indicator_role(key: str) -> str:
     return "forecast-context" if canonical_indicator_key(key) in _CONTEXT_FEATURES else "meteorological-indicator"
 
 
-def indicator_aggregation(key: str, data_tier: str) -> str:
+def indicator_aggregation(key: str, data_tier: str, lang: str = "zh") -> str:
     canonical = canonical_indicator_key(key)
-    period = "目标时刻前24小时" if data_tier == "tier2_live" else "起报日/目标日前一日"
+    en = lang == "en"
+    period = ("preceding 24h from target time" if en else "目标时刻前24小时") if data_tier == "tier2_live" else ("initial day / day before target day" if en else "起报日/目标日前一日")
     if canonical in {"daily_precip_total", "daily_convective_precip", "daily_large_scale_precip"}:
-        return f"{period}累计"
+        return f"{period} accumulated" if en else f"{period}累计"
     if canonical in {"t2m_c", "wind10_speed"}:
-        return f"{period}平均"
+        return f"{period} mean" if en else f"{period}平均"
     if canonical == "tmax_c":
-        return f"{period}最大"
+        return f"{period} max" if en else f"{period}最大"
     if canonical == "tmin_c":
-        return f"{period}最小"
+        return f"{period} min" if en else f"{period}最小"
     if canonical.startswith("neigh_"):
-        return "起报日四邻域空间均值"
+        return "4-neighbour spatial mean on initial day" if en else "起报日四邻域空间均值"
     if canonical in _CONTEXT_FEATURES:
-        return "由预测空间/有效时间派生"
-    return "来源产品派生值（具体聚合见指标定义）"
+        return "Derived from forecast location / valid time" if en else "由预测空间/有效时间派生"
+    return "Derived from source product (see indicator definition for aggregation)" if en else "来源产品派生值（具体聚合见指标定义）"
 
 
 def indicator_ontology_details(key: str) -> dict[str, Any]:

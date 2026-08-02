@@ -23,8 +23,9 @@ def _confidence(score: float, coverage: float) -> ConfidenceLevel:
 
 
 def build_mechanisms(
-    hazard: str, region_id: str, indicators: dict[str, float]
+    hazard: str, region_id: str, indicators: dict[str, float], lang: str = "zh"
 ) -> list[MechanismPath]:
+    en = lang == "en"
     paths: list[MechanismPath] = []
     for mechanism in mechanisms_for(hazard, region_id):
         steps: list[MechanismStep] = []
@@ -43,8 +44,8 @@ def build_mechanisms(
             steps.append(
                 MechanismStep(
                     step=index,
-                    description=signal["label"],
-                    indicator=spec.label,
+                    description=signal["labelEn"] if en else signal["label"],
+                    indicator=spec.label_en if en else spec.label,
                     value=f"{indicators[key]:g} {spec.unit}".strip(),
                     compatibility=round(score, 3),
                 )
@@ -54,10 +55,10 @@ def build_mechanisms(
         paths.append(
             MechanismPath(
                 path_id=mechanism["id"],
-                path_name=mechanism["label"],
+                path_name=mechanism["labelEn"] if en else mechanism["label"],
                 confidence=_confidence(score, coverage),
                 support_score=round(score * coverage, 3),
-                summary=mechanism["summary"],
+                summary=mechanism["summaryEn"] if en else mechanism["summary"],
                 evidence_ids=mechanism["evidenceIds"],
                 steps=steps,
             )

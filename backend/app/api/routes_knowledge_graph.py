@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.deps import get_forecast_snapshot_store, get_prediction_store
 from app.knowledge_graph.graph_builder import build_graph
@@ -14,6 +16,7 @@ router = APIRouter(tags=["knowledge-graph"])
 @router.get("/knowledge-graph/{prediction_id}", response_model=KnowledgeGraph)
 def get_knowledge_graph(
     prediction_id: str,
+    lang: Literal["zh", "en"] = Query(default="zh"),
     store: PredictionStore = Depends(get_prediction_store),
     snapshot_store: ForecastSnapshotStore = Depends(get_forecast_snapshot_store),
 ) -> KnowledgeGraph:
@@ -25,4 +28,4 @@ def get_knowledge_graph(
         if prediction.forecast_snapshot_id
         else None
     )
-    return build_graph(prediction, forecast_snapshot=snapshot)
+    return build_graph(prediction, forecast_snapshot=snapshot, lang=lang)

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { ForecastPoint } from '@/mocks/monitor';
 
 interface MiniForecastChartProps {
@@ -5,10 +6,11 @@ interface MiniForecastChartProps {
 }
 
 export default function MiniForecastChart({ forecast }: MiniForecastChartProps) {
+  const { t } = useTranslation();
   if (!forecast || forecast.length < 4) {
     return (
       <div className="h-14 flex items-center justify-center text-[10px] text-foreground-400">
-        暂无预报数据
+        {t('monitor.chart.noData')}
       </div>
     );
   }
@@ -67,7 +69,7 @@ export default function MiniForecastChart({ forecast }: MiniForecastChartProps) 
 
   // Time labels — now, +24h, +48h
   const labelIndices = [0, Math.floor(n / 2), n - 1];
-  const labelTexts = ['现在', '+24h', '+48h'];
+  const labelTexts = [t('monitor.chart.now'), '+24h', '+48h'];
 
   // Color stops based on temperature range
   const getTempColor = (t: number) => {
@@ -87,14 +89,14 @@ export default function MiniForecastChart({ forecast }: MiniForecastChartProps) 
           <svg width="14" height="4" viewBox="0 0 14 4">
             <line x1="0" y1="2" x2="14" y2="2" stroke={midTempColor} strokeWidth="2" strokeLinecap="round" />
           </svg>
-          <span className="text-[9px] text-foreground-400">温度</span>
+          <span className="text-[9px] text-foreground-400">{t('monitor.chart.temperature')}</span>
           <span className="text-[9px] font-medium text-foreground-700">{minTemp.toFixed(0)}° – {maxTemp.toFixed(0)}°</span>
         </div>
         <div className="flex items-center gap-1.5">
           <svg width="10" height="4" viewBox="0 0 10 4">
             <rect x="0" y="0" width="10" height="4" rx="1" fill="oklch(var(--accent-400) / 0.5)" />
           </svg>
-          <span className="text-[9px] text-foreground-400">降水</span>
+          <span className="text-[9px] text-foreground-400">{t('monitor.chart.precipitation')}</span>
           <span className="text-[9px] font-medium text-foreground-700">
             {maxPrecip.toFixed(1)}mm
           </span>
@@ -106,7 +108,7 @@ export default function MiniForecastChart({ forecast }: MiniForecastChartProps) 
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
         preserveAspectRatio="xMidYMid meet"
-        aria-label="48小时温度降水预报"
+        aria-label={t('monitor.chart.ariaMini')}
       >
         {/* Grid lines */}
         {[0.25, 0.5, 0.75].map((pct) => (

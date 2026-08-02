@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { MonitorRegionData } from '@/mocks/monitor';
 import {
   transformMirrorEarthData,
@@ -16,6 +17,7 @@ interface UseMirrorEarthDataResult {
 }
 
 export function useMirrorEarthData(): UseMirrorEarthDataResult {
+  const { t } = useTranslation();
   const [enabled, setEnabled] = useState(false);
   const [regions, setRegions] = useState<MonitorRegionData[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,14 +42,14 @@ export function useMirrorEarthData(): UseMirrorEarthDataResult {
       setLastRefresh(summary.lastRefresh);
       setError(null);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'CMA 请求失败';
+      const msg = err instanceof Error ? err.message : t('common.cmaRequestFailed');
       setError(msg);
       setRegions(null);
     } finally {
       setLoading(false);
       inFlightRef.current = false;
     }
-  }, [enabled]);
+  }, [enabled, t]);
 
   useEffect(() => {
     getMonitorSourceStatus('mirror-earth-cma')

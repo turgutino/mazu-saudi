@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { ForecastPoint } from '@/mocks/monitor';
 
 interface ModelCompareChartProps {
@@ -6,10 +7,11 @@ interface ModelCompareChartProps {
 }
 
 export default function ModelCompareChart({ forecastOm, forecastCma }: ModelCompareChartProps) {
+  const { t } = useTranslation();
   if (!forecastOm || forecastOm.length < 4) {
     return (
       <div className="h-14 flex items-center justify-center text-[10px] text-foreground-400">
-        暂无预报数据
+        {t('monitor.chart.noData')}
       </div>
     );
   }
@@ -74,7 +76,7 @@ export default function ModelCompareChart({ forecastOm, forecastCma }: ModelComp
 
   // Time labels
   const labelIndices = [0, Math.floor(n / 2), n - 1];
-  const labelTexts = ['现在', '+24h', '+48h'];
+  const labelTexts = [t('monitor.chart.now'), '+24h', '+48h'];
 
   return (
     <div className="mt-2">
@@ -104,7 +106,7 @@ export default function ModelCompareChart({ forecastOm, forecastCma }: ModelComp
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
         preserveAspectRatio="xMidYMid meet"
-        aria-label="48小时双模型温度对比预报"
+        aria-label={t('monitor.chart.ariaCompare')}
       >
         {/* Grid */}
         {[0.25, 0.5, 0.75].map((pct) => (

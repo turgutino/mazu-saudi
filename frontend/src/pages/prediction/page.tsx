@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Navbar from '@/components/feature/Navbar';
 import Button from '@/components/base/Button';
 import Badge from '@/components/base/Badge';
@@ -14,6 +15,7 @@ import { ambiguityLabel, calibrationLabel, scoreLabel } from '@/services/predict
 type Tab = 'overview' | 'features' | 'rules' | 'mechanisms' | 'history';
 
 export default function PredictionDetail() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,15 +28,15 @@ export default function PredictionDetail() {
 
   useEffect(() => {
     if (!id) {
-      setLoadError('缺少预测 ID');
+      setLoadError(t('prediction.missingId'));
       return;
     }
     let cancelled = false;
     fetchPrediction(id)
       .then((result) => { if (!cancelled) { setPrediction(result); setLoadError(null); } })
-      .catch((error: unknown) => { if (!cancelled) setLoadError(error instanceof Error ? error.message : '预测加载失败'); });
+      .catch((error: unknown) => { if (!cancelled) setLoadError(error instanceof Error ? error.message : t('prediction.loadError')); });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => {
     if (prediction) {
@@ -50,8 +52,8 @@ export default function PredictionDetail() {
         <div className="flex items-center justify-center h-[60vh]">
           <div className="text-center">
             <i className="ri-error-warning-line text-4xl text-foreground-300"></i>
-            <p className="text-foreground-500 mt-3">{loadError || '正在加载预测记录…'}</p>
-            <Button variant="outline" className="mt-4" onClick={() => navigate('/')}>返回首页</Button>
+            <p className="text-foreground-500 mt-3">{loadError || t('prediction.loadingRecord')}</p>
+            <Button variant="outline" className="mt-4" onClick={() => navigate('/')}>{t('common.backHome')}</Button>
           </div>
         </div>
       </div>
@@ -59,11 +61,11 @@ export default function PredictionDetail() {
   }
 
   const tabs: { key: Tab; label: string; icon: string; count?: number }[] = [
-    { key: 'overview', label: '预测概览', icon: 'ri-radar-line' },
-    { key: 'features', label: '特征贡献', icon: 'ri-bar-chart-2-line', count: prediction.features.length },
-    { key: 'rules', label: '命中规则', icon: 'ri-checkbox-multiple-line', count: prediction.ruleHits.filter((r) => r.met).length },
-    { key: 'mechanisms', label: '物理机制', icon: 'ri-git-branch-line', count: prediction.mechanisms.length },
-    { key: 'history', label: '相似事件', icon: 'ri-history-line', count: prediction.similarEvents.length },
+    { key: 'overview', label: t('prediction.tabs.overview'), icon: 'ri-radar-line' },
+    { key: 'features', label: t('prediction.tabs.features'), icon: 'ri-bar-chart-2-line', count: prediction.features.length },
+    { key: 'rules', label: t('prediction.tabs.rules'), icon: 'ri-checkbox-multiple-line', count: prediction.ruleHits.filter((r) => r.met).length },
+    { key: 'mechanisms', label: t('prediction.tabs.mechanisms'), icon: 'ri-git-branch-line', count: prediction.mechanisms.length },
+    { key: 'history', label: t('prediction.tabs.history'), icon: 'ri-history-line', count: prediction.similarEvents.length },
   ];
 
   return (
@@ -81,12 +83,16 @@ export default function PredictionDetail() {
               <div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <h1 className="font-heading text-xl text-foreground-900">
-                    {prediction.hazardLabel}预测 — {prediction.regionName}
+                    {t('prediction.headerTitle', { hazard: prediction.hazardLabel, region: prediction.regionName })}
                   </h1>
                   <RiskBadge level={prediction.riskLevel} size="md" />
                 </div>
                 <p className="text-sm text-foreground-500 mt-1">
-                  {prediction.predictionId} · 起报 {prediction.initialTime.replace('T', ' ').slice(0, 16)} · 时效 {prediction.leadTimeHours}h
+                  {t('prediction.subheader', {
+                    id: prediction.predictionId,
+                    time: prediction.initialTime.replace('T', ' ').slice(0, 16),
+                    hours: prediction.leadTimeHours,
+                  })}
                 </p>
               </div>
             </div>
@@ -97,7 +103,7 @@ export default function PredictionDetail() {
                 icon="ri-share-box-line"
                 onClick={() => navigate(`/prediction/${prediction.predictionId}/graph`)}
               >
-                查看图谱
+                {t('prediction.viewGraph')}
               </Button>
             </div>
           </div>
@@ -143,11 +149,11 @@ export default function PredictionDetail() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm text-foreground-500">
               <i className="ri-shield-check-line text-accent-600"></i>
-              <span>预测结果仅供参考，实际预警以官方发布为准</span>
+              <span>{t('common.disclaimer')}</span>
             </div>
             <div className="flex items-center gap-4 text-xs text-foreground-400">
-              <span>数据哈希: {prediction.inputHash}</span>
-              <span>模型: {prediction.modelName} {prediction.modelVersion}</span>
+              <span>{t('prediction.footer.dataHash', { value: prediction.inputHash })}</span>
+              <span>{t('prediction.footer.model', { name: prediction.modelName, version: prediction.modelVersion })}</span>
             </div>
           </div>
         </div>
@@ -158,12 +164,14 @@ export default function PredictionDetail() {
 }
 
 function OverviewTab({ prediction }: { prediction: PredictionResult }) {
+  const { t, i18n } = useTranslation();
+  const lang: 'zh' | 'en' = i18n.language?.startsWith('zh') ? 'zh' : 'en';
   return (
     <div className="space-y-6">
       {/* Key metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="text-center py-6">
-          <p className="text-xs text-foreground-500 mb-2">{scoreLabel(prediction)}</p>
+          <p className="text-xs text-foreground-500 mb-2">{scoreLabel(prediction, lang)}</p>
           <p className="text-3xl font-heading text-primary-600">
             {(prediction.decisionScore * 100).toFixed(0)}/100
           </p>
@@ -175,21 +183,21 @@ function OverviewTab({ prediction }: { prediction: PredictionResult }) {
           </div>
         </Card>
         <Card className="text-center py-6">
-          <p className="text-xs text-foreground-500 mb-2">校准状态</p>
-          <p className="text-2xl font-heading text-foreground-900">{calibrationLabel(prediction)}</p>
-          <p className="text-xs text-foreground-400 mt-1">原始模型分数 {(prediction.probability * 100).toFixed(0)}/100</p>
+          <p className="text-xs text-foreground-500 mb-2">{t('prediction.overview.calibrationStatus')}</p>
+          <p className="text-2xl font-heading text-foreground-900">{calibrationLabel(prediction, lang)}</p>
+          <p className="text-xs text-foreground-400 mt-1">{t('prediction.overview.rawScore', { value: (prediction.probability * 100).toFixed(0) })}</p>
         </Card>
         <Card className="text-center py-6">
-          <p className="text-xs text-foreground-500 mb-2">启发式判别模糊度</p>
+          <p className="text-xs text-foreground-500 mb-2">{t('prediction.overview.ambiguity')}</p>
           <p className="text-3xl font-heading text-foreground-900">
             {(prediction.ambiguity * 100).toFixed(0)}/100
           </p>
           <p className="text-xs text-foreground-400 mt-1">
-            {ambiguityLabel(prediction.ambiguity)} · 非置信区间
+            {ambiguityLabel(prediction.ambiguity, lang)} · {t('prediction.overview.notConfidenceInterval')}
           </p>
         </Card>
         <Card className="text-center py-6">
-          <p className="text-xs text-foreground-500 mb-2">风险等级</p>
+          <p className="text-xs text-foreground-500 mb-2">{t('prediction.overview.riskLevel')}</p>
           <div className="flex justify-center mt-1">
             <RiskBadge level={prediction.riskLevel} size="lg" />
           </div>
@@ -198,7 +206,7 @@ function OverviewTab({ prediction }: { prediction: PredictionResult }) {
 
       {/* Risk description */}
       <Card>
-        <h3 className="font-heading text-base text-foreground-900 mb-3">风险决策解释</h3>
+        <h3 className="font-heading text-base text-foreground-900 mb-3">{t('prediction.overview.riskExplanation')}</h3>
         <div className="bg-background-100 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <i className="ri-information-line text-primary-500 mt-0.5"></i>
@@ -209,19 +217,19 @@ function OverviewTab({ prediction }: { prediction: PredictionResult }) {
 
       {/* Metadata */}
       <Card>
-        <h3 className="font-heading text-base text-foreground-900 mb-3">预测元数据</h3>
+        <h3 className="font-heading text-base text-foreground-900 mb-3">{t('prediction.overview.metadata')}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <MetadataItem label="预测ID" value={prediction.predictionId} />
-          <MetadataItem label="案例ID" value={prediction.caseId} />
-          <MetadataItem label="模型" value={`${prediction.modelName} ${prediction.modelVersion}`} />
-          <MetadataItem label="区域" value={prediction.regionName} />
-          <MetadataItem label="灾种" value={prediction.hazardLabel} />
-          <MetadataItem label="目标时间" value={prediction.targetTime.replace('T', ' ').slice(0, 16)} />
-          <MetadataItem label="起报时间" value={prediction.initialTime.replace('T', ' ').slice(0, 16)} />
-          <MetadataItem label="预报时效" value={`${prediction.leadTimeHours} 小时`} />
-          <MetadataItem label="输入数据哈希" value={prediction.inputHash} />
-          {prediction.forecastSource && <MetadataItem label="预报数据源" value={prediction.forecastSource} />}
-          {prediction.forecastSnapshotId && <MetadataItem label="数据快照ID" value={prediction.forecastSnapshotId} />}
+          <MetadataItem label={t('prediction.overview.meta.predictionId')} value={prediction.predictionId} />
+          <MetadataItem label={t('prediction.overview.meta.caseId')} value={prediction.caseId} />
+          <MetadataItem label={t('prediction.overview.meta.model')} value={`${prediction.modelName} ${prediction.modelVersion}`} />
+          <MetadataItem label={t('prediction.overview.meta.region')} value={prediction.regionName} />
+          <MetadataItem label={t('prediction.overview.meta.hazard')} value={prediction.hazardLabel} />
+          <MetadataItem label={t('prediction.overview.meta.targetTime')} value={prediction.targetTime.replace('T', ' ').slice(0, 16)} />
+          <MetadataItem label={t('prediction.overview.meta.initialTime')} value={prediction.initialTime.replace('T', ' ').slice(0, 16)} />
+          <MetadataItem label={t('prediction.overview.meta.leadTime')} value={t('prediction.overview.meta.leadTimeValue', { hours: prediction.leadTimeHours })} />
+          <MetadataItem label={t('prediction.overview.meta.inputHash')} value={prediction.inputHash} />
+          {prediction.forecastSource && <MetadataItem label={t('prediction.overview.meta.forecastSource')} value={prediction.forecastSource} />}
+          {prediction.forecastSnapshotId && <MetadataItem label={t('prediction.overview.meta.snapshotId')} value={prediction.forecastSnapshotId} />}
         </div>
       </Card>
     </div>
@@ -238,6 +246,7 @@ function MetadataItem({ label, value }: { label: string; value: string }) {
 }
 
 function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
+  const { t } = useTranslation();
   const features = prediction.features;
   const verifiedTreeShap = prediction.attributionMethod === 'tree_shap';
   const attributionUnavailable = prediction.attributionMethod?.startsWith('unavailable:') ?? false;
@@ -249,24 +258,28 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
     <div className="space-y-6">
       <Card>
         <h3 className="font-heading text-base text-foreground-900 mb-1">
-          {verifiedTreeShap ? 'Tree SHAP 局部归因' : attributionUnavailable ? '模型归因不可用' : '特征信息（旧记录）'}
+          {verifiedTreeShap ? t('prediction.features.treeShapTitle') : attributionUnavailable ? t('prediction.features.unavailableTitle') : t('prediction.features.legacyTitle')}
         </h3>
         <p className="text-xs text-foreground-500 mb-2">
           {verifiedTreeShap
-            ? '解释当前样本在模型原始 log-odds 尺度上为何偏离基线：正值提高事件倾向，负值降低事件倾向；它不是概率百分点，也不表示物理因果。'
+            ? t('prediction.features.treeShapDesc')
             : attributionUnavailable
-              ? '该预测来自已经停用且无可复现制品的旧模型，因此无法生成可信 SHAP；原预测结果仍保留，但旧伪贡献已移除。'
-              : '该记录未保存可验证的归因方法，以下数值不能解读为 SHAP 贡献。请重新运行预测以生成真实 Tree SHAP 解释。'}
+              ? t('prediction.features.unavailableDesc')
+              : t('prediction.features.legacyDesc')}
         </p>
         {verifiedTreeShap && prediction.attributionBaseValue != null && prediction.attributionModelOutput != null && (
           <p className="text-xs text-foreground-600 bg-background-100 rounded-md px-3 py-2 mb-5 font-mono">
-            基线 {prediction.attributionBaseValue.toFixed(4)} + 贡献和 {signed(contributionSum)} = 模型输出 {prediction.attributionModelOutput.toFixed(4)}
+            {t('prediction.features.baseline', {
+              base: prediction.attributionBaseValue.toFixed(4),
+              sum: signed(contributionSum),
+              output: prediction.attributionModelOutput.toFixed(4),
+            })}
           </p>
         )}
         <div className="space-y-3">
           {features.length === 0 && (
             <div className="rounded-md border border-background-200 bg-background-100 px-4 py-5 text-sm text-foreground-500">
-              没有可验证的模型特征归因。
+              {t('prediction.features.noAttribution')}
             </div>
           )}
           {features.map((feat) => (
@@ -278,7 +291,8 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-foreground-500">
-                    实际 {feat.actualValue != null ? `${feat.actualValue} ${feat.unit}` : '—'}{feat.normalValue != null ? `（参考 ${feat.normalValue} ${feat.unit}）` : ''}
+                    {t('prediction.features.actualValue', { value: feat.actualValue != null ? `${feat.actualValue} ${feat.unit}` : '—' })}
+                    {feat.normalValue != null ? t('prediction.features.referenceValue', { value: `${feat.normalValue} ${feat.unit}` }) : ''}
                   </span>
                   <span className={`text-xs font-medium ${feat.contribution >= 0 ? 'text-red-500' : 'text-accent-600'}`}>
                     {signed(feat.contribution)}
@@ -298,16 +312,16 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
 
       {/* Feature comparison table */}
       {features.length > 0 && <Card>
-        <h3 className="font-heading text-base text-foreground-900 mb-3">指标对比</h3>
+        <h3 className="font-heading text-base text-foreground-900 mb-3">{t('prediction.features.comparisonTitle')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-background-200/70">
-                <th className="text-left px-4 py-2 text-xs font-medium text-foreground-500">指标</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-foreground-500">正常值</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-foreground-500">实际值</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-foreground-500">偏差</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-foreground-500">贡献</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-foreground-500">{t('prediction.features.table.indicator')}</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-foreground-500">{t('prediction.features.table.normal')}</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-foreground-500">{t('prediction.features.table.actual')}</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-foreground-500">{t('prediction.features.table.deviation')}</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-foreground-500">{t('prediction.features.table.contribution')}</th>
               </tr>
             </thead>
             <tbody>
@@ -341,35 +355,36 @@ function FeaturesTab({ prediction }: { prediction: PredictionResult }) {
 }
 
 function RulesTab({ rules }: { rules: RuleHit[] }) {
+  const { t } = useTranslation();
   const triggered = rules.filter((r) => r.met);
   const notTriggered = rules.filter((r) => !r.met);
 
   return (
     <div className="space-y-6">
       <Card>
-        <h3 className="font-heading text-base text-foreground-900 mb-1">风险决策规则</h3>
-        <p className="text-xs text-foreground-500 mb-5">风险决策解释：为什么发出这个等级？</p>
+        <h3 className="font-heading text-base text-foreground-900 mb-1">{t('prediction.rules.title')}</h3>
+        <p className="text-xs text-foreground-500 mb-5">{t('prediction.rules.subtitle')}</p>
 
         <div className="space-y-2">
-          <p className="text-xs font-medium text-foreground-500 mb-2">命中的规则 ({triggered.length})</p>
+          <p className="text-xs font-medium text-foreground-500 mb-2">{t('prediction.rules.triggered', { count: triggered.length })}</p>
           {triggered.map((rule) => (
             <div key={rule.ruleId} className="bg-accent-50 border border-accent-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <i className="ri-checkbox-circle-fill text-accent-500"></i>
                   <span className="font-medium text-foreground-900 text-sm">{rule.ruleName}</span>
-                  <Badge variant="accent" size="sm">权重 {rule.weight}</Badge>
+                  <Badge variant="accent" size="sm">{t('prediction.rules.weight', { value: rule.weight })}</Badge>
                 </div>
               </div>
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div>
-                  <span className="text-foreground-500">条件: </span>
+                  <span className="text-foreground-500">{t('prediction.rules.condition')}</span>
                   <span className="text-foreground-700 font-mono">{rule.condition}</span>
                 </div>
                 <div>
-                  <span className="text-foreground-500">实际值: </span>
+                  <span className="text-foreground-500">{t('prediction.rules.actualValue')}</span>
                   <span className="text-foreground-700 font-mono">{rule.actualValue}</span>
-                  <span className="text-foreground-500 ml-2">阈值: </span>
+                  <span className="text-foreground-500 ml-2">{t('prediction.rules.threshold')}</span>
                   <span className="text-foreground-700 font-mono">{rule.threshold}</span>
                 </div>
               </div>
@@ -379,7 +394,7 @@ function RulesTab({ rules }: { rules: RuleHit[] }) {
 
         {notTriggered.length > 0 && (
           <div className="mt-5 space-y-2">
-            <p className="text-xs font-medium text-foreground-500 mb-2">未命中的规则 ({notTriggered.length})</p>
+            <p className="text-xs font-medium text-foreground-500 mb-2">{t('prediction.rules.notTriggered', { count: notTriggered.length })}</p>
             {notTriggered.map((rule) => (
               <div key={rule.ruleId} className="bg-background-100 border border-background-200 rounded-lg p-3">
                 <div className="flex items-center gap-2">
@@ -388,7 +403,7 @@ function RulesTab({ rules }: { rules: RuleHit[] }) {
                 </div>
                 <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-foreground-500">
                   <span className="font-mono">{rule.condition}</span>
-                  <span>实际: {rule.actualValue} / 阈值: {rule.threshold}</span>
+                  <span>{t('prediction.rules.actualShort', { value: rule.actualValue, threshold: rule.threshold })}</span>
                 </div>
               </div>
             ))}
@@ -400,11 +415,12 @@ function RulesTab({ rules }: { rules: RuleHit[] }) {
 }
 
 function MechanismsTab({ mechanisms }: { mechanisms: MechanismPath[] }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       <Card>
-        <h3 className="font-heading text-base text-foreground-900 mb-1">物理机制相容性</h3>
-        <p className="text-xs text-foreground-500 mb-5">当前指标组合与哪些已知气象机制相容？这里不把相容性解释成个例因果。</p>
+        <h3 className="font-heading text-base text-foreground-900 mb-1">{t('prediction.mechanisms.title')}</h3>
+        <p className="text-xs text-foreground-500 mb-5">{t('prediction.mechanisms.subtitle')}</p>
 
         <div className="space-y-6">
           {mechanisms.map((mech, mi) => (
@@ -412,9 +428,9 @@ function MechanismsTab({ mechanisms }: { mechanisms: MechanismPath[] }) {
               <div className="flex items-center gap-3 mb-4">
                 <h4 className="font-medium text-foreground-900">{mech.pathName}</h4>
                 <Badge variant={mech.confidence === 'high' ? 'success' : mech.confidence === 'medium' ? 'warning' : 'secondary'}>
-                  {mech.confidence === 'high' ? '高置信度' : mech.confidence === 'medium' ? '中置信度' : '低置信度'}
+                  {mech.confidence === 'high' ? t('prediction.mechanisms.confidenceHigh') : mech.confidence === 'medium' ? t('prediction.mechanisms.confidenceMedium') : t('prediction.mechanisms.confidenceLow')}
                 </Badge>
-                {mech.supportScore !== undefined && <Badge variant="primary">相容度 {(mech.supportScore * 100).toFixed(0)}%</Badge>}
+                {mech.supportScore !== undefined && <Badge variant="primary">{t('prediction.mechanisms.supportScore', { value: (mech.supportScore * 100).toFixed(0) })}</Badge>}
               </div>
               {mech.summary && <p className="text-xs text-foreground-500 mb-4">{mech.summary}</p>}
 
@@ -429,9 +445,9 @@ function MechanismsTab({ mechanisms }: { mechanisms: MechanismPath[] }) {
                       <div className="bg-background-100 rounded-lg p-4">
                         <p className="text-sm text-foreground-900 mb-1">{step.description}</p>
                         <div className="flex items-center gap-3 text-xs">
-                          <span className="text-foreground-500">指标: {step.indicator}</span>
+                          <span className="text-foreground-500">{t('prediction.mechanisms.indicator', { indicator: step.indicator })}</span>
                           <span className="font-medium text-accent-600">{step.value}</span>
-                          {step.compatibility !== undefined && <span className="text-foreground-500">相容 {(step.compatibility * 100).toFixed(0)}%</span>}
+                          {step.compatibility !== undefined && <span className="text-foreground-500">{t('prediction.mechanisms.compatibility', { value: (step.compatibility * 100).toFixed(0) })}</span>}
                         </div>
                       </div>
                       {si < mech.steps.length - 1 && (
@@ -456,8 +472,8 @@ function MechanismsTab({ mechanisms }: { mechanisms: MechanismPath[] }) {
         <div className="flex items-start gap-3">
           <i className="ri-information-line text-foreground-400 mt-0.5"></i>
           <div className="text-xs text-foreground-500">
-            <p className="mb-1 font-medium text-foreground-700">说明</p>
-            <p>机制相容性来自版本化领域知识和文献目录，不是模型内部推理，也不证明灾害会发生。模型证据请查看特征贡献。</p>
+            <p className="mb-1 font-medium text-foreground-700">{t('prediction.mechanisms.noteTitle')}</p>
+            <p>{t('prediction.mechanisms.noteBody')}</p>
           </div>
         </div>
       </Card>
@@ -466,11 +482,12 @@ function MechanismsTab({ mechanisms }: { mechanisms: MechanismPath[] }) {
 }
 
 function HistoryTab({ events }: { events: HistoricalEvent[] }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       <Card>
-        <h3 className="font-heading text-base text-foreground-900 mb-1">相似历史事件</h3>
-        <p className="text-xs text-foreground-500 mb-5">只检索起报时刻之前的案例，并分别比较天气形态、空间背景与季节窗口；低覆盖或代理案例会被降权。</p>
+        <h3 className="font-heading text-base text-foreground-900 mb-1">{t('prediction.history.title')}</h3>
+        <p className="text-xs text-foreground-500 mb-5">{t('prediction.history.subtitle')}</p>
 
         <div className="space-y-3">
           {events.map((evt) => (
@@ -481,27 +498,27 @@ function HistoryTab({ events }: { events: HistoricalEvent[] }) {
                     <span className="font-medium text-foreground-900 text-sm">{evt.date}</span>
                     <Badge variant="secondary">{evt.region}</Badge>
                     <Badge variant="accent">{evt.hazard}</Badge>
-                    <Badge variant="primary">相似度 {(evt.similarity * 100).toFixed(0)}%</Badge>
+                    <Badge variant="primary">{t('prediction.history.similarity', { value: (evt.similarity * 100).toFixed(0) })}</Badge>
                     {evt.verificationStatus && <Badge variant="secondary">{evt.verificationStatus}</Badge>}
                   </div>
                   <p className="text-sm text-foreground-700 mb-2">{evt.description}</p>
                   <div className="flex flex-wrap gap-3 text-xs text-foreground-500">
-                    {evt.maxRainfall != null && <span>最大降水: {evt.maxRainfall}mm</span>}
-                    {evt.maxTemp != null && <span>最高温度: {evt.maxTemp}°C</span>}
-                    <span className="text-orange-600">影响: {evt.impact}</span>
-                    {evt.dataCoverage !== undefined && <span>气象指标覆盖: {(evt.dataCoverage * 100).toFixed(0)}%</span>}
+                    {evt.maxRainfall != null && <span>{t('prediction.history.maxRainfall', { value: evt.maxRainfall })}</span>}
+                    {evt.maxTemp != null && <span>{t('prediction.history.maxTemp', { value: evt.maxTemp })}</span>}
+                    <span className="text-orange-600">{t('prediction.history.impact', { value: evt.impact })}</span>
+                    {evt.dataCoverage !== undefined && <span>{t('prediction.history.dataCoverage', { value: (evt.dataCoverage * 100).toFixed(0) })}</span>}
                   </div>
                   {evt.similarityDimensions && (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
                       {evt.similarityDimensions.map((dimension) => (
                         <div key={dimension.key} className="bg-background-50 rounded p-2 text-xs">
                           <div className="flex justify-between"><span className="text-foreground-600">{dimension.label}</span><span className="font-medium">{(dimension.score * 100).toFixed(0)}%</span></div>
-                          <p className="text-foreground-400 mt-1">权重 {(dimension.weight * 100).toFixed(0)}% · {dimension.explanation}</p>
+                          <p className="text-foreground-400 mt-1">{t('prediction.history.weight', { weight: (dimension.weight * 100).toFixed(0), explanation: dimension.explanation })}</p>
                         </div>
                       ))}
                     </div>
                   )}
-                  {evt.sourceTitle && <p className="text-[11px] text-foreground-400 mt-3">来源: {evt.sourceTitle}</p>}
+                  {evt.sourceTitle && <p className="text-[11px] text-foreground-400 mt-3">{t('prediction.history.source', { value: evt.sourceTitle })}</p>}
                 </div>
                 <div className="flex-shrink-0">
                   <div className="w-14 h-14 rounded-full border-2 border-primary-200 flex items-center justify-center">

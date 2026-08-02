@@ -15,6 +15,8 @@ interface MonitorSourceStatus {
   configured: boolean;
 }
 
+import i18n from '@/i18n';
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
 
 async function getCurrentSnapshot<T>(source: MonitorSource): Promise<MonitorSnapshot<T> | null> {
@@ -22,7 +24,7 @@ async function getCurrentSnapshot<T>(source: MonitorSource): Promise<MonitorSnap
     headers: { Accept: 'application/json' },
   });
   if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`监测缓存读取失败 (${response.status})`);
+  if (!response.ok) throw new Error(`${i18n.t('errors.monitorSnapshot')} (${response.status})`);
   return response.json() as Promise<MonitorSnapshot<T>>;
 }
 
@@ -33,14 +35,14 @@ async function refreshSnapshot<T>(source: MonitorSource): Promise<MonitorSnapsho
   });
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`后端监测采集失败 (${response.status}): ${detail}`);
+    throw new Error(`${i18n.t('errors.monitorRefresh')} (${response.status}): ${detail}`);
   }
   return response.json() as Promise<MonitorSnapshot<T>>;
 }
 
 export async function getMonitorSourceStatus(source: MonitorSource): Promise<boolean> {
   const response = await fetch(`${API_BASE}/monitor/sources`, { headers: { Accept: 'application/json' } });
-  if (!response.ok) throw new Error(`监测数据源状态读取失败 (${response.status})`);
+  if (!response.ok) throw new Error(`${i18n.t('errors.monitorSources')} (${response.status})`);
   const statuses = await response.json() as MonitorSourceStatus[];
   return statuses.find((status) => status.source === source)?.configured ?? false;
 }

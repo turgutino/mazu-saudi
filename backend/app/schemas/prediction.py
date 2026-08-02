@@ -173,3 +173,4 @@ class PredictionRequest(CamelModel):
     model_id: str | None = None
     initial_time: str | None = None
     prediction_mode: PredictionMode = "auto"
+    lang: str = "zh"

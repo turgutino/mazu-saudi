@@ -10,4 +10,5 @@ class HazardType(CamelModel):
     icon: str
     color: str
     description: str
+    description_en: str
     lead_times: list[int]

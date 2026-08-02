@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Navbar from '@/components/feature/Navbar';
 import Button from '@/components/base/Button';
 import Badge from '@/components/base/Badge';
@@ -35,19 +36,20 @@ function MetricBar({ value, higherIsBetter, label }: { value: number; higherIsBe
 }
 
 function ModelMetricsPanel({ metrics, hazardId }: { metrics: Record<string, ModelMetrics>; hazardId: string }) {
+  const { t } = useTranslation();
   const m = metrics[hazardId];
-  if (!m) return <p className="text-xs text-foreground-400 italic">该模型在此灾种上暂无评估数据</p>;
+  if (!m) return <p className="text-xs text-foreground-400 italic">{t('workspace.model.noEvalData')}</p>;
 
   const metricKeys = Object.keys(METRIC_LABELS) as (keyof ModelMetrics)[];
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-[11px] text-foreground-500 uppercase tracking-wider">性能指标</span>
+        <span className="text-[11px] text-foreground-500 uppercase tracking-wider">{t('workspace.model.performanceMetrics')}</span>
         <div className="flex-1 h-px bg-background-200/70"></div>
       </div>
       {metricKeys.map((key) => (
-        <MetricBar key={key} value={m[key]} higherIsBetter={METRIC_LABELS[key].higherIsBetter} label={METRIC_LABELS[key].name} />
+        <MetricBar key={key} value={m[key]} higherIsBetter={METRIC_LABELS[key].higherIsBetter} label={t(METRIC_LABELS[key].nameKey)} />
       ))}
     </div>
   );
@@ -65,20 +67,22 @@ function historicalFeatureDateFor(initialDate: string, leadTimeHours: number) {
 }
 
 function ModelAvailability({ model }: { model: ModelInfo }) {
+  const { t } = useTranslation();
   const historical = isHistoricalModel(model);
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       <Badge variant={historical ? 'secondary' : 'success'} size="sm">
-        {historical ? '2025历史归档' : '实时预测'}
+        {historical ? t('workspace.model.availability.historical') : t('workspace.model.availability.live')}
       </Badge>
       <span className="text-[10px] text-foreground-400">
-        {historical ? '需要完整NetCDF指标' : 'CMA 或 Open-Meteo 目标时刻预报'}
+        {historical ? t('workspace.model.availability.historicalDesc') : t('workspace.model.availability.liveDesc')}
       </span>
     </div>
   );
 }
 
 function ComparisonRow({ model, hazardId, isBest, isSelected, onClick }: { model: ModelInfo; hazardId: string; isBest: boolean; isSelected: boolean; onClick: () => void }) {
+  const { t } = useTranslation();
   const m = model.metrics[hazardId];
 
   const metricKeys: (keyof ModelMetrics)[] = ['auc', 'pod', 'far', 'csi', 'f1', 'brier'];
@@ -93,7 +97,7 @@ function ComparisonRow({ model, hazardId, isBest, isSelected, onClick }: { model
 
   const fmt = (v: number) => (v * 100).toFixed(1) + '%';
 
-  const typeLabel = model.type === 'tree' ? '树模型' : model.type === 'deep' ? '深度学习' : model.type === 'ensemble' ? '集成模型' : model.type === 'rule' ? '规则评分' : '物理模型';
+  const typeLabel = model.type === 'tree' ? t('workspace.model.type.tree') : model.type === 'deep' ? t('workspace.model.type.deep') : model.type === 'ensemble' ? t('workspace.model.type.ensemble') : model.type === 'rule' ? t('workspace.model.type.rule') : t('workspace.model.type.physical');
 
   return (
     <tr
@@ -119,6 +123,7 @@ function ComparisonRow({ model, hazardId, isBest, isSelected, onClick }: { model
 }
 
 export default function Workspace() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<Step>('mode');
   const [regions, setRegions] = useState<Region[]>([]);
@@ -151,7 +156,7 @@ export default function Workspace() {
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        setMetaError(error instanceof Error ? error.message : '基础数据加载失败');
+        setMetaError(error instanceof Error ? error.message : t('workspace.metaLoadFailed'));
       })
       .finally(() => {
         if (!cancelled) setMetaLoading(false);
@@ -159,7 +164,10 @@ export default function Workspace() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // Re-run when the language toggle changes so region/hazard/model names
+    // (localized server-side) are refetched in the newly-selected language.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, i18n.language]);
 
   const availableModels = selectedHazard && predictionMode
     ? models.filter((model) =>
@@ -196,12 +204,12 @@ export default function Workspace() {
   };
 
   const steps: { key: Step; label: string; number: number }[] = [
-    { key: 'mode', label: '运行模式', number: 1 },
-    { key: 'region', label: '选择区域', number: 2 },
-    { key: 'hazard', label: '选择灾种', number: 3 },
-    { key: 'leadtime', label: '预测时效', number: 4 },
-    { key: 'model', label: '确认模型', number: 5 },
-    { key: 'confirm', label: '确认执行', number: 6 },
+    { key: 'mode', label: t('workspace.steps.mode'), number: 1 },
+    { key: 'region', label: t('workspace.steps.region'), number: 2 },
+    { key: 'hazard', label: t('workspace.steps.hazard'), number: 3 },
+    { key: 'leadtime', label: t('workspace.steps.leadtime'), number: 4 },
+    { key: 'model', label: t('workspace.steps.model'), number: 5 },
+    { key: 'confirm', label: t('workspace.steps.confirm'), number: 6 },
   ];
 
   const canProceed = () => {
@@ -229,7 +237,7 @@ export default function Workspace() {
 
     setIsRunning(true);
     setRunError(null);
-    setProgressMessage('预测服务正在执行数据解析、模型推理、分数语义标记、风险政策和知识检索…');
+    setProgressMessage(t('workspace.confirm.progressPreparing'));
     try {
       const result = await createPrediction({
         regionId: selectedRegion.id,
@@ -239,17 +247,21 @@ export default function Workspace() {
         predictionMode,
         ...(predictionMode === 'historical' ? { initialTime: `${historicalDate}T00:00:00Z` } : {}),
       });
-      setProgressMessage('预测与解释证据已生成，正在打开结果…');
+      setProgressMessage(t('workspace.confirm.progressDone'));
       navigate(`/prediction/${result.predictionId}`);
     } catch (error) {
-      setRunError(error instanceof Error ? error.message : '预测服务请求失败');
+      setRunError(error instanceof Error ? error.message : t('workspace.confirm.runFailed'));
     } finally {
       setIsRunning(false);
     }
   };
 
   const regionSensitivityBadge = (sensitivity: 'high' | 'medium' | 'low') => {
-    const config = { high: { label: '高敏感', variant: 'danger' as const }, medium: { label: '中敏感', variant: 'warning' as const }, low: { label: '低敏感', variant: 'success' as const } };
+    const config = {
+      high: { label: t('workspace.sensitivity.high'), variant: 'danger' as const },
+      medium: { label: t('workspace.sensitivity.medium'), variant: 'warning' as const },
+      low: { label: t('workspace.sensitivity.low'), variant: 'success' as const },
+    };
     const c = config[sensitivity];
     return <Badge variant={c.variant}>{c.label}</Badge>;
   };
@@ -261,8 +273,8 @@ export default function Workspace() {
       <main className="w-full px-6 md:px-8 py-6">
         <div className="max-w-[960px] mx-auto">
           <div className="mb-8">
-            <h1 className="font-heading text-2xl text-foreground-900">预测工作台</h1>
-            <p className="text-sm text-foreground-500 mt-1">按步骤配置预测参数，智能体将自动编排预测流程</p>
+            <h1 className="font-heading text-2xl text-foreground-900">{t('workspace.title')}</h1>
+            <p className="text-sm text-foreground-500 mt-1">{t('workspace.subtitle')}</p>
           </div>
 
           {/* Step indicator */}
@@ -293,22 +305,22 @@ export default function Workspace() {
 
           {metaError && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-5 text-sm text-red-700">
-              <i className="ri-error-warning-line mr-2"></i>基础数据加载失败：{metaError}
+              <i className="ri-error-warning-line mr-2"></i>{t('workspace.metaError', { error: metaError })}
             </div>
           )}
 
           <Card className="p-6 min-h-[360px]">
             {metaLoading ? (
               <div className="flex items-center justify-center h-[300px] text-foreground-400">
-                <i className="ri-loader-4-line animate-spin text-2xl mr-2"></i>正在加载区域/灾种/模型数据…
+                <i className="ri-loader-4-line animate-spin text-2xl mr-2"></i>{t('workspace.metaLoading')}
               </div>
             ) : (
             <>
             {/* Step 1: Mode */}
             {currentStep === 'mode' && (
               <div>
-                <h2 className="font-heading text-lg text-foreground-900 mb-1">选择运行模式</h2>
-                <p className="text-sm text-foreground-500 mb-5">实时预测使用第三方数值预报；历史回放使用2025归档指标和自有训练模型</p>
+                <h2 className="font-heading text-lg text-foreground-900 mb-1">{t('workspace.mode.title')}</h2>
+                <p className="text-sm text-foreground-500 mb-5">{t('workspace.mode.subtitle')}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <button
                     onClick={() => {
@@ -326,10 +338,10 @@ export default function Workspace() {
                   >
                     <div className="flex items-center gap-3 mb-2">
                       <i className="ri-radar-line text-xl text-primary-600"></i>
-                      <span className="font-medium text-foreground-900">实时预测</span>
-                      <Badge variant="success">当前与未来</Badge>
+                      <span className="font-medium text-foreground-900">{t('workspace.mode.live.title')}</span>
+                      <Badge variant="success">{t('workspace.mode.live.badge')}</Badge>
                     </div>
-                    <p className="text-xs text-foreground-500">使用CMA或Open-Meteo逐小时预报，聚合关键指标并运行API兼容轻量HGB模型。</p>
+                    <p className="text-xs text-foreground-500">{t('workspace.mode.live.desc')}</p>
                   </button>
                   <button
                     onClick={() => {
@@ -347,16 +359,16 @@ export default function Workspace() {
                   >
                     <div className="flex items-center gap-3 mb-2">
                       <i className="ri-history-line text-xl text-secondary-600"></i>
-                      <span className="font-medium text-foreground-900">2025历史回放</span>
-                      <Badge variant="secondary">自有HGB模型</Badge>
+                      <span className="font-medium text-foreground-900">{t('workspace.mode.historical.title')}</span>
+                      <Badge variant="secondary">{t('workspace.mode.historical.badge')}</Badge>
                     </div>
-                    <p className="text-xs text-foreground-500">读取2025年高精度NetCDF归档，运行高温、山洪或沙尘暴训练模型。</p>
+                    <p className="text-xs text-foreground-500">{t('workspace.mode.historical.desc')}</p>
                   </button>
                 </div>
                 {predictionMode === 'historical' && (
                   <div className="mt-5 p-4 rounded-lg bg-background-100 border border-background-200">
                     <label htmlFor="historical-date" className="text-sm font-medium text-foreground-700 block mb-2">
-                      历史起报日期
+                      {t('workspace.mode.historicalDate')}
                     </label>
                     <input
                       id="historical-date"
@@ -367,7 +379,7 @@ export default function Workspace() {
                       onChange={(event) => setHistoricalDate(event.target.value)}
                       className="w-full sm:w-64 px-3 py-2 text-sm rounded-md border border-background-200 bg-background-50 text-foreground-900 focus:outline-none focus:ring-1 focus:ring-secondary-300"
                     />
-                    <p className="text-xs text-foreground-400 mt-2">历史HGB固定使用起报日指标预测下一日（T+1日/24小时）；起报日可选2025-01-01至2025-12-30。</p>
+                    <p className="text-xs text-foreground-400 mt-2">{t('workspace.mode.historicalHint')}</p>
                   </div>
                 )}
               </div>
@@ -376,8 +388,8 @@ export default function Workspace() {
             {/* Step 2: Region */}
             {currentStep === 'region' && (
               <div>
-                <h2 className="font-heading text-lg text-foreground-900 mb-1">选择监测区域</h2>
-                <p className="text-sm text-foreground-500 mb-5">选择需要进行极端天气预测的地理区域</p>
+                <h2 className="font-heading text-lg text-foreground-900 mb-1">{t('workspace.region.title')}</h2>
+                <p className="text-sm text-foreground-500 mb-5">{t('workspace.region.subtitle')}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {regions.map((region) => (
                     <button
@@ -404,8 +416,12 @@ export default function Workspace() {
                 {selectedRegion && (
                   <div className="mt-4 p-3 bg-accent-50 border border-accent-200 rounded-lg">
                     <p className="text-sm text-accent-800">
-                      已选择 <strong>{selectedRegion.name}</strong> ({selectedRegion.nameEn})
-                      — 坐标: {selectedRegion.lat.toFixed(2)}°N, {selectedRegion.lon.toFixed(2)}°E
+                      {t('workspace.region.selected', {
+                        name: selectedRegion.name,
+                        nameEn: selectedRegion.nameEn,
+                        lat: selectedRegion.lat.toFixed(2),
+                        lon: selectedRegion.lon.toFixed(2),
+                      })}
                     </p>
                   </div>
                 )}
@@ -415,8 +431,8 @@ export default function Workspace() {
             {/* Step 3: Hazard */}
             {currentStep === 'hazard' && (
               <div>
-                <h2 className="font-heading text-lg text-foreground-900 mb-1">选择预测灾种</h2>
-                <p className="text-sm text-foreground-500 mb-5">选择需要预测的极端天气类型</p>
+                <h2 className="font-heading text-lg text-foreground-900 mb-1">{t('workspace.hazard.title')}</h2>
+                <p className="text-sm text-foreground-500 mb-5">{t('workspace.hazard.subtitle')}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {hazards.map((hazard) => {
                     const unavailableInHistorical = predictionMode === 'historical'
@@ -442,7 +458,7 @@ export default function Workspace() {
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-foreground-900">{hazard.name}</span>
                               <span className="text-xs text-foreground-400">{hazard.nameEn}</span>
-                              {unavailableInHistorical && <Badge variant="warning">无历史模型</Badge>}
+                              {unavailableInHistorical && <Badge variant="warning">{t('workspace.hazard.noHistoricalModel')}</Badge>}
                             </div>
                             <p className="text-xs text-foreground-500 mt-1">{hazard.description}</p>
                           </div>
@@ -457,11 +473,11 @@ export default function Workspace() {
             {/* Step 4: Lead Time */}
             {currentStep === 'leadtime' && (
               <div>
-                <h2 className="font-heading text-lg text-foreground-900 mb-1">选择预测时效</h2>
+                <h2 className="font-heading text-lg text-foreground-900 mb-1">{t('workspace.leadtime.title')}</h2>
                 <p className="text-sm text-foreground-500 mb-5">
                   {predictionMode === 'historical'
-                    ? <>现有历史HGB仅支持 <Badge variant="secondary">T+1日 / 24小时</Badge></>
-                    : <>为 <Badge variant="primary">{selectedHazard?.name}</Badge> 选择提前预报的时间范围</>}
+                    ? <>{t('workspace.leadtime.historicalOnly')} <Badge variant="secondary">{t('workspace.leadtime.historicalOnlyBadge')}</Badge></>
+                    : <>{t('workspace.leadtime.chooseFor', { hazard: selectedHazard?.name ?? '' })}</>}
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                   {availableLeadTimes.map((lt) => (
@@ -475,7 +491,7 @@ export default function Workspace() {
                       }`}
                     >
                       <span className="text-2xl font-heading text-foreground-900 block">{lt}</span>
-                      <span className="text-xs text-foreground-500 mt-1">小时</span>
+                      <span className="text-xs text-foreground-500 mt-1">{t('workspace.leadtime.hours')}</span>
                     </button>
                   ))}
                 </div>
@@ -487,8 +503,8 @@ export default function Workspace() {
                   }`}>
                     <i className={`${historicalFeatureAvailable ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'} mr-1.5`}></i>
                     {historicalFeatureAvailable
-                      ? `该组合将读取 saudi_indicators_${historicalFeatureDate.replaceAll('-', '')}.nc`
-                      : `该时效需要 ${historicalFeatureDate} 的特征文件，超出2025归档范围，请调整起报日期。`}
+                      ? t('workspace.leadtime.featureAvailable', { date: historicalFeatureDate.replaceAll('-', '') })
+                      : t('workspace.leadtime.featureUnavailable', { date: historicalFeatureDate })}
                   </div>
                 )}
               </div>
@@ -498,7 +514,7 @@ export default function Workspace() {
             {currentStep === 'model' && (
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <h2 className="font-heading text-lg text-foreground-900">确认实际运行模型</h2>
+                  <h2 className="font-heading text-lg text-foreground-900">{t('workspace.model.title')}</h2>
                   <div className="flex items-center gap-1 bg-background-100 rounded-lg p-1">
                     <button
                       onClick={() => setModelViewMode('cards')}
@@ -506,7 +522,7 @@ export default function Workspace() {
                         modelViewMode === 'cards' ? 'bg-background-50 text-foreground-900 shadow-sm' : 'text-foreground-500 hover:text-foreground-700'
                       }`}
                     >
-                      <i className="ri-layout-grid-line mr-1"></i>卡片视图
+                      <i className="ri-layout-grid-line mr-1"></i>{t('workspace.model.cardsView')}
                     </button>
                     <button
                       onClick={() => setModelViewMode('compare')}
@@ -514,15 +530,15 @@ export default function Workspace() {
                         modelViewMode === 'compare' ? 'bg-background-50 text-foreground-900 shadow-sm' : 'text-foreground-500 hover:text-foreground-700'
                       }`}
                     >
-                      <i className="ri-table-line mr-1"></i>对比视图
+                      <i className="ri-table-line mr-1"></i>{t('workspace.model.compareView')}
                     </button>
                   </div>
                 </div>
                 <p className="text-sm text-foreground-500 mb-5">
-                  {predictionMode === 'historical' ? '2025历史回放' : '实时预测'}将运行以下模型
+                  {t('workspace.model.runningFor', { mode: predictionMode === 'historical' ? t('workspace.mode.historical.title') : t('workspace.mode.live.title') })}
                   {selectedHazard && (
                     <span className="ml-1 text-foreground-400">
-                      — {selectedRegion?.name} / {selectedHazard.name}
+                      {t('workspace.model.runningForSuffix', { region: selectedRegion?.name ?? '', hazard: selectedHazard.name })}
                     </span>
                   )}
                 </p>
@@ -530,7 +546,7 @@ export default function Workspace() {
                 {selectedHazard?.id === 'heavy-rain' && (
                   <div className="mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-800">
                     <i className="ri-information-line mr-1.5"></i>
-                    强降雨暂无全特征历史模型；实时模式使用2025数据训练的API兼容轻量HGB模型。
+                    {t('workspace.model.heavyRainNotice')}
                   </div>
                 )}
 
@@ -570,7 +586,7 @@ export default function Workspace() {
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium text-foreground-900 text-sm">{model.name}</span>
                                   <Badge variant="secondary" size="sm">{model.version}</Badge>
-                                  {isBestAuc && <Badge variant="accent" size="sm">最高 AUC</Badge>}
+                                  {isBestAuc && <Badge variant="accent" size="sm">{t('workspace.model.bestAuc')}</Badge>}
                                 </div>
                                 <p className="text-xs text-foreground-500 mt-0.5 truncate">{model.description}</p>
                                 <div className="mt-1.5"><ModelAvailability model={model} /></div>
@@ -578,7 +594,7 @@ export default function Workspace() {
                             </div>
                             <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                               <Badge variant={model.type === 'ensemble' ? 'accent' : model.type === 'deep' ? 'primary' : 'secondary'}>
-                                {model.type === 'tree' ? '树模型' : model.type === 'deep' ? '深度学习' : model.type === 'ensemble' ? '集成模型' : model.type === 'rule' ? '规则评分' : '物理模型'}
+                                {model.type === 'tree' ? t('workspace.model.type.tree') : model.type === 'deep' ? t('workspace.model.type.deep') : model.type === 'ensemble' ? t('workspace.model.type.ensemble') : model.type === 'rule' ? t('workspace.model.type.rule') : t('workspace.model.type.physical')}
                               </Badge>
                               <button
                                 onClick={(e) => {
@@ -586,7 +602,7 @@ export default function Workspace() {
                                   setExpandedModel(isExpanded ? null : model.id);
                                 }}
                                 className="p-1.5 rounded-md hover:bg-background-200 cursor-pointer transition-colors"
-                                title={isExpanded ? '收起指标' : '展开指标'}
+                                title={isExpanded ? t('workspace.model.collapseMetrics') : t('workspace.model.expandMetrics')}
                               >
                                 <i className={`text-xs text-foreground-400 transition-transform duration-200 ${isExpanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}`}></i>
                               </button>
@@ -616,12 +632,12 @@ export default function Workspace() {
                                   const tierColor = good ? 'text-accent-700' : 'text-foreground-600';
                                   return (
                                     <div key={key} className="flex items-center gap-1.5">
-                                      <span className="text-[10px] text-foreground-400 whitespace-nowrap">{meta.name}</span>
+                                      <span className="text-[10px] text-foreground-400 whitespace-nowrap">{t(meta.nameKey)}</span>
                                       <span className={`text-xs font-semibold ${tierColor}`}>{pct}%</span>
                                     </div>
                                   );
                                 })}
-                                <span className="text-[10px] text-foreground-300 ml-auto">点击展开完整指标</span>
+                                <span className="text-[10px] text-foreground-300 ml-auto">{t('workspace.model.expandHint')}</span>
                               </div>
                             </div>
                           )}
@@ -636,10 +652,10 @@ export default function Workspace() {
                     <table className="w-full text-left">
                       <thead>
                         <tr className="bg-background-100 border-b border-background-200/70">
-                          <th className="py-2.5 px-3 text-xs font-medium text-foreground-500">模型</th>
+                          <th className="py-2.5 px-3 text-xs font-medium text-foreground-500">{t('workspace.model.compareTable.model')}</th>
                           {(['auc', 'pod', 'far', 'csi', 'f1', 'brier'] as (keyof ModelMetrics)[]).map((key) => (
-                            <th key={key} className="py-2.5 px-2 text-center text-xs font-medium text-foreground-500 cursor-help" title={METRIC_LABELS[key].description}>
-                              {METRIC_LABELS[key].name}
+                            <th key={key} className="py-2.5 px-2 text-center text-xs font-medium text-foreground-500 cursor-help" title={t(METRIC_LABELS[key].descriptionKey)}>
+                              {t(METRIC_LABELS[key].nameKey)}
                             </th>
                           ))}
                           <th className="py-2.5 px-3 text-xs font-medium text-foreground-500"></th>
@@ -661,10 +677,7 @@ export default function Workspace() {
                     <div className="px-3 py-2 bg-background-100 border-t border-background-200/70">
                       <p className="text-[10px] text-foreground-400">
                         <i className="ri-information-line mr-1"></i>
-                        指标基于 {selectedHazard?.name} 灾种的验证集评估（2025-2026 数据）。
-                        “—”表示该模型未提供独立验证集指标。
-                        标 <i className="ri-star-fill text-accent-500 text-[9px]"></i> 为该指标当前最优模型。
-                        点击模型行选择，指标说明悬停表头查看。
+                        {t('workspace.model.compareFootnote', { hazard: selectedHazard?.name ?? '' })}
                       </p>
                     </div>
                   </div>
@@ -673,7 +686,7 @@ export default function Workspace() {
                 {availableModels.length === 0 && (
                   <div className="text-center py-8 text-foreground-400">
                     <i className="ri-emotion-sad-line text-2xl block mb-2"></i>
-                    <p>当前选中的组合没有可用的预测模型</p>
+                    <p>{t('workspace.model.noAvailableModel')}</p>
                   </div>
                 )}
               </div>
@@ -682,41 +695,46 @@ export default function Workspace() {
             {/* Step 6: Confirm */}
             {currentStep === 'confirm' && (
               <div>
-                <h2 className="font-heading text-lg text-foreground-900 mb-1">确认预测参数</h2>
-                <p className="text-sm text-foreground-500 mb-5">检查所有预测配置，确认后智能体将自动编排执行</p>
+                <h2 className="font-heading text-lg text-foreground-900 mb-1">{t('workspace.confirm.title')}</h2>
+                <p className="text-sm text-foreground-500 mb-5">{t('workspace.confirm.subtitle')}</p>
 
                 <div className="bg-background-100 rounded-lg p-5 mb-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <span className="text-xs text-foreground-500 block mb-1">运行模式</span>
+                      <span className="text-xs text-foreground-500 block mb-1">{t('workspace.confirm.mode')}</span>
                       <span className="text-sm font-medium text-foreground-900">
-                        {predictionMode === 'historical' ? '2025历史回放' : '实时预测'}
+                        {predictionMode === 'historical' ? t('workspace.mode.historical.title') : t('workspace.mode.live.title')}
                       </span>
                       {predictionMode === 'historical' && (
-                        <p className="text-xs text-foreground-400 mt-0.5">起报日期：{historicalDate}</p>
+                        <p className="text-xs text-foreground-400 mt-0.5">{t('workspace.confirm.initialDate', { date: historicalDate })}</p>
                       )}
                     </div>
                     <div>
-                      <span className="text-xs text-foreground-500 block mb-1">区域</span>
+                      <span className="text-xs text-foreground-500 block mb-1">{t('workspace.confirm.region')}</span>
                       <span className="text-sm font-medium text-foreground-900">{selectedRegion?.name} ({selectedRegion?.nameEn})</span>
                       <p className="text-xs text-foreground-400 mt-0.5">
-                        山洪敏感度: {selectedRegion?.sensitivity.flashFlood === 'high' ? '高' : selectedRegion?.sensitivity.flashFlood === 'medium' ? '中' : '低'}
-                        {' · '}高温敏感度: {selectedRegion?.sensitivity.heatwave === 'high' ? '高' : selectedRegion?.sensitivity.heatwave === 'medium' ? '中' : '低'}
+                        {t('workspace.confirm.flashFloodSensitivity', {
+                          value: selectedRegion?.sensitivity.flashFlood === 'high' ? t('workspace.sensitivity.high') : selectedRegion?.sensitivity.flashFlood === 'medium' ? t('workspace.sensitivity.medium') : t('workspace.sensitivity.low'),
+                        })}
+                        {' · '}
+                        {t('workspace.confirm.heatwaveSensitivity', {
+                          value: selectedRegion?.sensitivity.heatwave === 'high' ? t('workspace.sensitivity.high') : selectedRegion?.sensitivity.heatwave === 'medium' ? t('workspace.sensitivity.medium') : t('workspace.sensitivity.low'),
+                        })}
                       </p>
                     </div>
                     <div>
-                      <span className="text-xs text-foreground-500 block mb-1">灾种</span>
+                      <span className="text-xs text-foreground-500 block mb-1">{t('workspace.confirm.hazard')}</span>
                       <div className="flex items-center gap-2">
                         <i className={`${selectedHazard?.icon}`} style={{ color: selectedHazard?.color }}></i>
                         <span className="text-sm font-medium text-foreground-900">{selectedHazard?.name}</span>
                       </div>
                     </div>
                     <div>
-                      <span className="text-xs text-foreground-500 block mb-1">预测时效</span>
-                      <span className="text-sm font-medium text-foreground-900">{selectedLeadTime} 小时</span>
+                      <span className="text-xs text-foreground-500 block mb-1">{t('workspace.confirm.leadTime')}</span>
+                      <span className="text-sm font-medium text-foreground-900">{t('workspace.confirm.leadTimeValue', { hours: selectedLeadTime })}</span>
                     </div>
                     <div>
-                      <span className="text-xs text-foreground-500 block mb-1">模型</span>
+                      <span className="text-xs text-foreground-500 block mb-1">{t('workspace.confirm.model')}</span>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-foreground-900">{selectedModel?.name} <Badge variant="secondary" size="sm">{selectedModel?.version}</Badge></span>
                       </div>
@@ -729,12 +747,12 @@ export default function Workspace() {
                             const good = meta.higherIsBetter ? v >= 0.85 : v <= 0.12;
                             return (
                               <div key={key} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-background-200/50">
-                                <span className="text-[10px] text-foreground-500">{meta.name}</span>
+                                <span className="text-[10px] text-foreground-500">{t(meta.nameKey)}</span>
                                 <span className={`text-xs font-semibold ${good ? 'text-accent-700' : 'text-foreground-600'}`}>{pct}%</span>
                               </div>
                             );
                           })}
-                          <span className="text-[10px] text-foreground-400">({selectedHazard.name} 验证集)</span>
+                          <span className="text-[10px] text-foreground-400">{t('workspace.confirm.validationSet', { hazard: selectedHazard.name })}</span>
                         </div>
                       )}
                     </div>
@@ -746,10 +764,18 @@ export default function Workspace() {
                   <div className="bg-background-100 rounded-lg p-5 mb-5">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-5 h-5 border-2 border-primary-400 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-sm text-foreground-700 font-medium">智能体正在编排预测流程...</span>
+                      <span className="text-sm text-foreground-700 font-medium">{t('workspace.confirm.running')}</span>
                     </div>
                     <div className="space-y-2">
-                      {['数据准备', '模型预测', '分数语义', '风险决策', '解释生成', '图谱构建', '报告生成'].map((label, idx) => {
+                      {[
+                        t('workspace.confirm.steps.dataPrep'),
+                        t('workspace.confirm.steps.modelPredict'),
+                        t('workspace.confirm.steps.scoreSemantics'),
+                        t('workspace.confirm.steps.riskDecision'),
+                        t('workspace.confirm.steps.explanation'),
+                        t('workspace.confirm.steps.graphBuild'),
+                        t('workspace.confirm.steps.reportGen'),
+                      ].map((label, idx) => {
                         const isActive = idx <= Math.floor(progressMessage.length / 30);
                         return (
                           <div key={label} className="flex items-center gap-2">
@@ -773,18 +799,18 @@ export default function Workspace() {
                     <div className="flex items-start gap-3">
                       <i className="ri-information-line text-foreground-400 mt-0.5"></i>
                       <div className="text-xs text-foreground-500">
-                        <p className="mb-2">智能体将按以下流程执行：</p>
+                        <p className="mb-2">{t('workspace.confirm.pipelineIntro')}</p>
                         <ol className="list-decimal list-inside space-y-1">
-                          <li>加载预测案例数据 (ForecastCase)</li>
-                          <li>根据运行模式选择全特征历史模型或API兼容轻量模型</li>
-                          <li>{predictionMode === 'historical' ? '标记未校准模型事件或代理事件分数' : '标记未校准事件或代理事件分数'}</li>
-                          <li>运行 {selectedRegion?.name} 区域风险规则</li>
-                          <li>调用解释引擎生成特征贡献和物理机制</li>
-                          <li>查询相似历史事件</li>
-                          <li>构建解释证据图谱</li>
-                          <li>生成预测报告</li>
+                          <li>{t('workspace.confirm.pipeline.step1')}</li>
+                          <li>{t('workspace.confirm.pipeline.step2')}</li>
+                          <li>{predictionMode === 'historical' ? t('workspace.confirm.pipeline.step3Historical') : t('workspace.confirm.pipeline.step3Live')}</li>
+                          <li>{t('workspace.confirm.pipeline.step4', { region: selectedRegion?.name ?? '' })}</li>
+                          <li>{t('workspace.confirm.pipeline.step5')}</li>
+                          <li>{t('workspace.confirm.pipeline.step6')}</li>
+                          <li>{t('workspace.confirm.pipeline.step7')}</li>
+                          <li>{t('workspace.confirm.pipeline.step8')}</li>
                         </ol>
-                        <p className="mt-2 text-foreground-400">历史模式输出全特征模型事件分数；实时模式输出轻量模型事件或代理事件分数。当前均未做独立频率校准，并记录实际输入与语义元数据。</p>
+                        <p className="mt-2 text-foreground-400">{t('workspace.confirm.pipelineFootnote')}</p>
                       </div>
                     </div>
                   </div>
@@ -806,12 +832,12 @@ export default function Workspace() {
               }}
               disabled={currentStep === 'mode'}
             >
-              上一步
+              {t('workspace.nav.prev')}
             </Button>
 
             {currentStep !== 'confirm' ? (
               <Button variant="primary" icon="ri-arrow-right-line" onClick={handleNext} disabled={!canProceed()}>
-                下一步
+                {t('workspace.nav.next')}
               </Button>
             ) : (
               <Button
@@ -820,7 +846,7 @@ export default function Workspace() {
                 onClick={handleRunPrediction}
                 disabled={isRunning}
               >
-                {isRunning ? '执行中...' : '发起预测'}
+                {isRunning ? t('workspace.nav.running') : t('workspace.nav.run')}
               </Button>
             )}
           </div>
@@ -832,7 +858,7 @@ export default function Workspace() {
           <div className="flex items-center justify-center">
             <div className="flex items-center gap-2 text-sm text-foreground-500">
               <i className="ri-shield-check-line text-accent-600"></i>
-              <span>预测结果仅供参考，实际预警以官方发布为准</span>
+              <span>{t('common.disclaimer')}</span>
             </div>
           </div>
         </div>

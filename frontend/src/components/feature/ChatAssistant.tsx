@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { ChatMessage } from '@/mocks/chatResponses';
 import { SUGGESTED_QUESTIONS, GENERAL_QUESTIONS, generateResponse, generateGeneralResponse } from '@/mocks/chatResponses';
 import { sendChatMessage } from '@/services/chatService';
@@ -9,6 +10,8 @@ import { splitChatText } from '@/services/chatFormatting';
 export default function ChatAssistant() {
   const context = useChatContext();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language?.startsWith('zh') ? 'zh' : 'en';
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -34,9 +37,10 @@ export default function ChatAssistant() {
   useEffect(() => {
     if (isOpen && !initialMessageSent.current) {
       initialMessageSent.current = true;
+      const greeting = t('chat.greeting');
       const welcomeMsg = context
-        ? generateResponse('你好', context)
-        : generateGeneralResponse('你好');
+        ? generateResponse(greeting, context, lang)
+        : generateGeneralResponse(greeting, lang);
       setMessages([{
         role: 'agent',
         content: welcomeMsg,
@@ -44,6 +48,7 @@ export default function ChatAssistant() {
         source: 'system',
       }]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, context]);
 
   useEffect(() => {
@@ -76,8 +81,8 @@ export default function ChatAssistant() {
     } catch {
       // Ultimate fallback — should never reach here since service has built-in fallback
       const fallbackContent = context
-        ? generateResponse(text.trim(), context)
-        : generateGeneralResponse(text.trim());
+        ? generateResponse(text.trim(), context, lang)
+        : generateGeneralResponse(text.trim(), lang);
       const agentMsg: ChatMessage = {
         role: 'agent',
         content: fallbackContent,
@@ -88,7 +93,8 @@ export default function ChatAssistant() {
     } finally {
       setIsTyping(false);
     }
-  }, [context, messages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context, messages, lang]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -114,23 +120,27 @@ export default function ChatAssistant() {
     });
   };
 
-  const questions = context ? SUGGESTED_QUESTIONS : GENERAL_QUESTIONS;
+  const questions = context ? SUGGESTED_QUESTIONS[lang] : GENERAL_QUESTIONS[lang];
   const headerLabel = context
     ? `${context.regionName} · ${context.hazardLabel}`
-    : '通用助手';
+    : t('chat.generalAssistant');
 
   const resetConversation = () => {
     setMessages([]);
     initialMessageSent.current = false;
+    const greeting = t('chat.greeting');
     const welcomeMsg = context
-      ? generateResponse('你好', context)
-      : generateGeneralResponse('你好');
+      ? generateResponse(greeting, context, lang)
+      : generateGeneralResponse(greeting, lang);
     setMessages([{ role: 'agent', content: welcomeMsg, timestamp: Date.now(), source: 'system' }]);
   };
 
   const goToWorkspace = () => {
     navigate('/workspace');
   };
+
+  const sourceLabel = (source?: string) =>
+    source === 'llm' ? t('chat.sourceLlm') : source === 'keyword-fallback' ? t('chat.sourceKeyword') : t('chat.sourceSystem');
 
   return (
     <>
@@ -139,7 +149,7 @@ export default function ChatAssistant() {
         <button
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary-500 text-white flex items-center justify-center cursor-pointer hover:bg-primary-600 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
-          aria-label="打开预测助手"
+          aria-label={t('chat.openLabel')}
         >
           <i className="ri-chat-3-line text-xl"></i>
         </button>
@@ -157,7 +167,7 @@ export default function ChatAssistant() {
                 <i className="ri-robot-line text-primary-600"></i>
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground-900">预测智能体</p>
+                <p className="text-sm font-medium text-foreground-900">{t('chat.title')}</p>
                 <p className="text-[11px] text-foreground-500">{headerLabel}</p>
               </div>
             </div>
@@ -165,7 +175,7 @@ export default function ChatAssistant() {
               <button
                 onClick={resetConversation}
                 className="p-1.5 rounded-md hover:bg-background-200 cursor-pointer text-foreground-400"
-                title="清除对话"
+                title={t('chat.clearConversation')}
               >
                 <i className="ri-delete-back-2-line text-sm"></i>
               </button>
@@ -205,8 +215,8 @@ export default function ChatAssistant() {
                     </div>
                   )}
                   <p className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-white/60' : 'text-foreground-400'}`}>
-                    {new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-                    {msg.role === 'agent' && msg.source && ` · ${msg.source === 'llm' ? 'LLM解释' : msg.source === 'keyword-fallback' ? '本地模板' : '系统提示'}`}
+                    {new Date(msg.timestamp).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                    {msg.role === 'agent' && msg.source && ` · ${sourceLabel(msg.source)}`}
                   </p>
                 </div>
                 {msg.role === 'user' && (
@@ -255,7 +265,7 @@ export default function ChatAssistant() {
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-primary-100 border border-primary-200 text-xs text-primary-700 hover:bg-primary-200 cursor-pointer transition-colors whitespace-nowrap"
                 >
                   <i className="ri-rocket-line text-[10px]"></i>
-                  前往工作台
+                  {t('chat.goToWorkspace')}
                 </button>
               )}
             </div>
@@ -269,7 +279,7 @@ export default function ChatAssistant() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="输入问题，按 Enter 发送..."
+                placeholder={t('chat.inputPlaceholder')}
                 rows={1}
                 className="flex-1 resize-none bg-background-100 border border-background-200/70 rounded-lg px-3 py-2 text-sm text-foreground-900 placeholder:text-foreground-400 focus:outline-none focus:border-primary-300 max-h-24"
               />

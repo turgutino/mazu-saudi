@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Navbar from '@/components/feature/Navbar';
 import Button from '@/components/base/Button';
 import Badge from '@/components/base/Badge';
@@ -9,24 +10,24 @@ import { createKeyEvidenceProjection } from './graphProjection';
 
 interface NodeGroup { key: string; label: string; icon: string; color: string }
 
-const NODE_GROUPS: NodeGroup[] = [
-  { key: 'anchor', label: '预测与决策', icon: 'ri-links-line', color: '#ea580c' },
-  { key: 'input', label: '输入与上下文', icon: 'ri-database-2-line', color: '#0d9488' },
-  { key: 'features', label: '指标与归因', icon: 'ri-bar-chart-2-line', color: '#16a34a' },
-  { key: 'rules', label: '政策规则', icon: 'ri-checkbox-multiple-line', color: '#d97706' },
-  { key: 'mechanisms', label: '机制相容性', icon: 'ri-git-branch-line', color: '#b45309' },
-  { key: 'events', label: '历史类比', icon: 'ri-history-line', color: '#ca8a04' },
-  { key: 'sources', label: '文献与本体', icon: 'ri-book-open-line', color: '#6366f1' },
+const NODE_GROUP_META: { key: string; labelKey: string; icon: string; color: string }[] = [
+  { key: 'anchor', labelKey: 'graph.groups.anchor', icon: 'ri-links-line', color: '#ea580c' },
+  { key: 'input', labelKey: 'graph.groups.input', icon: 'ri-database-2-line', color: '#0d9488' },
+  { key: 'features', labelKey: 'graph.groups.features', icon: 'ri-bar-chart-2-line', color: '#16a34a' },
+  { key: 'rules', labelKey: 'graph.groups.rules', icon: 'ri-checkbox-multiple-line', color: '#d97706' },
+  { key: 'mechanisms', labelKey: 'graph.groups.mechanisms', icon: 'ri-git-branch-line', color: '#b45309' },
+  { key: 'events', labelKey: 'graph.groups.events', icon: 'ri-history-line', color: '#ca8a04' },
+  { key: 'sources', labelKey: 'graph.groups.sources', icon: 'ri-book-open-line', color: '#6366f1' },
 ];
 
-const TIMELINE_STEPS = [
-  { step: 0, label: '预测案例', desc: '确定起报、有效时间和空间范围' },
-  { step: 1, label: '输入与模型', desc: '冻结数据快照并生成带语义的模型分数' },
-  { step: 2, label: '指标与归因', desc: '区分指标值与模型特征贡献' },
-  { step: 3, label: '政策规则', desc: '执行版本化风险政策' },
-  { step: 4, label: '知识解释', desc: '检查机制相容性并回溯文献/本体' },
-  { step: 5, label: '风险评估', desc: '区分模型分数、敏感性与风险等级' },
-  { step: 6, label: '历史类比', desc: '检索起报前的多维相似案例' },
+const TIMELINE_STEP_META = [
+  { step: 0, labelKey: 'graph.timelineSteps.0.label', descKey: 'graph.timelineSteps.0.desc' },
+  { step: 1, labelKey: 'graph.timelineSteps.1.label', descKey: 'graph.timelineSteps.1.desc' },
+  { step: 2, labelKey: 'graph.timelineSteps.2.label', descKey: 'graph.timelineSteps.2.desc' },
+  { step: 3, labelKey: 'graph.timelineSteps.3.label', descKey: 'graph.timelineSteps.3.desc' },
+  { step: 4, labelKey: 'graph.timelineSteps.4.label', descKey: 'graph.timelineSteps.4.desc' },
+  { step: 5, labelKey: 'graph.timelineSteps.5.label', descKey: 'graph.timelineSteps.5.desc' },
+  { step: 6, labelKey: 'graph.timelineSteps.6.label', descKey: 'graph.timelineSteps.6.desc' },
 ];
 
 const EMPTY_GRAPH: KnowledgeGraph = {
@@ -58,22 +59,22 @@ const NODE_COLORS: Record<string, { fill: string; stroke: string; text: string }
   ontology: { fill: '#f5f3ff', stroke: '#7c3aed', text: '#5b21b6' },
 };
 
-const NODE_LABELS: Record<string, string> = {
-  case: '案例',
-  prediction: '预测',
-  model: '模型',
-  hazard: '灾种',
-  region: '区域',
-  feature: '特征',
-  snapshot: '输入快照',
-  indicator: '指标值',
-  rule: '规则',
-  mechanism: '机制',
-  risk: '风险评估',
-  event: '历史事件',
-  warning: '预警',
-  source: '文献来源',
-  ontology: 'SWEET 对齐',
+const NODE_TYPE_KEYS: Record<string, string> = {
+  case: 'graph.nodeTypes.case',
+  prediction: 'graph.nodeTypes.prediction',
+  model: 'graph.nodeTypes.model',
+  hazard: 'graph.nodeTypes.hazard',
+  region: 'graph.nodeTypes.region',
+  feature: 'graph.nodeTypes.feature',
+  snapshot: 'graph.nodeTypes.snapshot',
+  indicator: 'graph.nodeTypes.indicator',
+  rule: 'graph.nodeTypes.rule',
+  mechanism: 'graph.nodeTypes.mechanism',
+  risk: 'graph.nodeTypes.risk',
+  event: 'graph.nodeTypes.event',
+  warning: 'graph.nodeTypes.warning',
+  source: 'graph.nodeTypes.source',
+  ontology: 'graph.nodeTypes.ontology',
 };
 
 const EDGE_COLORS: Record<string, string> = {
@@ -101,8 +102,18 @@ const EDGE_COLORS: Record<string, string> = {
 type NodePos = { x: number; y: number; vx: number; vy: number };
 
 export default function KnowledgeGraphPage() {
+  const { t, i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const NODE_GROUPS: NodeGroup[] = useMemo(
+    () => NODE_GROUP_META.map((g) => ({ key: g.key, label: t(g.labelKey), icon: g.icon, color: g.color })),
+    [t],
+  );
+  const TIMELINE_STEPS = useMemo(
+    () => TIMELINE_STEP_META.map((s) => ({ step: s.step, label: t(s.labelKey), desc: t(s.descKey) })),
+    [t],
+  );
   const [graphData, setGraphData] = useState<KnowledgeGraph>(EMPTY_GRAPH);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -122,7 +133,7 @@ export default function KnowledgeGraphPage() {
 
   useEffect(() => {
     if (!id) {
-      setLoadError('缺少预测 ID');
+      setLoadError(t('graph.missingId'));
       setIsLoading(false);
       return;
     }
@@ -131,10 +142,13 @@ export default function KnowledgeGraphPage() {
     setShowCompleteEvidence(false);
     fetchKnowledgeGraph(id)
       .then((data) => { if (!cancelled) { setGraphData(data); setLoadError(null); } })
-      .catch((error: unknown) => { if (!cancelled) setLoadError(error instanceof Error ? error.message : '未知加载错误'); })
+      .catch((error: unknown) => { if (!cancelled) setLoadError(error instanceof Error ? error.message : t('graph.unknownLoadError')); })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [id]);
+    // Re-fetch when the language toggle changes: the knowledge-graph
+    // endpoint localizes its edge rationale text server-side per `lang`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, t, i18n.language]);
 
   // Collapsed groups & timeline
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -244,6 +258,20 @@ export default function KnowledgeGraphPage() {
     const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
     const visibleEdgeIds = new Set(visibleEdges.map((e) => e.id));
 
+    // Half-width/half-height of each node's rendered label box, matching the
+    // sizing used when drawing nodes below (createNodeLabelPreview + the
+    // boxWidth/boxHeight formula), so repulsion keeps boxes apart by their
+    // actual footprint instead of treating every node as a single point --
+    // that point-based repulsion is what let long labels overlap before.
+    const halfExtents = new Map<string, { hw: number; hh: number }>();
+    for (const node of graphData.nodes) {
+      const lines = createNodeLabelPreview(node.label, 18, 3, t('graph.unnamedNode'));
+      const boxWidth = Math.max(...lines.map((l) => l.length * 8)) + 20;
+      const boxHeight = lines.length * 16 + 16;
+      halfExtents.set(node.id, { hw: boxWidth / 2, hh: boxHeight / 2 });
+    }
+    const NODE_GAP = 14;
+
     const simulate = () => {
       if (!running) return;
       const cx = dimensions.width / 2;
@@ -257,14 +285,14 @@ export default function KnowledgeGraphPage() {
         if (!pos || node.id === dragNode) continue;
 
         if (!anchors.has(node.id)) {
-          pos.vx += (cx - pos.x) * 0.0003;
-          pos.vy += (cy - pos.y) * 0.0003;
+          pos.vx += (cx - pos.x) * 0.0009;
+          pos.vy += (cy - pos.y) * 0.0009;
         }
         pos.vx *= 0.65;
         pos.vy *= 0.65;
       }
 
-      // Repulsion
+      // Repulsion (long-range, keeps unrelated nodes spread out)
       const visibleArr = graphData.nodes.filter((n) => visibleNodeIds.has(n.id));
       for (let i = 0; i < visibleArr.length; i++) {
         for (let j = i + 1; j < visibleArr.length; j++) {
@@ -274,12 +302,46 @@ export default function KnowledgeGraphPage() {
           const dx = b.x - a.x;
           const dy = b.y - a.y;
           const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-          const force = 8000 / (dist * dist);
+          const force = 24000 / (dist * dist);
           const fx = (dx / dist) * force;
           const fy = (dy / dist) * force;
 
           if (visibleArr[i].id !== dragNode) { a.vx -= fx; a.vy -= fy; }
           if (visibleArr[j].id !== dragNode) { b.vx += fx; b.vy += fy; }
+        }
+      }
+
+      // Box-aware separation (short-range, hard push so label boxes -- which
+      // vary a lot in width -- never actually overlap, unlike the point-based
+      // repulsion above which ignores each node's rendered footprint).
+      for (let i = 0; i < visibleArr.length; i++) {
+        for (let j = i + 1; j < visibleArr.length; j++) {
+          const idA = visibleArr[i].id;
+          const idB = visibleArr[j].id;
+          const a = nodePositions[idA];
+          const b = nodePositions[idB];
+          const extA = halfExtents.get(idA);
+          const extB = halfExtents.get(idB);
+          if (!a || !b || !extA || !extB) continue;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const minDx = extA.hw + extB.hw + NODE_GAP;
+          const minDy = extA.hh + extB.hh + NODE_GAP;
+          const overlapX = minDx - Math.abs(dx);
+          const overlapY = minDy - Math.abs(dy);
+          if (overlapX > 0 && overlapY > 0) {
+            // Push apart along whichever axis has the smaller overlap, so a
+            // single correction actually separates the two boxes.
+            if (overlapX < overlapY) {
+              const push = (overlapX / 2) * (dx >= 0 ? 1 : -1);
+              if (idA !== dragNode) a.vx -= push * 0.5;
+              if (idB !== dragNode) b.vx += push * 0.5;
+            } else {
+              const push = (overlapY / 2) * (dy >= 0 ? 1 : -1);
+              if (idA !== dragNode) a.vy -= push * 0.5;
+              if (idB !== dragNode) b.vy += push * 0.5;
+            }
+          }
         }
       }
 
@@ -292,7 +354,7 @@ export default function KnowledgeGraphPage() {
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-        const targetLen = 120;
+        const targetLen = 170;
         const force = (dist - targetLen) * 0.02;
         const fx = (dx / dist) * force;
         const fy = (dy / dist) * force;
@@ -321,7 +383,7 @@ export default function KnowledgeGraphPage() {
 
     animFrameRef.current = requestAnimationFrame(simulate);
     return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
-  }, [graphData.edges, graphData.nodes, visibleNodes, visibleEdges, dragNode, dimensions]);
+  }, [graphData.edges, graphData.nodes, visibleNodes, visibleEdges, dragNode, dimensions, t]);
 
   // Timeline playback
   useEffect(() => {
@@ -447,20 +509,25 @@ export default function KnowledgeGraphPage() {
         <div className="border-b border-background-200/70 px-6 py-3 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" icon="ri-arrow-left-line" onClick={() => navigate(-1)}>
-              返回
+              {t('graph.back')}
             </Button>
-            <h1 className="font-heading text-lg text-foreground-900">解释证据图谱</h1>
+            <h1 className="font-heading text-lg text-foreground-900">{t('graph.title')}</h1>
             <Badge variant="secondary">{graphData.predictionId}</Badge>
             {graphData.graphVersion && <Badge variant="secondary">KB {graphData.graphVersion}</Badge>}
             {graphData.ontologyVersion && <Badge variant="secondary">Ontology {graphData.ontologyVersion}</Badge>}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="text-xs text-foreground-500 px-3 py-1.5 bg-background-100 rounded-full">
-              {visibleNodes.length}/{graphData.nodes.length} 节点 · {visibleEdges.length}/{graphData.edges.length} 边
+              {t('graph.nodeEdgeCount', {
+                visibleNodes: visibleNodes.length,
+                totalNodes: graphData.nodes.length,
+                visibleEdges: visibleEdges.length,
+                totalEdges: graphData.edges.length,
+              })}
             </div>
             {!showCompleteEvidence && keyEvidenceProjection.hiddenIndicatorCount > 0 && (
               <div className="text-xs text-foreground-500 px-3 py-1.5 bg-green-50 border border-green-200/70 rounded-full">
-                关键投影 · 已收起 {keyEvidenceProjection.hiddenIndicatorCount} 个次要指标
+                {t('graph.keyProjection', { count: keyEvidenceProjection.hiddenIndicatorCount })}
               </div>
             )}
             <Button
@@ -469,7 +536,7 @@ export default function KnowledgeGraphPage() {
               icon="ri-fullscreen-line"
               onClick={fitGraphToView}
             >
-              重置视图
+              {t('graph.resetView')}
             </Button>
             <Button
               variant="outline"
@@ -477,7 +544,7 @@ export default function KnowledgeGraphPage() {
               icon={showCompleteEvidence ? 'ri-focus-3-line' : 'ri-node-tree'}
               onClick={() => setShowCompleteEvidence((current) => !current)}
             >
-              {showCompleteEvidence ? '关键投影' : '完整证据'}
+              {showCompleteEvidence ? t('graph.keyProjectionBtn') : t('graph.completeEvidenceBtn')}
             </Button>
             <Button
               variant="outline"
@@ -485,7 +552,7 @@ export default function KnowledgeGraphPage() {
               icon="ri-play-list-2-line"
               onClick={showAllSteps}
             >
-              全部步骤
+              {t('graph.allSteps')}
             </Button>
           </div>
         </div>
@@ -494,7 +561,7 @@ export default function KnowledgeGraphPage() {
         <div className="flex-1 flex overflow-hidden">
           {/* Left sidebar - group panel */}
           <div className="w-48 flex-shrink-0 border-r border-background-200/70 bg-background-50 p-3 flex flex-col gap-1 overflow-y-auto">
-            <p className="text-[11px] font-medium text-foreground-500 px-1 mb-1 uppercase tracking-wide">节点分组</p>
+            <p className="text-[11px] font-medium text-foreground-500 px-1 mb-1 uppercase tracking-wide">{t('graph.nodeGroups')}</p>
             {NODE_GROUPS.map((group) => {
               const isCollapsed = collapsedGroups.has(group.key);
               const groupNodes = graphData.nodes.filter((node) => node.group === group.key).map((node) => node.id);
@@ -531,13 +598,13 @@ export default function KnowledgeGraphPage() {
                 onClick={() => setCollapsedGroups(new Set())}
                 className="w-full text-[11px] text-foreground-500 hover:text-foreground-700 cursor-pointer px-1 py-1"
               >
-                <i className="ri-eye-line mr-1"></i>展开全部
+                <i className="ri-eye-line mr-1"></i>{t('graph.expandAll')}
               </button>
               <button
                 onClick={() => setCollapsedGroups(new Set(NODE_GROUPS.map((g) => g.key)))}
                 className="w-full text-[11px] text-foreground-500 hover:text-foreground-700 cursor-pointer px-1 py-1"
               >
-                <i className="ri-eye-off-line mr-1"></i>折叠全部
+                <i className="ri-eye-off-line mr-1"></i>{t('graph.collapseAll')}
               </button>
             </div>
           </div>
@@ -546,7 +613,7 @@ export default function KnowledgeGraphPage() {
           <div ref={containerRef} className="flex-1 relative bg-background-50 overflow-hidden" style={{ minHeight: '600px' }}>
             {isLoading && (
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-background-50/80 text-sm text-foreground-500">
-                <i className="ri-loader-4-line animate-spin mr-2"></i>正在查询知识库并生成解释视图…
+                <i className="ri-loader-4-line animate-spin mr-2"></i>{t('graph.loadingGraph')}
               </div>
             )}
             {loadError && (
@@ -634,7 +701,7 @@ export default function KnowledgeGraphPage() {
                 const isHovered = hoveredNode === node.id;
                 const dimmed = isNodeDimmed(node.id);
 
-                const lines = createNodeLabelPreview(node.label);
+                const lines = createNodeLabelPreview(node.label, 18, 3, t('graph.unnamedNode'));
                 const boxWidth = Math.max(...lines.map((l) => l.length * 8)) + 20;
                 const boxHeight = lines.length * 16 + 16;
 
@@ -682,7 +749,7 @@ export default function KnowledgeGraphPage() {
             {selectedNode && selectedNodeData && (
               <div className="absolute top-4 right-4 w-72 bg-background-50 border border-background-200/70 rounded-lg p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-sm text-foreground-900">节点详情</h4>
+                  <h4 className="font-medium text-sm text-foreground-900">{t('graph.nodeDetail.title')}</h4>
                   <button
                     onClick={() => setSelectedNode(null)}
                     className="p-1 rounded hover:bg-background-100 cursor-pointer text-foreground-400"
@@ -700,34 +767,34 @@ export default function KnowledgeGraphPage() {
                         border: `1px solid ${NODE_COLORS[selectedNodeData.type]?.stroke || '#ccc'}`,
                       }}
                     ></span>
-                    <Badge variant="secondary" size="sm">{NODE_LABELS[selectedNodeData.type] || selectedNodeData.type}</Badge>
+                    <Badge variant="secondary" size="sm">{NODE_TYPE_KEYS[selectedNodeData.type] ? t(NODE_TYPE_KEYS[selectedNodeData.type]) : selectedNodeData.type}</Badge>
                   </div>
 
                   <div>
-                    <span className="text-xs text-foreground-500">名称</span>
+                    <span className="text-xs text-foreground-500">{t('graph.nodeDetail.name')}</span>
                     <p className="text-xs text-foreground-700 mt-0.5 whitespace-pre-wrap break-words">{selectedNodeData.label}</p>
                   </div>
 
                   <div>
-                    <span className="text-xs text-foreground-500">ID</span>
+                    <span className="text-xs text-foreground-500">{t('graph.nodeDetail.id')}</span>
                     <p className="text-xs text-foreground-700 mt-0.5 font-mono break-all">{selectedNodeData.id}</p>
                   </div>
 
                   <div>
-                    <span className="text-xs text-foreground-500">分组</span>
+                    <span className="text-xs text-foreground-500">{t('graph.nodeDetail.group')}</span>
                     <p className="text-xs text-foreground-700 mt-0.5">
                       {NODE_GROUPS.find((g) => g.key === selectedNodeData.group)?.label || selectedNodeData.group}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    <div><span className="text-xs text-foreground-500">证据类型</span><p className="text-xs text-foreground-700 mt-0.5">{selectedNodeData.evidenceKind}</p></div>
-                    <div><span className="text-xs text-foreground-500">状态</span><p className="text-xs text-foreground-700 mt-0.5">{selectedNodeData.status}</p></div>
+                    <div><span className="text-xs text-foreground-500">{t('graph.nodeDetail.evidenceKind')}</span><p className="text-xs text-foreground-700 mt-0.5">{selectedNodeData.evidenceKind}</p></div>
+                    <div><span className="text-xs text-foreground-500">{t('graph.nodeDetail.status')}</span><p className="text-xs text-foreground-700 mt-0.5">{selectedNodeData.status}</p></div>
                   </div>
 
                   {Object.keys(selectedNodeData.details).length > 0 && (
                     <div className="pt-2 border-t border-background-200/50">
-                      <span className="text-xs text-foreground-500">可追溯属性</span>
+                      <span className="text-xs text-foreground-500">{t('graph.nodeDetail.traceableAttrs')}</span>
                       <div className="mt-1 space-y-1 max-h-40 overflow-y-auto">
                         {Object.entries(selectedNodeData.details).map(([key, value]) => (
                           <div key={key} className="text-[11px] break-words"><span className="text-foreground-400">{key}: </span><span className="text-foreground-700">{String(value)}</span></div>
@@ -737,9 +804,9 @@ export default function KnowledgeGraphPage() {
                   )}
 
                   <div>
-                    <span className="text-xs text-foreground-500">时间步</span>
+                    <span className="text-xs text-foreground-500">{t('graph.nodeDetail.timeStep')}</span>
                     <p className="text-xs text-foreground-700 mt-0.5">
-                      第 {selectedNodeData.step} 步 · {TIMELINE_STEPS[selectedNodeData.step]?.label || '-'}
+                      {t('graph.nodeDetail.stepValue', { step: selectedNodeData.step, label: TIMELINE_STEPS[selectedNodeData.step]?.label || '-' })}
                     </p>
                   </div>
 
@@ -747,7 +814,7 @@ export default function KnowledgeGraphPage() {
                     const relatedEdges = getRelatedEdges(selectedNodeData.id);
                     return (
                       <div className="pt-2 border-t border-background-200/50">
-                        <span className="text-xs text-foreground-500">关联边 ({relatedEdges.length})</span>
+                        <span className="text-xs text-foreground-500">{t('graph.nodeDetail.relatedEdges', { count: relatedEdges.length })}</span>
                         <div className="mt-1 space-y-1 max-h-32 overflow-y-auto">
                           {relatedEdges.slice(0, 8).map((e) => (
                             <div key={e.id} title={e.rationale} className="flex items-center gap-1.5 text-[11px]">
@@ -784,7 +851,7 @@ export default function KnowledgeGraphPage() {
                         className="w-full"
                         onClick={() => navigateToDetail(selectedNodeData)}
                       >
-                        查看解释详情
+                        {t('graph.nodeDetail.viewExplanation')}
                       </Button>
                     </div>
                   )}
@@ -816,14 +883,14 @@ export default function KnowledgeGraphPage() {
             <button
               onClick={() => { setCurrentStep(0); setIsPlaying(false); }}
               className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer text-foreground-400 hover:text-foreground-600 hover:bg-background-100 transition-colors"
-              title="回到起点"
+              title={t('graph.timeline.backToStart')}
             >
               <i className="ri-skip-back-fill text-sm"></i>
             </button>
 
             {/* Step indicator */}
             <span className="text-xs font-medium text-foreground-600 min-w-[100px] whitespace-nowrap">
-              第 {currentStep} 步: {TIMELINE_STEPS[currentStep]?.desc || '-'}
+              {t('graph.timeline.stepIndicator', { step: currentStep, desc: TIMELINE_STEPS[currentStep]?.desc || '-' })}
             </span>
 
             {/* Slider */}
@@ -876,8 +943,8 @@ export default function KnowledgeGraphPage() {
 
       <footer className="border-t border-background-200/70 bg-background-100 px-6 py-2.5">
         <div className="flex items-center justify-between text-xs text-foreground-400">
-          <span>拖拽节点调整布局 · 滚轮缩放 · 点击节点查看详情 · 双击分组折叠 · 底部时间轴回放</span>
-          <span>{graphData.disclaimer || '知识图谱仅记录可追溯证据链，不替代模型预测'}</span>
+          <span>{t('graph.footer.hint')}</span>
+          <span>{graphData.disclaimer || t('graph.footer.disclaimer')}</span>
         </div>
       </footer>
 

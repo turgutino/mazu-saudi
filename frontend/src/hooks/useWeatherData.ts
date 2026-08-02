@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { MonitorRegionData } from '@/mocks/monitor';
 import {
   transformWeatherData,
@@ -18,6 +19,7 @@ interface UseWeatherDataResult {
 }
 
 export function useWeatherData(): UseWeatherDataResult {
+  const { t } = useTranslation();
   const [regions, setRegions] = useState<MonitorRegionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export function useWeatherData(): UseWeatherDataResult {
       setCacheHit(result.cacheHit);
       setError(null);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '请求失败';
+      const msg = err instanceof Error ? err.message : t('common.requestFailed');
       setError(msg);
       setRegions([]);
       setLastRefresh('');
@@ -59,7 +61,7 @@ export function useWeatherData(): UseWeatherDataResult {
       setLoading(false);
       inFlightRef.current = false;
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadData(false);
